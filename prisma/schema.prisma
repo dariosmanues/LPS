@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String      @unique
+  passwordHash String      @map("password_hash")
+  name         String
+  role         String      @default("OPERATOR") // ADMIN, OPERATOR, LPS_KETUA, LPS_SEKRETARIS, LPS_BENDAHARA
+  transdepo    String?     @map("transdepo") // HARAPAN_JAYA or AIR_HITAM
+  kelurahanId  String?     @map("kelurahan_id")
+  kelurahan    Kelurahan?  @relation(fields: [kelurahanId], references: [id])
+  wasteLogs    WasteLog[]
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  
+  @@map("users")
+}
+
+model Kecamatan {
+  id             String      @id @default(uuid())
+  kodeKemendagri String      @unique @map("kode_kemendagri")
+  nama           String
+  kelurahan      Kelurahan[]
+  createdAt      DateTime    @default(now()) @map("created_at")
+  
+  @@map("kecamatan")
+}
+
+model Kelurahan {
+  id             String      @id @default(uuid())
+  kecamatanId    String      @map("kecamatan_id")
+  kecamatan      Kecamatan   @relation(fields: [kecamatanId], references: [id], onDelete: Cascade)
+  kodeKemendagri String      @unique @map("kode_kemendagri")
+  nama           String
+  qrCode         String      @unique @map("qr_code")
+  wasteLogs      WasteLog[]
+  armada         Armada[]
+  users          User[]
+  createdAt      DateTime    @default(now()) @map("created_at")
+  
+  @@map("kelurahan")
+}
+
+model Armada {
+  id              String      @id @default(uuid())
+  namaLps         String      @map("nama_lps")
+  kelurahanId     String?     @map("kelurahan_id")
+  kelurahan       Kelurahan?  @relation(fields: [kelurahanId], references: [id])
+  platNomor       String      @unique @map("plat_nomor")
+  noIzinOperasi   String?     @map("no_izin_operasi")
+  namaSupir       String?     @map("nama_supir")
+  namaKetuaLps    String?     @map("nama_ketua_lps")
+  noTlpKetuaLps   String?     @map("no_tlp_ketua_lps")
+  alamatLps       String?     @map("alamat_lps")
+  wilayahKerja    String?     @map("wilayah_kerja")
+  nomorSkLps      String?     @map("nomor_sk_lps")
+  tanggalSkLps    DateTime?   @map("tanggal_sk_lps")
+  tanggalTerbitIzin DateTime? @map("tanggal_terbit_izin")
+  lokasiTransdepo String?     @map("lokasi_transdepo") // AIRHITAM or HARAPANJAYA
+  jenisArmada     String?     @map("jenis_armada") // DUMPTRUCK, PICKUP, or BENTOR
+  qrCode          String      @unique @map("qr_code")
+  isActive        Boolean     @default(true) @map("is_active")
+  wasteLogs       WasteLog[]
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  
+  @@map("armada")
+}
+
+model WasteLog {
+  id          String      @id @default(uuid())
+  armadaId    String      @map("armada_id")
+  armada      Armada      @relation(fields: [armadaId], references: [id])
+  kelurahanId String?     @map("kelurahan_id")
+  kelurahan   Kelurahan?  @relation(fields: [kelurahanId], references: [id])
+  recordedBy  String      @map("recorded_by")
+  user        User        @relation(fields: [recordedBy], references: [id])
+  beratKg     Decimal     @map("berat_kg")
+  status      WasteStatus
+  recordedAt  DateTime    @default(now()) @map("recorded_at")
+  metadata    String      @default("{}")
+  
+  @@map("waste_logs")
+}
+
+enum WasteStatus {
+  MASUK
+  KELUAR
+}
+
+// Model untuk Laporan Bulanan LPS
+model LaporanBulanan {
+  id                String   @id @default(uuid())
+  bulan             String   // Format: YYYY-MM
+  kelurahan         String
+  latarBelakang     String?  @map("latar_belakang")
+  tujuan            String?
+  manfaat           String?
+  strukturLPS       String?  @map("struktur_lps")
+  layanan           String?
+  perkembanganLPS   String?  @map("perkembangan_lps")
+  laporanKeuangan   String?  @map("laporan_keuangan")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  // Relasi ke bidang-bidang
+  kinerjaAngkutan   KinerjaAngkutan?
+  kinerjaPengolahan KinerjaPengolahan?
+  kinerjaIuran      KinerjaIuran?
+
+  @@map("laporan_bulanan")
+}
+
+model KinerjaAngkutan {
+  id                    String @id @default(uuid())
+  laporanId             String @unique @map("laporan_id")
+  jumlahArmada          Int?   @map("jumlah_armada")
+  jumlahRumahTangga     String? @map("jumlah_rumah_tangga") // JSON format per RT/RW
+  jumlahUMKM            Int?   @map("jumlah_umkm")
+  jumlahBadanUsaha      Int?   @map("jumlah_badan_usaha")
+  permasalahan          String?
+  aksiYangDilakukan     String? @map("aksi_yang_dilakukan")
+  laporan               LaporanBulanan @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+
+  @@map("kinerja_angkutan")
+}
+
+model KinerjaPengolahan {
+  id                        String @id @default(uuid())
+  laporanId                 String @unique @map("laporan_id")
+  programPengolahan         String? @map("program_pengolahan")
+  volumePemilahanOrganik    Float?  @map("volume_pemilahan_organik")
+  volumePemilahanUnorganik  Float?  @map("volume_pemilahan_unorganik")
+  volumePenjualanOrganik    Float?  @map("volume_penjualan_organik")
+  volumePenjualanUnorganik  Float?  @map("volume_penjualan_unorganik")
+  programEdukasi            String? @map("program_edukasi")
+  permasalahan              String?
+  aksiYangDilakukan         String? @map("aksi_yang_dilakukan")
+  laporan                   LaporanBulanan @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+
+  @@map("kinerja_pengolahan")
+}
+
+model KinerjaIuran {
+  id                    String @id @default(uuid())
+  laporanId             String @unique @map("laporan_id")
+  penerimaanIuran       Float? @map("penerimaan_iuran") 
+  iuranPerRT            Float? @map("iuran_per_rt")
+  penerimaanLain        Float? @map("penerimaan_lain")
+  
+  // Pengeluaran
+  sewaArmada            Float? @map("sewa_armada")
+  bbm                   Float? @map("bbm")
+  tenagaKerja           Float? @map("tenaga_kerja")
+  administrasi          Float? @map("administrasi")
+  biayaRapat            Float? @map("biaya_rapat")
+  feePetugasPungut      Float? @map("fee_petugas_pungut")
+  gajiPengurus          Float? @map("gaji_pengurus")
+
+  pemanfaatanIuran      String? @map("pemanfaatan_iuran")
+  permasalahan          String?
+  aksiYangDilakukan     String? @map("aksi_yang_dilakukan")
+  laporan               LaporanBulanan @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+
+  @@map("kinerja_iuran")
+}
+
+model MeetingNote {
+  id        String   @id @default(uuid())
+  title     String
+  fileUrl   String   @map("file_url")
+  fileType  String   @map("file_type") // 'pdf' or 'image'
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("meeting_notes")
+}
+
+model ToDo {
+  id        String   @id @default(uuid())
+  text      String
+  category  String   @default("RAPAT") // RAPAT, KUNJUNGAN, SURVEY
+  date      DateTime
+  isDone    Boolean  @default(false) @map("is_done")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("todos")
+}
+
+model MeetingSummary {
+  id        String   @id @default(uuid())
+  content   String
+  updatedAt DateTime @updatedAt
+  
+  @@map("meeting_summaries")
+}
+
+model MeetingSummaryArchive {
+  id          String   @id @default(uuid())
+  content     String
+  archivedAt  DateTime @default(now()) @map("archived_at")
+  createdBy   String?  @map("created_by")
+
+  @@map("meeting_summary_archive")
+}
