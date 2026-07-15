@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Kelurahan {
+  id        String    @id @default(cuid())
+  nama      String
+  kecamatan String
+  laporan   Laporan[]
+}
+
+model Laporan {
+  id              String   @id @default(cuid())
+  bulan           String
+  kelurahanId     String
+  kelurahan       Kelurahan @relation(fields: [kelurahanId], references: [id])
+  latarBelakang   String
+  tujuan          String
+  manfaat         String
+  strukturLPS     String
+  layanan         String
+  perkembanganLPS String?
+  laporanKeuangan String?
+
+  kinerjaAngkutan   KinerjaAngkutan?
+  kinerjaPengolahan KinerjaPengolahan?
+  kinerjaIuran      KinerjaIuran?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model KinerjaAngkutan {
+  id                String   @id @default(cuid())
+  laporanId         String   @unique
+  laporan           Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  jumlahArmada      Int
+  jumlahUMKM        Int
+  jumlahBadanUsaha  Int
+  permasalahan      String?
+  aksiYangDilakukan String?
+  
+  rumahTangga       RumahTangga[]
+}
+
+model RumahTangga {
+  id                String          @id @default(cuid())
+  kinerjaAngkutanId String
+  kinerjaAngkutan   KinerjaAngkutan @relation(fields: [kinerjaAngkutanId], references: [id], onDelete: Cascade)
+  rtRw              String          // e.g. RT01/RW02
+  jumlah            Int
+}
+
+model KinerjaPengolahan {
+  id                       String   @id @default(cuid())
+  laporanId                String   @unique
+  laporan                  Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  programPengolahan        String
+  volumePemilahanOrganik   Float
+  volumePemilahanUnorganik Float
+  volumePenjualanOrganik   Float
+  volumePenjualanUnorganik Float
+  programEdukasi           String?
+  permasalahan             String?
+  aksiYangDilakukan        String?
+  
+  rincianAnorganik         RincianAnorganik[]
+}
+
+model RincianAnorganik {
+  id                  String             @id @default(cuid())
+  kinerjaPengolahanId String
+  kinerjaPengolahan   KinerjaPengolahan  @relation(fields: [kinerjaPengolahanId], references: [id], onDelete: Cascade)
+  kategori            String             // e.g. Plastik_KantongKresek
+  volume              Float
+}
+
+model KinerjaIuran {
+  id                String   @id @default(cuid())
+  laporanId         String   @unique
+  laporan           Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  
+  penerimaanIuran   Float
+  iuranPerRT        Float
+  penerimaanLain    Float
+  sewaArmada        Float
+  bbm               Float
+  tenagaKerja       Float
+  administrasi      Float
+  biayaRapat        Float
+  feePetugasPungut  Float
+  gajiPengurus      Float
+  
+  pemanfaatanIuran  String?
+  permasalahan      String?
+  aksiYangDilakukan String?
+}
