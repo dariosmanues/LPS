@@ -16,23 +16,45 @@ export default function AuthPage() {
     const router = useRouter()
     const [activeTab, setActiveTab] = useState<'login' | 'register'>('login')
     const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         password: ''
     })
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        // Simulate API call
-        setTimeout(() => {
-            setLoading(false)
-            // Set simulated auth cookie
-            document.cookie = "auth_token=simulated_token; path=/; max-age=86400"
-            // Redirect to dashboard
+        setError('')
+
+        try {
+            const endpoint = activeTab === 'register' ? '/api/auth/register' : '/api/auth/login'
+            const body = activeTab === 'register'
+                ? { name: formData.name, email: formData.email, password: formData.password }
+                : { email: formData.email, password: formData.password }
+
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+
+            const data = await res.json()
+
+            if (!data.success) {
+                setError(data.error || 'Terjadi kesalahan.')
+                return
+            }
+
+            // Redirect to dashboard on success
             router.push('/')
-        }, 1500)
+            router.refresh()
+        } catch {
+            setError('Gagal terhubung ke server.')
+        } finally {
+            setLoading(false)
+        }
     }
 
     const inputWrapperClasses = "relative group flex items-center";
@@ -102,7 +124,7 @@ export default function AuthPage() {
                             return (
                                 <button
                                     key={tab}
-                                    onClick={() => setActiveTab(tab as 'login' | 'register')}
+                                    onClick={() => { setActiveTab(tab as 'login' | 'register'); setError('') }}
                                     className={cn(
                                         "relative flex-1 py-3 text-sm font-bold rounded-xl transition-colors duration-300 z-10 capitalize tracking-wide",
                                         isActive ? "text-emerald-50" : "text-white/40 hover:text-white"
@@ -134,6 +156,12 @@ export default function AuthPage() {
                                 onSubmit={handleSubmit}
                                 className="space-y-6"
                             >
+                                {error && (
+                                    <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm text-center font-medium">
+                                        {error}
+                                    </div>
+                                )}
+
                                 {activeTab === 'register' && (
                                     <div className="space-y-2">
                                         <label className={labelClasses}>Nama Lengkap</label>
