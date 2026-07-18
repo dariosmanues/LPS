@@ -309,7 +309,7 @@ export default function FormLaporanBaruLps() {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={labelClasses}>Kelurahan</label>
+                                    <label className={labelClasses}>Kelurahan <span className="text-red-400">*</span></label>
                                     <div className={inputWrapperClasses}>
                                         <div className="absolute left-4 text-emerald-500/50 pointer-events-none">
                                             <MapPin className="w-5 h-5" />
