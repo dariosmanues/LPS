@@ -71,7 +71,7 @@ export default function FormLaporanBaruLps() {
     // Form state
     const [formData, setFormData] = useState({
         bulan: '',
-        kelurahan: '',
+        kelurahanId: '',
         latarBelakang: '',
         tujuan: '',
         manfaat: '',
@@ -104,6 +104,7 @@ export default function FormLaporanBaruLps() {
         kinerjaIuran: {
             penerimaanIuran: 0,
             iuranPerRT: 0,
+            nilaiIuran: [] as number[],
             penerimaanLain: 0,
             sewaArmada: 0,
             bbm: 0,
@@ -119,6 +120,7 @@ export default function FormLaporanBaruLps() {
     })
 
     const [rtInput, setRtInput] = useState({ rt: '', rw: '', jumlah: 0 })
+    const [anorganikInput, setAnorganikInput] = useState({ kategori: '', volume: 0 })
 
     type NestedSection = 'kinerjaAngkutan' | 'kinerjaPengolahan' | 'kinerjaIuran';
 
@@ -186,10 +188,78 @@ export default function FormLaporanBaruLps() {
         })
     }
 
+    const addNilaiIuran = () => {
+        setFormData(prev => ({
+            ...prev,
+            kinerjaIuran: {
+                ...prev.kinerjaIuran,
+                nilaiIuran: [...prev.kinerjaIuran.nilaiIuran, 0]
+            }
+        }))
+    }
+
+    const removeNilaiIuran = (index: number) => {
+        setFormData(prev => {
+            const newNilaiIuran = [...prev.kinerjaIuran.nilaiIuran]
+            newNilaiIuran.splice(index, 1)
+            return {
+                ...prev,
+                kinerjaIuran: {
+                    ...prev.kinerjaIuran,
+                    nilaiIuran: newNilaiIuran
+                }
+            }
+        })
+    }
+
+    const updateNilaiIuran = (index: number, value: number) => {
+        setFormData(prev => {
+            const newNilaiIuran = [...prev.kinerjaIuran.nilaiIuran]
+            newNilaiIuran[index] = value
+            return {
+                ...prev,
+                kinerjaIuran: {
+                    ...prev.kinerjaIuran,
+                    nilaiIuran: newNilaiIuran
+                }
+            }
+        })
+    }
+
     const handleSubmit = async () => {
         if (!formData.bulan) {
             alert('Bulan wajib diisi!')
             return
+        }
+        if (!formData.kelurahanId) {
+            alert('Kelurahan wajib dipilih!')
+            return
+        }
+
+        const { kinerjaAngkutan: a, kinerjaIuran: i } = formData;
+
+        if (
+            a.jumlahArmada == null || 
+            a.jumlahUMKM == null || 
+            a.jumlahBadanUsaha == null || 
+            !a.permasalahan.trim()
+        ) {
+            setActiveTab('angkutan');
+            alert('Seluruh field (termasuk teks) pada tab Angkutan wajib diisi!');
+            return;
+        }
+
+        if (
+            i.penerimaanIuran == null ||
+            i.iuranPerRT == null ||
+            i.penerimaanLain == null ||
+            i.sewaArmada == null ||
+            i.bbm == null ||
+            i.tenagaKerja == null
+        ) {
+            setActiveTab('iuran');
+            alert('Seluruh field pada tab Iuran wajib diisi!');
+            return;
         }
 
         setLoading(true)
@@ -257,7 +327,7 @@ export default function FormLaporanBaruLps() {
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                                 </span>
-                                {formData.kelurahan ? `LPS Kelurahan ${formData.kelurahan}` : 'Pilih Kelurahan...'}
+                                {formData.kelurahanId ? `LPS Kelurahan ${kelurahanList.find(k => k.id === formData.kelurahanId)?.nama || ''}` : 'Pilih Kelurahan...'}
                             </div>
                         </div>
                     </div>
@@ -316,14 +386,14 @@ export default function FormLaporanBaruLps() {
                                             <MapPin className="w-5 h-5" />
                                         </div>
                                         <select
-                                            value={formData.kelurahan}
-                                            onChange={(e) => handleInputChange('kelurahan', '', e.target.value)}
+                                            value={formData.kelurahanId}
+                                            onChange={(e) => handleInputChange('kelurahanId', '', e.target.value)}
                                             className={cn(inputClasses, "appearance-none")}
                                             required
                                         >
                                             <option value="" disabled className="bg-[#0a0f14] text-white/50">Pilih Kelurahan</option>
                                             {kelurahanList.map((k) => (
-                                                <option key={k.id} value={k.nama} className="bg-[#0a0f14] text-white">
+                                                <option key={k.id} value={k.id} className="bg-[#0a0f14] text-white">
                                                     {k.nama}
                                                 </option>
                                             ))}
@@ -397,7 +467,7 @@ export default function FormLaporanBaruLps() {
                                     >
                                         <div className="space-y-6">
                                             <div>
-                                                <label className={labelClasses}>Latar Belakang</label>
+                                                <label className={labelClasses}>Aksi yang Dilakukan <span className="text-red-400">*</span></label>
                                                 <textarea
                                                     placeholder="Uraikan secara ringkas tentang LPS kelurahan..."
                                                     value={formData.latarBelakang}
@@ -469,7 +539,7 @@ export default function FormLaporanBaruLps() {
                                     >
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                             <div className="space-y-2">
-                                                <label className={labelClasses}>Jumlah Armada</label>
+                                                <label className={labelClasses}>Jumlah Armada <span className="text-red-400">*</span></label>
                                                 <div className={inputWrapperClasses}>
                                                     <div className={iconWrapperClasses}><Truck className="w-5 h-5" /></div>
                                                     <input
@@ -481,7 +551,7 @@ export default function FormLaporanBaruLps() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                <label className={labelClasses}>Jumlah UMKM</label>
+                                                <label className={labelClasses}>Jumlah UMKM <span className="text-red-400">*</span></label>
                                                 <div className={inputWrapperClasses}>
                                                     <div className={iconWrapperClasses}><Building2 className="w-5 h-5" /></div>
                                                     <input
@@ -493,7 +563,7 @@ export default function FormLaporanBaruLps() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                <label className={labelClasses}>Jumlah Badan Usaha</label>
+                                                <label className={labelClasses}>Jumlah Badan Usaha <span className="text-red-400">*</span></label>
                                                 <div className={inputWrapperClasses}>
                                                     <div className={iconWrapperClasses}><Building2 className="w-5 h-5" /></div>
                                                     <input
@@ -546,7 +616,7 @@ export default function FormLaporanBaruLps() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <label className={labelClasses}>Permasalahan & Kendala</label>
+                                            <label className={labelClasses}>Permasalahan & Kendala <span className="text-red-400">*</span></label>
                                             <textarea
                                                 placeholder="Kendala yang dihadapi bagian angkutan..."
                                                 value={formData.kinerjaAngkutan.permasalahan}
@@ -667,13 +737,52 @@ export default function FormLaporanBaruLps() {
                                                     { id: 'penerimaanLain', label: 'Penerimaan Lain' }
                                                 ].map(item => (
                                                     <div key={item.id} className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                                                        <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">{item.label}</label>
+                                                        <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">{item.label} <span className="text-red-400">*</span></label>
                                                         <div className="relative">
                                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
-                                                            <input type="number" value={formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
+                                                            <input type="number" value={formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] as number || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+
+                                            {/* Nilai Iuran - Multiple Dynamic Input */}
+                                            <div className="mt-8 relative z-10 bg-black/40 p-4 md:p-6 rounded-2xl border border-white/5">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest">Nilai Iuran <span className="text-red-400">*</span></label>
+                                                    <button type="button" onClick={addNilaiIuran} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:border-emerald-500/40 transition-all font-bold text-xs">
+                                                        <Plus className="w-3.5 h-3.5" />
+                                                        Tambah Nilai
+                                                    </button>
+                                                </div>
+                                                
+                                                <div className="space-y-3">
+                                                    {formData.kinerjaIuran.nilaiIuran.length === 0 ? (
+                                                        <div className="text-center py-4 text-white/30 text-sm italic">Belum ada nilai iuran. Klik "Tambah Nilai".</div>
+                                                    ) : (
+                                                        formData.kinerjaIuran.nilaiIuran.map((nilai, index) => (
+                                                            <div key={index} className="flex gap-3 items-center">
+                                                                <div className="relative flex-1">
+                                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        value={nilai || ''} 
+                                                                        onChange={(e) => updateNilaiIuran(index, parseFloat(e.target.value) || 0)} 
+                                                                        className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium"
+                                                                        placeholder="Masukkan nilai iuran..."
+                                                                    />
+                                                                </div>
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => removeNilaiIuran(index)}
+                                                                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all"
+                                                                >
+                                                                    <Trash2 className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -690,10 +799,10 @@ export default function FormLaporanBaruLps() {
                                                     { id: 'tenagaKerja', label: 'Tenaga Kerja' }
                                                 ].map(item => (
                                                     <div key={item.id} className="bg-black/40 p-4 rounded-2xl border border-white/5">
-                                                        <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">{item.label}</label>
+                                                        <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">{item.label} <span className="text-red-400">*</span></label>
                                                         <div className="relative">
                                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-red-400/50 font-bold text-sm">Rp</span>
-                                                            <input type="number" value={formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-red-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
+                                                            <input type="number" value={(formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] as number) || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-red-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
                                                         </div>
                                                     </div>
                                                 ))}

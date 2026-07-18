@@ -10,11 +10,7 @@ export async function POST(req: Request) {
     let kelurahanId = data.kelurahanId
     
     if (!kelurahanId) {
-       const kelurahan = await prisma.kelurahan.findFirst()
-       if (!kelurahan) {
-          return NextResponse.json({ success: false, error: 'Kelurahan not found. Please setup kelurahan first.' }, { status: 400 })
-       }
-       kelurahanId = kelurahan.id
+        return NextResponse.json({ success: false, error: 'Kelurahan wajib dipilih.' }, { status: 400 })
     }
 
     // Format nested data for Prisma
@@ -73,6 +69,9 @@ export async function POST(req: Request) {
           create: {
             penerimaanIuran: Number(data.kinerjaIuran?.penerimaanIuran || 0),
             iuranPerRT: Number(data.kinerjaIuran?.iuranPerRT || 0),
+            nilaiIuran: Array.isArray(data.kinerjaIuran?.nilaiIuran) 
+                ? data.kinerjaIuran.nilaiIuran.map(Number) 
+                : [],
             penerimaanLain: Number(data.kinerjaIuran?.penerimaanLain || 0),
             sewaArmada: Number(data.kinerjaIuran?.sewaArmada || 0),
             bbm: Number(data.kinerjaIuran?.bbm || 0),

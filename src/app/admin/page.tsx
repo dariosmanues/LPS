@@ -214,6 +214,7 @@ export default function AdminDashboard() {
                 body: [
                     ['Total Iuran', formatRp(iuran.penerimaanIuran)],
                     ['Iuran per RT', formatRp(iuran.iuranPerRT)],
+                    ['Nilai Iuran', iuran.nilaiIuran && iuran.nilaiIuran.length > 0 ? iuran.nilaiIuran.map((n: number) => formatRp(n)).join(', ') : '-'],
                     ['Penerimaan Lain', formatRp(iuran.penerimaanLain)],
                 ],
                 theme: 'grid',
@@ -398,6 +399,7 @@ export default function AdminDashboard() {
                                                         <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest border-b border-white/10 pb-2">Detail Iuran</h4>
                                                         <div className="space-y-3 text-sm">
                                                             <div className="flex justify-between"><span className="text-white/60">Total Iuran</span> <span className="font-bold text-emerald-400">Rp {(item.kinerjaIuran?.penerimaanIuran || 0).toLocaleString('id-ID')}</span></div>
+                                                            <div className="flex justify-between"><span className="text-white/60">Nilai Iuran</span> <span className="font-bold text-white text-xs">{item.kinerjaIuran?.nilaiIuran?.length > 0 ? item.kinerjaIuran.nilaiIuran.map((n: number) => 'Rp ' + n.toLocaleString('id-ID')).join(', ') : '-'}</span></div>
                                                             <div className="flex justify-between"><span className="text-white/60">Pengeluaran (Gaji)</span> <span className="font-bold text-red-400">Rp {(item.kinerjaIuran?.gajiPengurus || 0).toLocaleString('id-ID')}</span></div>
                                                         </div>
                                                     </div>

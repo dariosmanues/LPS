@@ -96,6 +96,7 @@ model KinerjaIuran {
   
   penerimaanIuran   Float
   iuranPerRT        Float
+  nilaiIuran        Float[]
   penerimaanLain    Float
   sewaArmada        Float
   bbm               Float
