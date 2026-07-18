@@ -48,10 +48,11 @@ export default function FormLaporanBaruLps() {
             .then(data => {
                 if (data.success && data.kelurahan) {
                     setKelurahan(data.kelurahan)
-                    setFormData(prev => ({
-                        ...prev,
-                        kelurahan: data.kelurahan.nama
-                    }))
+                    // Do not auto-fill kelurahan so required validation works
+                    // setFormData(prev => ({
+                    //     ...prev,
+                    //     kelurahan: data.kelurahan.nama
+                    // }))
                 }
             })
             .catch(console.error)
