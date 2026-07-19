@@ -37,7 +37,7 @@ export default function FormLaporanBaruLps() {
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' })
-        router.push('/auth')
+        window.location.href = '/auth'
     }
 
     // Fetch kelurahan info on mount
