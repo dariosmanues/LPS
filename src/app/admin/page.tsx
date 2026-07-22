@@ -141,8 +141,8 @@ export default function AdminDashboard() {
                 autoTable(doc, {
                     startY: y,
                     margin: { left: margin, right: margin },
-                    head: [['RT/RW', 'Jumlah KK']],
-                    body: rtData.map((rt: any) => [rt.rtRw, String(rt.jumlah)]),
+                    head: [['RT/RW', 'Jumlah KK', 'Hari']],
+                    body: rtData.map((rt: any) => [rt.rtRw, String(rt.jumlah), rt.hari || '-']),
                     theme: 'grid',
                     headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: 'bold' },
                     styles: { fontSize: 9 },
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
                 head: [['Penerimaan', 'Jumlah']],
                 body: [
                     ['Total Iuran', formatRp(iuran.penerimaanIuran)],
-                    ['Iuran per RT', formatRp(iuran.iuranPerRT)],
+                    ['Iuran per RW', iuran.iuranPerRW && iuran.iuranPerRW.length > 0 ? iuran.iuranPerRW.map((r: any) => `RW ${r.rw}: ${formatRp(r.nilai)}`).join(', ') : '-'],
                     ['Nilai Iuran', iuran.nilaiIuran && iuran.nilaiIuran.length > 0 ? iuran.nilaiIuran.map((n: number) => formatRp(n)).join(', ') : '-'],
                     ['Penerimaan Lain', formatRp(iuran.penerimaanLain)],
                 ],
@@ -235,6 +235,7 @@ export default function AdminDashboard() {
                     ['Biaya Rapat', formatRp(iuran.biayaRapat)],
                     ['Fee Petugas Pungut', formatRp(iuran.feePetugasPungut)],
                     ['Gaji Pengurus', formatRp(iuran.gajiPengurus)],
+                    ['Biaya Lain-lain', formatRp(iuran.biayaLainLain)],
                 ],
                 theme: 'grid',
                 headStyles: { fillColor: [239, 68, 68], textColor: 255, fontStyle: 'bold' },

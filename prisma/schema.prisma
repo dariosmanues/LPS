@@ -51,6 +51,7 @@ model KinerjaAngkutan {
   jumlahArmada      Int
   jumlahUMKM        Int
   jumlahBadanUsaha  Int
+  persentasePartisipasi Float @default(0)
   permasalahan      String?
   aksiYangDilakukan String?
   
@@ -63,6 +64,7 @@ model RumahTangga {
   kinerjaAngkutan   KinerjaAngkutan @relation(fields: [kinerjaAngkutanId], references: [id], onDelete: Cascade)
   rtRw              String          // e.g. RT01/RW02
   jumlah            Int
+  hari              String          @default("")
 }
 
 model KinerjaPengolahan {
@@ -95,7 +97,7 @@ model KinerjaIuran {
   laporan           Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
   
   penerimaanIuran   Float
-  iuranPerRT        Float
+  iuranPerRW        IuranRW[]
   nilaiIuran        Float[]
   penerimaanLain    Float
   sewaArmada        Float
@@ -105,8 +107,17 @@ model KinerjaIuran {
   biayaRapat        Float
   feePetugasPungut  Float
   gajiPengurus      Float
+  biayaLainLain     Float    @default(0)
   
   pemanfaatanIuran  String?
   permasalahan      String?
   aksiYangDilakukan String?
+}
+
+model IuranRW {
+  id              String       @id @default(cuid())
+  kinerjaIuranId  String
+  kinerjaIuran    KinerjaIuran @relation(fields: [kinerjaIuranId], references: [id], onDelete: Cascade)
+  rw              String
+  nilai           Float
 }

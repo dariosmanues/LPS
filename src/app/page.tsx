@@ -8,7 +8,7 @@ import {
   FileText, Truck, Recycle, Coins, 
   ChevronLeft, Building2, Calendar, 
   Plus, Trash2, Save, Info, AlertCircle, 
-  MapPin, CheckCircle2, LogOut 
+  MapPin, CheckCircle2, LogOut, Users 
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -25,7 +25,10 @@ interface KelurahanInfo {
 }
 
 interface RumahTanggaData {
-    [key: string]: number
+    [key: string]: {
+        jumlah: number;
+        hari: string;
+    }
 }
 
 export default function FormLaporanBaruLps() {
@@ -85,6 +88,7 @@ export default function FormLaporanBaruLps() {
             jumlahRumahTangga: {} as RumahTanggaData,
             jumlahUMKM: 0,
             jumlahBadanUsaha: 0,
+            persentasePartisipasi: 0,
             permasalahan: '',
             aksiYangDilakukan: ''
         },
@@ -103,7 +107,7 @@ export default function FormLaporanBaruLps() {
 
         kinerjaIuran: {
             penerimaanIuran: 0,
-            iuranPerRT: 0,
+            iuranPerRW: [] as { rw: string, nilai: number }[],
             nilaiIuran: [] as number[],
             penerimaanLain: 0,
             sewaArmada: 0,
@@ -113,13 +117,14 @@ export default function FormLaporanBaruLps() {
             biayaRapat: 0,
             feePetugasPungut: 0,
             gajiPengurus: 0,
+            biayaLainLain: 0,
             pemanfaatanIuran: '',
             permasalahan: '',
             aksiYangDilakukan: ''
         }
     })
 
-    const [rtInput, setRtInput] = useState({ rt: '', rw: '', jumlah: 0 })
+    const [rtInput, setRtInput] = useState({ rt: '', rw: '', jumlah: 0, hari: '' })
     const [anorganikInput, setAnorganikInput] = useState({ kategori: '', volume: 0 })
 
     type NestedSection = 'kinerjaAngkutan' | 'kinerjaPengolahan' | 'kinerjaIuran';
@@ -155,8 +160,8 @@ export default function FormLaporanBaruLps() {
     }
 
     const addRumahTangga = () => {
-        if (!rtInput.rt || !rtInput.rw || rtInput.jumlah <= 0) {
-            alert('Mohon lengkapi RT, RW, dan Jumlah Rumah Tangga (> 0)');
+        if (!rtInput.rt || !rtInput.rw || rtInput.jumlah <= 0 || !rtInput.hari) {
+            alert('Mohon lengkapi RT, RW, Jumlah KK, dan Hari');
             return;
         }
 
@@ -167,11 +172,11 @@ export default function FormLaporanBaruLps() {
                 ...prev.kinerjaAngkutan,
                 jumlahRumahTangga: {
                     ...prev.kinerjaAngkutan.jumlahRumahTangga,
-                    [key]: rtInput.jumlah
+                    [key]: { jumlah: rtInput.jumlah, hari: rtInput.hari }
                 }
             }
         }))
-        setRtInput({ rt: '', rw: '', jumlah: 0 })
+        setRtInput({ rt: '', rw: '', jumlah: 0, hari: '' })
     }
 
     const removeRumahTangga = (key: string) => {
@@ -183,6 +188,44 @@ export default function FormLaporanBaruLps() {
                 kinerjaAngkutan: {
                     ...prev.kinerjaAngkutan,
                     jumlahRumahTangga: newRumahTangga
+                }
+            }
+        })
+    }
+
+    const addIuranPerRW = () => {
+        setFormData(prev => ({
+            ...prev,
+            kinerjaIuran: {
+                ...prev.kinerjaIuran,
+                iuranPerRW: [...prev.kinerjaIuran.iuranPerRW, { rw: '', nilai: 0 }]
+            }
+        }))
+    }
+
+    const removeIuranPerRW = (index: number) => {
+        setFormData(prev => {
+            const newIuran = [...prev.kinerjaIuran.iuranPerRW]
+            newIuran.splice(index, 1)
+            return {
+                ...prev,
+                kinerjaIuran: {
+                    ...prev.kinerjaIuran,
+                    iuranPerRW: newIuran
+                }
+            }
+        })
+    }
+
+    const updateIuranPerRW = (index: number, field: 'rw' | 'nilai', value: any) => {
+        setFormData(prev => {
+            const newIuran = [...prev.kinerjaIuran.iuranPerRW]
+            newIuran[index] = { ...newIuran[index], [field]: value }
+            return {
+                ...prev,
+                kinerjaIuran: {
+                    ...prev.kinerjaIuran,
+                    iuranPerRW: newIuran
                 }
             }
         })
@@ -242,6 +285,7 @@ export default function FormLaporanBaruLps() {
             a.jumlahArmada == null || 
             a.jumlahUMKM == null || 
             a.jumlahBadanUsaha == null || 
+            a.persentasePartisipasi == null ||
             !a.permasalahan.trim()
         ) {
             setActiveTab('angkutan');
@@ -251,11 +295,15 @@ export default function FormLaporanBaruLps() {
 
         if (
             i.penerimaanIuran == null ||
-            i.iuranPerRT == null ||
             i.penerimaanLain == null ||
             i.sewaArmada == null ||
             i.bbm == null ||
-            i.tenagaKerja == null
+            i.tenagaKerja == null ||
+            i.administrasi == null ||
+            i.biayaRapat == null ||
+            i.feePetugasPungut == null ||
+            i.gajiPengurus == null ||
+            i.biayaLainLain == null
         ) {
             setActiveTab('iuran');
             alert('Seluruh field pada tab Iuran wajib diisi!');
@@ -537,7 +585,7 @@ export default function FormLaporanBaruLps() {
                                         transition={{ duration: 0.2 }}
                                         className="space-y-10"
                                     >
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                                             <div className="space-y-2">
                                                 <label className={labelClasses}>Jumlah Armada <span className="text-red-400">*</span></label>
                                                 <div className={inputWrapperClasses}>
@@ -574,6 +622,19 @@ export default function FormLaporanBaruLps() {
                                                     />
                                                 </div>
                                             </div>
+                                            <div className="space-y-2">
+                                                <label className={labelClasses}>Partisipasi Masy. (%) <span className="text-red-400">*</span></label>
+                                                <div className={inputWrapperClasses}>
+                                                    <div className={iconWrapperClasses}><Users className="w-5 h-5" /></div>
+                                                    <input
+                                                        type="number"
+                                                        step="0.1"
+                                                        value={formData.kinerjaAngkutan.persentasePartisipasi}
+                                                        onChange={(e) => handleInputChange('kinerjaAngkutan', 'persentasePartisipasi', parseFloat(e.target.value) || 0)}
+                                                        className={inputClasses}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div className="bg-black/20 p-6 md:p-8 rounded-3xl border border-white/5 relative overflow-hidden">
@@ -585,6 +646,10 @@ export default function FormLaporanBaruLps() {
                                                 <span className="text-white/30 font-light text-2xl">/</span>
                                                 <input placeholder="RW (02)" value={rtInput.rw} onChange={(e) => setRtInput(prev => ({ ...prev, rw: e.target.value }))} className={cn(inputClasses, "w-24 pl-4 text-center")} />
                                                 <input type="number" placeholder="Jml KK" value={rtInput.jumlah || ''} onChange={(e) => setRtInput(prev => ({ ...prev, jumlah: parseInt(e.target.value) || 0 }))} className={cn(inputClasses, "w-32 pl-4 text-center")} />
+                                                <select value={rtInput.hari} onChange={(e) => setRtInput(prev => ({ ...prev, hari: e.target.value }))} className={cn(inputClasses, "w-36 pl-4 pr-10 appearance-none bg-[#0a0f14]")}>
+                                                    <option value="" disabled className="text-white/50">Pilih Hari</option>
+                                                    {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'].map(h => <option key={h} value={h} className="text-white">{h}</option>)}
+                                                </select>
                                                 <button type="button" onClick={addRumahTangga} className="px-6 py-3.5 bg-white/10 text-white font-bold rounded-2xl border border-white/10 hover:bg-emerald-500/20 hover:border-emerald-500/30 hover:text-emerald-400 transition-all flex items-center gap-2">
                                                     <Plus className="w-4 h-4" /> Tambah
                                                 </button>
@@ -599,7 +664,7 @@ export default function FormLaporanBaruLps() {
                                                             </div>
                                                             <div>
                                                                 <div className="font-bold text-white tracking-wider">{key}</div>
-                                                                <div className="text-sm text-white/50">{value} Rumah Tangga</div>
+                                                                <div className="text-sm text-white/50">{value.jumlah} Rumah Tangga - {value.hari}</div>
                                                             </div>
                                                         </div>
                                                         <button type="button" onClick={() => removeRumahTangga(key)} className="p-2 text-white/30 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors">
@@ -730,10 +795,9 @@ export default function FormLaporanBaruLps() {
                                                 <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20"><Coins className="w-5 h-5" /></div>
                                                 Penerimaan Keuangan
                                             </h3>
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
                                                 {[
                                                     { id: 'penerimaanIuran', label: 'Total Iuran' },
-                                                    { id: 'iuranPerRT', label: 'Iuran per RT' },
                                                     { id: 'penerimaanLain', label: 'Penerimaan Lain' }
                                                 ].map(item => (
                                                     <div key={item.id} className="bg-black/40 p-4 rounded-2xl border border-white/5">
@@ -744,6 +808,55 @@ export default function FormLaporanBaruLps() {
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+
+                                            {/* Iuran per RW - Multiple Dynamic Input */}
+                                            <div className="mt-8 relative z-10 bg-black/40 p-4 md:p-6 rounded-2xl border border-white/5">
+                                                <div className="flex justify-between items-center mb-4">
+                                                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest">Iuran per RW <span className="text-red-400">*</span></label>
+                                                    <button type="button" onClick={addIuranPerRW} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:border-emerald-500/40 transition-all font-bold text-xs">
+                                                        <Plus className="w-3.5 h-3.5" />
+                                                        Tambah
+                                                    </button>
+                                                </div>
+                                                
+                                                <div className="space-y-3">
+                                                    {formData.kinerjaIuran.iuranPerRW.length === 0 ? (
+                                                        <div className="text-center py-4 text-white/30 text-sm italic">Belum ada Iuran per RW. Klik "Tambah".</div>
+                                                    ) : (
+                                                        formData.kinerjaIuran.iuranPerRW.map((item, index) => (
+                                                            <div key={index} className="flex gap-3 items-center">
+                                                                <div className="relative w-1/3 md:w-1/4">
+                                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">RW</span>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        value={item.rw} 
+                                                                        onChange={(e) => updateIuranPerRW(index, 'rw', e.target.value)} 
+                                                                        className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium"
+                                                                        placeholder="01"
+                                                                    />
+                                                                </div>
+                                                                <div className="relative flex-1">
+                                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        value={item.nilai || ''} 
+                                                                        onChange={(e) => updateIuranPerRW(index, 'nilai', parseFloat(e.target.value) || 0)} 
+                                                                        className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium"
+                                                                        placeholder="Masukkan nilai iuran..."
+                                                                    />
+                                                                </div>
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => removeIuranPerRW(index)}
+                                                                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all"
+                                                                >
+                                                                    <Trash2 className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {/* Nilai Iuran - Multiple Dynamic Input */}
@@ -795,8 +908,13 @@ export default function FormLaporanBaruLps() {
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
                                                 {[
                                                     { id: 'sewaArmada', label: 'Sewa Armada' },
-                                                    { id: 'bbm', label: 'Bahan Bakar' },
-                                                    { id: 'tenagaKerja', label: 'Tenaga Kerja' }
+                                                    { id: 'bbm', label: 'BBM' },
+                                                    { id: 'tenagaKerja', label: 'Tenaga Kerja' },
+                                                    { id: 'administrasi', label: 'Administrasi' },
+                                                    { id: 'biayaRapat', label: 'Biaya Rapat' },
+                                                    { id: 'feePetugasPungut', label: 'Fee Petugas Pungut' },
+                                                    { id: 'gajiPengurus', label: 'Gaji Pengurus' },
+                                                    { id: 'biayaLainLain', label: 'Biaya Lain-lain' }
                                                 ].map(item => (
                                                     <div key={item.id} className="bg-black/40 p-4 rounded-2xl border border-white/5">
                                                         <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">{item.label} <span className="text-red-400">*</span></label>

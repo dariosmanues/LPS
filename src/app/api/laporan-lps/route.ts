@@ -14,15 +14,23 @@ export async function POST(req: Request) {
     }
 
     // Format nested data for Prisma
-    const rumahTanggaCreate = Object.entries(data.kinerjaAngkutan?.jumlahRumahTangga || {}).map(([rtRw, jumlah]) => ({
+    const rumahTanggaCreate = Object.entries(data.kinerjaAngkutan?.jumlahRumahTangga || {}).map(([rtRw, item]) => ({
       rtRw,
-      jumlah: Number(jumlah)
+      jumlah: Number((item as any).jumlah),
+      hari: String((item as any).hari || '')
     }))
 
     const rincianAnorganikCreate = Object.entries(data.kinerjaPengolahan?.rincianAnorganik || {}).map(([kategori, volume]) => ({
       kategori,
       volume: Number(volume)
     }))
+
+    const iuranRWCreate = Array.isArray(data.kinerjaIuran?.iuranPerRW)
+        ? data.kinerjaIuran.iuranPerRW.map((item: any) => ({
+            rw: String(item.rw || ''),
+            nilai: Number(item.nilai || 0)
+          }))
+        : []
 
     const laporan = await prisma.laporan.create({
       data: {
@@ -41,6 +49,7 @@ export async function POST(req: Request) {
             jumlahArmada: Number(data.kinerjaAngkutan?.jumlahArmada || 0),
             jumlahUMKM: Number(data.kinerjaAngkutan?.jumlahUMKM || 0),
             jumlahBadanUsaha: Number(data.kinerjaAngkutan?.jumlahBadanUsaha || 0),
+            persentasePartisipasi: Number(data.kinerjaAngkutan?.persentasePartisipasi || 0),
             permasalahan: data.kinerjaAngkutan?.permasalahan || '',
             aksiYangDilakukan: data.kinerjaAngkutan?.aksiYangDilakukan || '',
             rumahTangga: {
@@ -68,7 +77,9 @@ export async function POST(req: Request) {
         kinerjaIuran: {
           create: {
             penerimaanIuran: Number(data.kinerjaIuran?.penerimaanIuran || 0),
-            iuranPerRT: Number(data.kinerjaIuran?.iuranPerRT || 0),
+            iuranPerRW: {
+              create: iuranRWCreate
+            },
             nilaiIuran: Array.isArray(data.kinerjaIuran?.nilaiIuran) 
                 ? data.kinerjaIuran.nilaiIuran.map(Number) 
                 : [],
@@ -80,6 +91,7 @@ export async function POST(req: Request) {
             biayaRapat: Number(data.kinerjaIuran?.biayaRapat || 0),
             feePetugasPungut: Number(data.kinerjaIuran?.feePetugasPungut || 0),
             gajiPengurus: Number(data.kinerjaIuran?.gajiPengurus || 0),
+            biayaLainLain: Number(data.kinerjaIuran?.biayaLainLain || 0),
             pemanfaatanIuran: data.kinerjaIuran?.pemanfaatanIuran || '',
             permasalahan: data.kinerjaIuran?.permasalahan || '',
             aksiYangDilakukan: data.kinerjaIuran?.aksiYangDilakukan || ''
@@ -106,7 +118,9 @@ export async function GET() {
         kinerjaPengolahan: {
           include: { rincianAnorganik: true }
         },
-        kinerjaIuran: true
+        kinerjaIuran: {
+          include: { iuranPerRW: true }
+        }
       },
       orderBy: {
         createdAt: 'desc'
