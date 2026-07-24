@@ -24,53 +24,49 @@ model Kelurahan {
 }
 
 model Laporan {
-  id              String   @id @default(cuid())
-  bulan           String
-  kelurahanId     String
-  kelurahan       Kelurahan @relation(fields: [kelurahanId], references: [id])
-  latarBelakang   String
-  tujuan          String
-  manfaat         String
-  strukturLPS     String
-  layanan         String
-  perkembanganLPS String?
-  laporanKeuangan String?
-
+  id                String             @id @default(cuid())
+  bulan             String
+  kelurahanId       String
+  latarBelakang     String
+  tujuan            String
+  manfaat           String
+  strukturLPS       String
+  layanan           String
+  perkembanganLPS   String?
+  laporanKeuangan   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   kinerjaAngkutan   KinerjaAngkutan?
-  kinerjaPengolahan KinerjaPengolahan?
   kinerjaIuran      KinerjaIuran?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  kinerjaPengolahan KinerjaPengolahan?
+  kelurahan         Kelurahan          @relation(fields: [kelurahanId], references: [id])
 }
 
 model KinerjaAngkutan {
-  id                String   @id @default(cuid())
-  laporanId         String   @unique
-  laporan           Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
-  jumlahArmada      Int
-  jumlahUMKM        Int
-  jumlahBadanUsaha  Int
-  persentasePartisipasi Float @default(0)
-  permasalahan      String?
-  aksiYangDilakukan String?
-  
-  rumahTangga       RumahTangga[]
+  id                    String        @id @default(cuid())
+  laporanId             String        @unique
+  jumlahArmada          Int
+  jumlahUMKM            Int
+  jumlahBadanUsaha      Int
+  permasalahan          String?
+  aksiYangDilakukan     String?
+  persentasePartisipasi Float         @default(0)
+  laporan               Laporan       @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  rumahTangga           RumahTangga[]
 }
 
 model RumahTangga {
   id                String          @id @default(cuid())
   kinerjaAngkutanId String
-  kinerjaAngkutan   KinerjaAngkutan @relation(fields: [kinerjaAngkutanId], references: [id], onDelete: Cascade)
-  rtRw              String          // e.g. RT01/RW02
+  rtRw              String
   jumlah            Int
   hari              String          @default("")
+  kinerjaAngkutan   KinerjaAngkutan @relation(fields: [kinerjaAngkutanId], references: [id], onDelete: Cascade)
 }
 
 model KinerjaPengolahan {
-  id                       String   @id @default(cuid())
-  laporanId                String   @unique
-  laporan                  Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  id                       String             @id @default(cuid())
+  laporanId                String             @unique
   programPengolahan        String
   volumePemilahanOrganik   Float
   volumePemilahanUnorganik Float
@@ -79,26 +75,22 @@ model KinerjaPengolahan {
   programEdukasi           String?
   permasalahan             String?
   aksiYangDilakukan        String?
-  
+  laporan                  Laporan            @relation(fields: [laporanId], references: [id], onDelete: Cascade)
   rincianAnorganik         RincianAnorganik[]
 }
 
 model RincianAnorganik {
-  id                  String             @id @default(cuid())
+  id                  String            @id @default(cuid())
   kinerjaPengolahanId String
-  kinerjaPengolahan   KinerjaPengolahan  @relation(fields: [kinerjaPengolahanId], references: [id], onDelete: Cascade)
-  kategori            String             // e.g. Plastik_KantongKresek
+  kategori            String
   volume              Float
+  kinerjaPengolahan   KinerjaPengolahan @relation(fields: [kinerjaPengolahanId], references: [id], onDelete: Cascade)
 }
 
 model KinerjaIuran {
-  id                String   @id @default(cuid())
-  laporanId         String   @unique
-  laporan           Laporan  @relation(fields: [laporanId], references: [id], onDelete: Cascade)
-  
+  id                String       @id @default(cuid())
+  laporanId         String       @unique
   penerimaanIuran   Float
-  iuranPerRW        IuranRW[]
-  nilaiIuran        Float[]
   penerimaanLain    Float
   sewaArmada        Float
   bbm               Float
@@ -107,17 +99,19 @@ model KinerjaIuran {
   biayaRapat        Float
   feePetugasPungut  Float
   gajiPengurus      Float
-  biayaLainLain     Float    @default(0)
-  
   pemanfaatanIuran  String?
   permasalahan      String?
   aksiYangDilakukan String?
+  nilaiIuran        Float[]
+  biayaLainLain     Float        @default(0)
+  laporan           Laporan      @relation(fields: [laporanId], references: [id], onDelete: Cascade)
+  iuranPerRW        IuranPerRW[]
 }
 
-model IuranRW {
-  id              String       @id @default(cuid())
-  kinerjaIuranId  String
-  kinerjaIuran    KinerjaIuran @relation(fields: [kinerjaIuranId], references: [id], onDelete: Cascade)
-  rw              String
-  nilai           Float
+model IuranPerRW {
+  id             String       @id @default(cuid())
+  kinerjaIuranId String
+  rw             String
+  jumlah         Float
+  kinerjaIuran   KinerjaIuran @relation(fields: [kinerjaIuranId], references: [id], onDelete: Cascade)
 }

@@ -1,23 +1,18 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-export async function POST(req: Request) {
+async function main() {
+  const data = {
+    bulan: "2026-07",
+    kelurahanId: "cmrphplum001i14isga6utwhj", // Cinta Raja
+    // minimal data based on route.ts
+  };
+
   try {
-    const data = await req.json()
-    
-    // In a real application, you would get the kelurahanId from the user's session
-    // For now, we'll fetch the first kelurahan or use a provided one.
-    let kelurahanId = data.kelurahanId
-    
-    if (!kelurahanId) {
-        return NextResponse.json({ success: false, error: 'Kelurahan wajib dipilih.' }, { status: 400 })
-    }
-
-    // Format nested data for Prisma
     const rumahTanggaCreate = Object.entries(data.kinerjaAngkutan?.jumlahRumahTangga || {}).map(([rtRw, item]) => ({
       rtRw,
-      jumlah: Number((item as any).jumlah),
-      hari: String((item as any).hari || '')
+      jumlah: Number(item.jumlah),
+      hari: String(item.hari || '')
     }))
 
     const rincianAnorganikCreate = Object.entries(data.kinerjaPengolahan?.rincianAnorganik || {}).map(([kategori, volume]) => ({
@@ -25,15 +20,17 @@ export async function POST(req: Request) {
       volume: Number(volume)
     }))
 
-    const iuranPerRWCreate = Object.entries(data.kinerjaIuran?.iuranPerRW || {}).map(([rw, jumlah]) => ({
-      rw,
-      jumlah: Number(jumlah)
-    }))
+    const iuranRWCreate = Array.isArray(data.kinerjaIuran?.iuranPerRW)
+        ? data.kinerjaIuran.iuranPerRW.map((item) => ({
+            rw: String(item.rw || ''),
+            nilai: Number(item.nilai || 0)
+          }))
+        : []
 
     const laporan = await prisma.laporan.create({
       data: {
         bulan: data.bulan,
-        kelurahanId: kelurahanId,
+        kelurahanId: data.kelurahanId,
         latarBelakang: data.latarBelakang || '',
         tujuan: data.tujuan || '',
         manfaat: data.manfaat || '',
@@ -76,7 +73,7 @@ export async function POST(req: Request) {
           create: {
             penerimaanIuran: Number(data.kinerjaIuran?.penerimaanIuran || 0),
             iuranPerRW: {
-              create: iuranPerRWCreate
+              create: iuranRWCreate
             },
             nilaiIuran: Array.isArray(data.kinerjaIuran?.nilaiIuran) 
                 ? data.kinerjaIuran.nilaiIuran.map(Number) 
@@ -96,37 +93,13 @@ export async function POST(req: Request) {
           }
         }
       }
-    })
-
-    return NextResponse.json({ success: true, laporan })
+    });
+    console.log("Success:", laporan.id);
   } catch (error) {
-    console.error('Failed to submit laporan:', error)
-    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 })
+    console.error("Prisma error:", error.message);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-export async function GET() {
-  try {
-    const laporan = await prisma.laporan.findMany({
-      include: {
-        kelurahan: true,
-        kinerjaAngkutan: {
-          include: { rumahTangga: true }
-        },
-        kinerjaPengolahan: {
-          include: { rincianAnorganik: true }
-        },
-        kinerjaIuran: {
-          include: { iuranPerRW: true }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
-    return NextResponse.json({ success: true, data: laporan })
-  } catch (error) {
-    console.error('Failed to fetch laporan:', error)
-    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 })
-  }
-}
+main();

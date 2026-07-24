@@ -213,7 +213,7 @@ export default function AdminDashboard() {
                 head: [['Penerimaan', 'Jumlah']],
                 body: [
                     ['Total Iuran', formatRp(iuran.penerimaanIuran)],
-                    ['Iuran per RW', iuran.iuranPerRW && iuran.iuranPerRW.length > 0 ? iuran.iuranPerRW.map((r: any) => `RW ${r.rw}: ${formatRp(r.nilai)}`).join(', ') : '-'],
+                    ['Iuran per RW', iuran.iuranPerRW && iuran.iuranPerRW.length > 0 ? iuran.iuranPerRW.map((r: any) => `${r.rw}: ${formatRp(r.jumlah)}`).join(', ') : '-'],
                     ['Nilai Iuran', iuran.nilaiIuran && iuran.nilaiIuran.length > 0 ? iuran.nilaiIuran.map((n: number) => formatRp(n)).join(', ') : '-'],
                     ['Penerimaan Lain', formatRp(iuran.penerimaanLain)],
                 ],

@@ -107,7 +107,7 @@ export default function FormLaporanBaruLps() {
 
         kinerjaIuran: {
             penerimaanIuran: 0,
-            iuranPerRW: [] as { rw: string, nilai: number }[],
+            iuranPerRW: {} as Record<string, number>,
             nilaiIuran: [] as number[],
             penerimaanLain: 0,
             sewaArmada: 0,
@@ -126,6 +126,7 @@ export default function FormLaporanBaruLps() {
 
     const [rtInput, setRtInput] = useState({ rt: '', rw: '', jumlah: 0, hari: '' })
     const [anorganikInput, setAnorganikInput] = useState({ kategori: '', volume: 0 })
+    const [iuranRwInput, setIuranRwInput] = useState({ rw: '', jumlah: 0 })
 
     type NestedSection = 'kinerjaAngkutan' | 'kinerjaPengolahan' | 'kinerjaIuran';
 
@@ -193,43 +194,6 @@ export default function FormLaporanBaruLps() {
         })
     }
 
-    const addIuranPerRW = () => {
-        setFormData(prev => ({
-            ...prev,
-            kinerjaIuran: {
-                ...prev.kinerjaIuran,
-                iuranPerRW: [...prev.kinerjaIuran.iuranPerRW, { rw: '', nilai: 0 }]
-            }
-        }))
-    }
-
-    const removeIuranPerRW = (index: number) => {
-        setFormData(prev => {
-            const newIuran = [...prev.kinerjaIuran.iuranPerRW]
-            newIuran.splice(index, 1)
-            return {
-                ...prev,
-                kinerjaIuran: {
-                    ...prev.kinerjaIuran,
-                    iuranPerRW: newIuran
-                }
-            }
-        })
-    }
-
-    const updateIuranPerRW = (index: number, field: 'rw' | 'nilai', value: any) => {
-        setFormData(prev => {
-            const newIuran = [...prev.kinerjaIuran.iuranPerRW]
-            newIuran[index] = { ...newIuran[index], [field]: value }
-            return {
-                ...prev,
-                kinerjaIuran: {
-                    ...prev.kinerjaIuran,
-                    iuranPerRW: newIuran
-                }
-            }
-        })
-    }
 
     const addNilaiIuran = () => {
         setFormData(prev => ({
@@ -250,6 +214,40 @@ export default function FormLaporanBaruLps() {
                 kinerjaIuran: {
                     ...prev.kinerjaIuran,
                     nilaiIuran: newNilaiIuran
+                }
+            }
+        })
+    }
+
+    const addIuranRW = () => {
+        if (!iuranRwInput.rw || iuranRwInput.jumlah <= 0) {
+            alert('Mohon lengkapi Nomor RW dan Jumlah Iuran');
+            return;
+        }
+        
+        const key = `RW ${iuranRwInput.rw}`;
+        setFormData(prev => ({
+            ...prev,
+            kinerjaIuran: {
+                ...prev.kinerjaIuran,
+                iuranPerRW: {
+                    ...prev.kinerjaIuran.iuranPerRW,
+                    [key]: iuranRwInput.jumlah
+                }
+            }
+        }));
+        setIuranRwInput({ rw: '', jumlah: 0 });
+    }
+
+    const removeIuranRW = (key: string) => {
+        setFormData(prev => {
+            const newIuranRW = { ...prev.kinerjaIuran.iuranPerRW }
+            delete newIuranRW[key]
+            return {
+                ...prev,
+                kinerjaIuran: {
+                    ...prev.kinerjaIuran,
+                    iuranPerRW: newIuranRW
                 }
             }
         })
@@ -439,9 +437,9 @@ export default function FormLaporanBaruLps() {
                                             className={cn(inputClasses, "appearance-none")}
                                             required
                                         >
-                                            <option value="" disabled className="bg-[#0a0f14] text-white/50">Pilih Kelurahan</option>
+                                            <option value="" disabled className="text-gray-900 bg-white">Pilih Kelurahan</option>
                                             {kelurahanList.map((k) => (
-                                                <option key={k.id} value={k.id} className="bg-[#0a0f14] text-white">
+                                                <option key={k.id} value={k.id} className="text-gray-900 bg-white">
                                                     {k.nama}
                                                 </option>
                                             ))}
@@ -647,8 +645,8 @@ export default function FormLaporanBaruLps() {
                                                 <input placeholder="RW (02)" value={rtInput.rw} onChange={(e) => setRtInput(prev => ({ ...prev, rw: e.target.value }))} className={cn(inputClasses, "w-24 pl-4 text-center")} />
                                                 <input type="number" placeholder="Jml KK" value={rtInput.jumlah || ''} onChange={(e) => setRtInput(prev => ({ ...prev, jumlah: parseInt(e.target.value) || 0 }))} className={cn(inputClasses, "w-32 pl-4 text-center")} />
                                                 <select value={rtInput.hari} onChange={(e) => setRtInput(prev => ({ ...prev, hari: e.target.value }))} className={cn(inputClasses, "w-36 pl-4 pr-10 appearance-none bg-[#0a0f14]")}>
-                                                    <option value="" disabled className="text-white/50">Pilih Hari</option>
-                                                    {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'].map(h => <option key={h} value={h} className="text-white">{h}</option>)}
+                                                    <option value="" disabled className="text-gray-900 bg-white">Pilih Hari</option>
+                                                    {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'].map(h => <option key={h} value={h} className="text-gray-900 bg-white">{h}</option>)}
                                                 </select>
                                                 <button type="button" onClick={addRumahTangga} className="px-6 py-3.5 bg-white/10 text-white font-bold rounded-2xl border border-white/10 hover:bg-emerald-500/20 hover:border-emerald-500/30 hover:text-emerald-400 transition-all flex items-center gap-2">
                                                     <Plus className="w-4 h-4" /> Tambah
@@ -810,51 +808,42 @@ export default function FormLaporanBaruLps() {
                                                 ))}
                                             </div>
 
-                                            {/* Iuran per RW - Multiple Dynamic Input */}
-                                            <div className="mt-8 relative z-10 bg-black/40 p-4 md:p-6 rounded-2xl border border-white/5">
-                                                <div className="flex justify-between items-center mb-4">
-                                                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest">Iuran per RW <span className="text-red-400">*</span></label>
-                                                    <button type="button" onClick={addIuranPerRW} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/20 hover:border-emerald-500/40 transition-all font-bold text-xs">
-                                                        <Plus className="w-3.5 h-3.5" />
-                                                        Tambah
+                                            {/* Iuran per RW - Dynamic Input */}
+                                            <div className="mt-8 relative z-10 bg-black/40 p-6 md:p-8 rounded-3xl border border-white/5">
+                                                <label className="block text-lg font-bold text-emerald-400 mb-6">Data Iuran per RW</label>
+                                                
+                                                <div className="flex flex-wrap items-center gap-4 mb-8">
+                                                    <input placeholder="RW (01)" value={iuranRwInput.rw} onChange={(e) => setIuranRwInput(prev => ({ ...prev, rw: e.target.value }))} className={cn(inputClasses, "w-28 pl-4 text-center")} />
+                                                    <div className="relative flex-1 min-w-[200px]">
+                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
+                                                        <input type="number" placeholder="Jumlah Iuran" value={iuranRwInput.jumlah || ''} onChange={(e) => setIuranRwInput(prev => ({ ...prev, jumlah: parseFloat(e.target.value) || 0 }))} className={cn(inputClasses, "w-full pl-12")} />
+                                                    </div>
+                                                    <button type="button" onClick={addIuranRW} className="px-6 py-3.5 bg-emerald-500/10 text-emerald-400 font-bold rounded-2xl border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all flex items-center gap-2">
+                                                        <Plus className="w-4 h-4" /> Tambah
                                                     </button>
                                                 </div>
                                                 
-                                                <div className="space-y-3">
-                                                    {formData.kinerjaIuran.iuranPerRW.length === 0 ? (
-                                                        <div className="text-center py-4 text-white/30 text-sm italic">Belum ada Iuran per RW. Klik "Tambah".</div>
-                                                    ) : (
-                                                        formData.kinerjaIuran.iuranPerRW.map((item, index) => (
-                                                            <div key={index} className="flex gap-3 items-center">
-                                                                <div className="relative w-1/3 md:w-1/4">
-                                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">RW</span>
-                                                                    <input 
-                                                                        type="text" 
-                                                                        value={item.rw} 
-                                                                        onChange={(e) => updateIuranPerRW(index, 'rw', e.target.value)} 
-                                                                        className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium"
-                                                                        placeholder="01"
-                                                                    />
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    {Object.entries(formData.kinerjaIuran.iuranPerRW).map(([key, value]) => (
+                                                        <div key={key} className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-colors">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                                                    <Coins className="w-5 h-5" />
                                                                 </div>
-                                                                <div className="relative flex-1">
-                                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
-                                                                    <input 
-                                                                        type="number" 
-                                                                        value={item.nilai || ''} 
-                                                                        onChange={(e) => updateIuranPerRW(index, 'nilai', parseFloat(e.target.value) || 0)} 
-                                                                        className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium"
-                                                                        placeholder="Masukkan nilai iuran..."
-                                                                    />
+                                                                <div>
+                                                                    <div className="font-bold text-white tracking-wider">{key}</div>
+                                                                    <div className="text-sm text-emerald-400">Rp {value.toLocaleString('id-ID')}</div>
                                                                 </div>
-                                                                <button 
-                                                                    type="button" 
-                                                                    onClick={() => removeIuranPerRW(index)}
-                                                                    className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all"
-                                                                >
-                                                                    <Trash2 className="w-5 h-5" />
-                                                                </button>
                                                             </div>
-                                                        ))
+                                                            <button type="button" onClick={() => removeIuranRW(key)} className="p-2 text-white/30 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors">
+                                                                <Trash2 className="w-5 h-5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {Object.keys(formData.kinerjaIuran.iuranPerRW).length === 0 && (
+                                                        <div className="col-span-full text-center py-8 px-4 border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
+                                                            <p className="text-white/40 text-sm">Belum ada data iuran per RW.</p>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
