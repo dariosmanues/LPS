@@ -301,7 +301,12 @@ export default function FormLaporanBaruLps() {
             i.biayaRapat == null ||
             i.feePetugasPungut == null ||
             i.gajiPengurus == null ||
-            i.biayaLainLain == null
+            i.biayaLainLain == null ||
+            Object.keys(i.iuranPerRW).length === 0 ||
+            i.nilaiIuran.length === 0 ||
+            !i.pemanfaatanIuran.trim() ||
+            !i.permasalahan.trim() ||
+            !i.aksiYangDilakukan.trim()
         ) {
             setActiveTab('iuran');
             alert('Seluruh field pada tab Iuran wajib diisi!');
@@ -802,7 +807,7 @@ export default function FormLaporanBaruLps() {
                                                         <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">{item.label} <span className="text-red-400">*</span></label>
                                                         <div className="relative">
                                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
-                                                            <input type="number" value={formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] as number || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
+                                                            <input type="number" required value={formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] as number || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
                                                         </div>
                                                     </div>
                                                 ))}
@@ -810,13 +815,13 @@ export default function FormLaporanBaruLps() {
 
                                             {/* Iuran per RW - Dynamic Input */}
                                             <div className="mt-8 relative z-10 bg-black/40 p-6 md:p-8 rounded-3xl border border-white/5">
-                                                <label className="block text-lg font-bold text-emerald-400 mb-6">Data Iuran per RW</label>
+                                                <label className="block text-lg font-bold text-emerald-400 mb-6">Data Iuran per RW <span className="text-red-400">*</span></label>
                                                 
                                                 <div className="flex flex-wrap items-center gap-4 mb-8">
-                                                    <input placeholder="RW (01)" value={iuranRwInput.rw} onChange={(e) => setIuranRwInput(prev => ({ ...prev, rw: e.target.value }))} className={cn(inputClasses, "w-28 pl-4 text-center")} />
+                                                    <input placeholder="RW (01)" required value={iuranRwInput.rw} onChange={(e) => setIuranRwInput(prev => ({ ...prev, rw: e.target.value }))} className={cn(inputClasses, "w-28 pl-4 text-center")} />
                                                     <div className="relative flex-1 min-w-[200px]">
                                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
-                                                        <input type="number" placeholder="Jumlah Iuran" value={iuranRwInput.jumlah || ''} onChange={(e) => setIuranRwInput(prev => ({ ...prev, jumlah: parseFloat(e.target.value) || 0 }))} className={cn(inputClasses, "w-full pl-12")} />
+                                                        <input type="number" required placeholder="Jumlah Iuran" value={iuranRwInput.jumlah || ''} onChange={(e) => setIuranRwInput(prev => ({ ...prev, jumlah: parseFloat(e.target.value) || 0 }))} className={cn(inputClasses, "w-full pl-12")} />
                                                     </div>
                                                     <button type="button" onClick={addIuranRW} className="px-6 py-3.5 bg-emerald-500/10 text-emerald-400 font-bold rounded-2xl border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 transition-all flex items-center gap-2">
                                                         <Plus className="w-4 h-4" /> Tambah
@@ -868,6 +873,7 @@ export default function FormLaporanBaruLps() {
                                                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 font-bold text-sm">Rp</span>
                                                                     <input 
                                                                         type="number" 
+                                                                        required
                                                                         value={nilai || ''} 
                                                                         onChange={(e) => updateNilaiIuran(index, parseFloat(e.target.value) || 0)} 
                                                                         className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-emerald-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium"
@@ -909,10 +915,48 @@ export default function FormLaporanBaruLps() {
                                                         <label className="block text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">{item.label} <span className="text-red-400">*</span></label>
                                                         <div className="relative">
                                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-red-400/50 font-bold text-sm">Rp</span>
-                                                            <input type="number" value={(formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] as number) || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-red-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
+                                                            <input type="number" required value={(formData.kinerjaIuran[item.id as keyof typeof formData.kinerjaIuran] as number) || 0} onChange={(e) => handleInputChange('kinerjaIuran', item.id, parseFloat(e.target.value) || 0)} className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 focus:border-red-500/50 rounded-xl focus:outline-none transition-colors text-white font-medium" />
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent my-8" />
+
+                                        <div className="space-y-6">
+                                            <div className="space-y-2">
+                                                <label className={labelClasses}>Pemanfaatan Iuran <span className="text-red-400">*</span></label>
+                                                <textarea
+                                                    placeholder="Uraikan pemanfaatan iuran yang telah dilakukan..."
+                                                    value={formData.kinerjaIuran.pemanfaatanIuran}
+                                                    onChange={(e) => handleInputChange('kinerjaIuran', 'pemanfaatanIuran', e.target.value)}
+                                                    rows={3}
+                                                    required
+                                                    className={cn(inputClasses, "pl-4 resize-none")}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className={labelClasses}>Permasalahan & Kendala <span className="text-red-400">*</span></label>
+                                                <textarea
+                                                    placeholder="Kendala yang dihadapi terkait iuran..."
+                                                    value={formData.kinerjaIuran.permasalahan}
+                                                    onChange={(e) => handleInputChange('kinerjaIuran', 'permasalahan', e.target.value)}
+                                                    rows={3}
+                                                    required
+                                                    className={cn(inputClasses, "pl-4 resize-none")}
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className={labelClasses}>Aksi yang Dilakukan <span className="text-red-400">*</span></label>
+                                                <textarea
+                                                    placeholder="Langkah-langkah yang telah dilakukan untuk mengatasi kendala..."
+                                                    value={formData.kinerjaIuran.aksiYangDilakukan}
+                                                    onChange={(e) => handleInputChange('kinerjaIuran', 'aksiYangDilakukan', e.target.value)}
+                                                    rows={3}
+                                                    required
+                                                    className={cn(inputClasses, "pl-4 resize-none")}
+                                                />
                                             </div>
                                         </div>
                                     </motion.div>
