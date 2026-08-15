@@ -20,25 +20,29 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // Determine cookie name based on environment
-    const isProd = process.env.NODE_ENV === 'production';
-    const primaryCookieName = isProd
-        ? '__Secure-next-auth.session-token'
-        : 'next-auth.session-token';
-
-    // Try reading JWT token with explicit cookieName
+    // 1. Try HTTPS production secure cookie
     let token = await getToken({
         req,
         secret: NEXTAUTH_SECRET,
-        cookieName: primaryCookieName,
+        secureCookie: true,
+        cookieName: '__Secure-next-auth.session-token',
     });
 
-    // Fallback check for dev/HTTP cookie name if proxied in production or edge runtime
-    if (!token && isProd) {
+    // 2. Try HTTP development cookie
+    if (!token) {
         token = await getToken({
             req,
             secret: NEXTAUTH_SECRET,
+            secureCookie: false,
             cookieName: 'next-auth.session-token',
+        });
+    }
+
+    // 3. Fallback: let NextAuth auto-detect cookie name and chunking
+    if (!token) {
+        token = await getToken({
+            req,
+            secret: NEXTAUTH_SECRET,
         });
     }
 
