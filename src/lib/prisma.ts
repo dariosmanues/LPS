@@ -4,16 +4,24 @@ import path from 'path';
 
 // Handle SQLite on Vercel serverless environment
 if (process.env.VERCEL) {
-    const dbPath = path.join(process.cwd(), 'prisma', 'dev.db');
+    const possiblePaths = [
+        path.join(process.cwd(), 'prisma', 'dev.db'),
+        path.join(process.cwd(), '.next', 'server', 'prisma', 'dev.db'),
+    ];
+
     const tmpDbPath = '/tmp/dev.db';
 
     if (!fs.existsSync(tmpDbPath)) {
-        try {
+        for (const dbPath of possiblePaths) {
             if (fs.existsSync(dbPath)) {
-                fs.copyFileSync(dbPath, tmpDbPath);
+                try {
+                    fs.copyFileSync(dbPath, tmpDbPath);
+                    console.log('Successfully copied SQLite db from', dbPath, 'to /tmp/dev.db');
+                    break;
+                } catch (e) {
+                    console.error('Failed to copy db to /tmp from', dbPath, ':', e);
+                }
             }
-        } catch (e) {
-            console.error('Failed to copy db to /tmp:', e);
         }
     }
     process.env.DATABASE_URL = `file:${tmpDbPath}`;

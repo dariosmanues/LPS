@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   serverExternalPackages: ['serialport', '@serialport/parser-readline', '@serialport/bindings-cpp'],
   outputFileTracingIncludes: {
-    '/api/**/*': ['./prisma/dev.db'],
+    '/**/*': ['./prisma/dev.db'],
   },
   async headers() {
     return [
