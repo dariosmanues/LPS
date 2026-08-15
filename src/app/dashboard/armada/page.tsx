@@ -282,7 +282,10 @@ export default function ArmadaPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                alert(`Import berhasil!\nTotal: ${data.stats.total}\nBaru: ${data.stats.created}\nUpdate: ${data.stats.updated}\nGagal: ${data.stats.errors}`);
+                const errorDetails = data.stats.errors > 0 && data.stats.details?.length > 0
+                    ? `\n\nDetail Gagal:\n${data.stats.details.join('\n')}`
+                    : '';
+                alert(`Import berhasil!\nTotal: ${data.stats.total}\nBaru: ${data.stats.created}\nUpdate: ${data.stats.updated}\nGagal: ${data.stats.errors}${errorDetails}`);
                 fetchArmada();
             } else {
                 const errorData = await res.json();

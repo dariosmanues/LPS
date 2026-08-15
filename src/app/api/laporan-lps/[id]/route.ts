@@ -121,6 +121,9 @@ export async function PUT(
                             volumePemilahanUnorganik: kinerjaPengolahan.volumePemilahanUnorganik,
                             volumePenjualanOrganik: kinerjaPengolahan.volumePenjualanOrganik,
                             volumePenjualanUnorganik: kinerjaPengolahan.volumePenjualanUnorganik,
+                            rincianAnorganik: typeof kinerjaPengolahan.rincianAnorganik === 'object'
+                                ? JSON.stringify(kinerjaPengolahan.rincianAnorganik)
+                                : kinerjaPengolahan.rincianAnorganik,
                             programEdukasi: kinerjaPengolahan.programEdukasi,
                             permasalahan: kinerjaPengolahan.permasalahan,
                             aksiYangDilakukan: kinerjaPengolahan.aksiYangDilakukan
@@ -131,6 +134,9 @@ export async function PUT(
                             volumePemilahanUnorganik: kinerjaPengolahan.volumePemilahanUnorganik,
                             volumePenjualanOrganik: kinerjaPengolahan.volumePenjualanOrganik,
                             volumePenjualanUnorganik: kinerjaPengolahan.volumePenjualanUnorganik,
+                            rincianAnorganik: typeof kinerjaPengolahan.rincianAnorganik === 'object'
+                                ? JSON.stringify(kinerjaPengolahan.rincianAnorganik)
+                                : kinerjaPengolahan.rincianAnorganik,
                             programEdukasi: kinerjaPengolahan.programEdukasi,
                             permasalahan: kinerjaPengolahan.permasalahan,
                             aksiYangDilakukan: kinerjaPengolahan.aksiYangDilakukan

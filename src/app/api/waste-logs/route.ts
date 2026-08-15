@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { WasteStatus } from '@prisma/client';
+
 
 // Demo user ID - in production, get from session
 const DEMO_USER_ID = 'demo-gatekeeper';
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
                 kelurahanId,
                 recordedBy: user.id,
                 beratKg: parseFloat(beratKg),
-                status: status as WasteStatus,
+                status: status,
                 metadata: JSON.stringify({
                     scannedAt: new Date().toISOString(),
                     deviceInfo: 'mobile-web',

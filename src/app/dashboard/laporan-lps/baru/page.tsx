@@ -43,6 +43,7 @@ export default function FormLaporanBaru() {
             volumePemilahanUnorganik: 0,
             volumePenjualanOrganik: 0,
             volumePenjualanUnorganik: 0,
+            rincianAnorganik: {} as Record<string, number>,
             programEdukasi: '',
             permasalahan: '',
             aksiYangDilakukan: ''
@@ -72,7 +73,7 @@ export default function FormLaporanBaru() {
     type FormDataSection = keyof typeof formData;
     type NestedSection = 'kinerjaAngkutan' | 'kinerjaPengolahan' | 'kinerjaIuran';
 
-    const handleInputChange = (section: string, field: string, value: string | number) => {
+    const handleInputChange = (section: keyof typeof formData, field: string, value: any) => {
         if (section === 'kinerjaAngkutan' || section === 'kinerjaPengolahan' || section === 'kinerjaIuran') {
             setFormData(prev => ({
                 ...prev,
@@ -89,21 +90,37 @@ export default function FormLaporanBaru() {
         }
     }
 
-    const addRumahTangga = () => {
-        if (rtInput.rt && rtInput.rw && rtInput.jumlah > 0) {
-            const key = `RT${rtInput.rt}/RW${rtInput.rw}`
-            setFormData(prev => ({
-                ...prev,
-                kinerjaAngkutan: {
-                    ...prev.kinerjaAngkutan,
-                    jumlahRumahTangga: {
-                        ...prev.kinerjaAngkutan.jumlahRumahTangga,
-                        [key]: rtInput.jumlah
-                    }
+    const handleRincianAnorganikChange = (kategori: string, subkategori: string, value: number) => {
+        setFormData(prev => ({
+            ...prev,
+            kinerjaPengolahan: {
+                ...prev.kinerjaPengolahan,
+                rincianAnorganik: {
+                    ...prev.kinerjaPengolahan.rincianAnorganik,
+                    [`${kategori}_${subkategori}`]: value
                 }
-            }))
-            setRtInput({ rt: '', rw: '', jumlah: 0 })
+            }
+        }))
+    }
+
+    const addRumahTangga = () => {
+        if (!rtInput.rt || !rtInput.rw || rtInput.jumlah <= 0) {
+            alert('Mohon lengkapi RT, RW, dan Jumlah Rumah Tangga (> 0)');
+            return;
         }
+
+        const key = `RT${rtInput.rt}/RW${rtInput.rw}`
+        setFormData(prev => ({
+            ...prev,
+            kinerjaAngkutan: {
+                ...prev.kinerjaAngkutan,
+                jumlahRumahTangga: {
+                    ...prev.kinerjaAngkutan.jumlahRumahTangga,
+                    [key]: rtInput.jumlah
+                }
+            }
+        }))
+        setRtInput({ rt: '', rw: '', jumlah: 0 })
     }
 
     const removeRumahTangga = (key: string) => {
@@ -124,6 +141,13 @@ export default function FormLaporanBaru() {
         if (!formData.bulan || !formData.kelurahan) {
             alert('Bulan dan Kelurahan wajib diisi!')
             return
+        }
+
+        const iuran = formData.kinerjaIuran;
+        if (!iuran.pemanfaatanIuran || !iuran.permasalahan || !iuran.aksiYangDilakukan) {
+            alert('Seluruh field teks pada tab Iuran wajib diisi!');
+            setActiveTab('iuran');
+            return;
         }
 
         setLoading(true)
@@ -380,6 +404,7 @@ export default function FormLaporanBaru() {
                                         className="w-28 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
                                     <button
+                                        type="button"
                                         onClick={addRumahTangga}
                                         className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                     >
@@ -398,6 +423,7 @@ export default function FormLaporanBaru() {
                                                 {key}: <strong>{value}</strong> rumah tangga
                                             </span>
                                             <button
+                                                type="button"
                                                 onClick={() => removeRumahTangga(key)}
                                                 className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                             >
@@ -492,6 +518,140 @@ export default function FormLaporanBaru() {
                                 </div>
                             </div>
 
+                            <hr className="border-gray-200" />
+                            <div>
+                                <h3 className="text-md font-semibold text-gray-800 mb-4">Rincian Volume Pemilahan Spesifik (kg)</h3>
+                                
+                                {/* Plastik */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Plastik</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {[
+                                            { id: 'KantongKresek', label: 'Kantong Kresek' },
+                                            { id: 'BotolAirMineral', label: 'Botol Air Mineral' },
+                                            { id: 'WadahMakanan', label: 'Wadah Makanan' },
+                                            { id: 'Sedotan', label: 'Sedotan' },
+                                            { id: 'TutupBotol', label: 'Tutup Botol' },
+                                            { id: 'Lainnya', label: 'Lainnya' }
+                                        ].map(item => (
+                                            <div key={`Plastik_${item.id}`}>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">{item.label}</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={formData.kinerjaPengolahan.rincianAnorganik?.[`Plastik_${item.id}`] || ''}
+                                                    onChange={(e) => handleRincianAnorganikChange('Plastik', item.id, parseFloat(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Logam */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Logam</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {[
+                                            { id: 'KalengMinuman', label: 'Kaleng Minuman' },
+                                            { id: 'AluminiumFoil', label: 'Aluminium Foil' },
+                                            { id: 'PakuBekas', label: 'Paku Bekas' },
+                                            { id: 'Kawat', label: 'Kawat' },
+                                            { id: 'Lainnya', label: 'Lainnya' }
+                                        ].map(item => (
+                                            <div key={`Logam_${item.id}`}>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">{item.label}</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={formData.kinerjaPengolahan.rincianAnorganik?.[`Logam_${item.id}`] || ''}
+                                                    onChange={(e) => handleRincianAnorganikChange('Logam', item.id, parseFloat(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Kaca */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Kaca</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {[
+                                            { id: 'PecahanBotol', label: 'Pecahan Botol' },
+                                            { id: 'GelasBeling', label: 'Gelas Beling' },
+                                            { id: 'JendelaRusak', label: 'Jendela Rusak' },
+                                            { id: 'Lainnya', label: 'Lainnya' }
+                                        ].map(item => (
+                                            <div key={`Kaca_${item.id}`}>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">{item.label}</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={formData.kinerjaPengolahan.rincianAnorganik?.[`Kaca_${item.id}`] || ''}
+                                                    onChange={(e) => handleRincianAnorganikChange('Kaca', item.id, parseFloat(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Karet */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Karet</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {[
+                                            { id: 'BanBekas', label: 'Ban Bekas' },
+                                            { id: 'SandalJepit', label: 'Sandal Jepit Rusak' },
+                                            { id: 'Lainnya', label: 'Lainnya' }
+                                        ].map(item => (
+                                            <div key={`Karet_${item.id}`}>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">{item.label}</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={formData.kinerjaPengolahan.rincianAnorganik?.[`Karet_${item.id}`] || ''}
+                                                    onChange={(e) => handleRincianAnorganikChange('Karet', item.id, parseFloat(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Elektronik (B3) */}
+                                <div className="mb-6">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">Elektronik (Limbah B3)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {[
+                                            { id: 'BateraiBekas', label: 'Baterai Bekas' },
+                                            { id: 'Kabel', label: 'Kabel' },
+                                            { id: 'BohlamLampu', label: 'Bohlam Lampu' },
+                                            { id: 'Lainnya', label: 'Lainnya' }
+                                        ].map(item => (
+                                            <div key={`Elektronik_${item.id}`}>
+                                                <label className="block text-xs font-medium text-gray-600 mb-1">{item.label}</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={formData.kinerjaPengolahan.rincianAnorganik?.[`Elektronik_${item.id}`] || ''}
+                                                    onChange={(e) => handleRincianAnorganikChange('Elektronik', item.id, parseFloat(e.target.value) || 0)}
+                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr className="border-gray-200" />
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Program Edukasi</label>
                                 <textarea
@@ -535,33 +695,33 @@ export default function FormLaporanBaru() {
                                 <h3 className="font-semibold text-gray-800 border-b pb-2">Penerimaan</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Penerimaan Iuran Bulanan</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Penerimaan Iuran Bulanan <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.penerimaanIuran}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'penerimaanIuran', parseFloat(e.target.value) || 0)}
                                             placeholder="0"
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Iuran per RT</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Iuran per RT <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.iuranPerRT || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'iuranPerRT', parseFloat(e.target.value) || 0)}
                                             placeholder="0"
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Penerimaan Lain-lain</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Penerimaan Lain-lain <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.penerimaanLain || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'penerimaanLain', parseFloat(e.target.value) || 0)}
                                             placeholder="0"
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                 </div>
@@ -572,101 +732,101 @@ export default function FormLaporanBaru() {
                                 <h3 className="font-semibold text-gray-800 border-b pb-2">Pengeluaran</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Sewa Armada</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Sewa Armada <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.sewaArmada || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'sewaArmada', parseFloat(e.target.value) || 0)}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">BBM</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">BBM <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.bbm || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'bbm', parseFloat(e.target.value) || 0)}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tenaga Kerja</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tenaga Kerja <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.tenagaKerja || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'tenagaKerja', parseFloat(e.target.value) || 0)}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Administrasi</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Administrasi <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.administrasi || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'administrasi', parseFloat(e.target.value) || 0)}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Biaya Rapat (Makan Minum)</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Biaya Rapat (Makan Minum) <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.biayaRapat || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'biayaRapat', parseFloat(e.target.value) || 0)}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Fee Petugas Pungut</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Fee Petugas Pungut <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.feePetugasPungut || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'feePetugasPungut', parseFloat(e.target.value) || 0)}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Gaji/Honor Pengurus LPS</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Gaji/Honor Pengurus LPS <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             value={formData.kinerjaIuran.gajiPengurus || 0}
                                             onChange={(e) => handleInputChange('kinerjaIuran', 'gajiPengurus', parseFloat(e.target.value) || 0)}
-                                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                         />
                                     </div>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Pemanfaatan Iuran</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Pemanfaatan Iuran <span className="text-red-500">*</span></label>
                                 <textarea
                                     placeholder="Jelaskan pemanfaatan iuran sampah..."
                                     value={formData.kinerjaIuran.pemanfaatanIuran}
                                     onChange={(e) => handleInputChange('kinerjaIuran', 'pemanfaatanIuran', e.target.value)}
                                     rows={3}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                    required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Permasalahan yang Dihadapi</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Permasalahan yang Dihadapi <span className="text-red-500">*</span></label>
                                 <textarea
                                     placeholder="Jelaskan permasalahan yang dihadapi..."
                                     value={formData.kinerjaIuran.permasalahan}
                                     onChange={(e) => handleInputChange('kinerjaIuran', 'permasalahan', e.target.value)}
                                     rows={3}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                    required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Aksi yang Telah Dilakukan</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Aksi yang Telah Dilakukan <span className="text-red-500">*</span></label>
                                 <textarea
                                     placeholder="Jelaskan aksi yang telah dilakukan dalam mengatasi masalah..."
                                     value={formData.kinerjaIuran.aksiYangDilakukan}
                                     onChange={(e) => handleInputChange('kinerjaIuran', 'aksiYangDilakukan', e.target.value)}
                                     rows={3}
-                                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                    required className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                                 />
                             </div>
                         </div>

@@ -65,3 +65,6 @@ test-*.ts
 test-*.js
 test_*.js
 verify_*.js
+
+.vercel
+.env*.local

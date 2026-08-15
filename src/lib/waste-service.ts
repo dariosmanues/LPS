@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { WasteStatus } from '@prisma/client';
+
 
 interface ScanInput {
     armadaQrCode: string;
@@ -74,7 +74,7 @@ export async function processWasteScan(input: ScanInput): Promise<ScanResult> {
                 kelurahanId: kelurahan?.id,
                 recordedBy: input.userId,
                 beratKg: input.beratKg,
-                status: input.status as WasteStatus,
+                status: input.status,
                 metadata: JSON.stringify({
                     scannedAt: new Date().toISOString(),
                     deviceInfo: 'mobile-app'

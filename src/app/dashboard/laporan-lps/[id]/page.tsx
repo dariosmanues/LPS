@@ -31,6 +31,7 @@ interface LaporanDetail {
         volumePemilahanUnorganik?: number;
         volumePenjualanOrganik?: number;
         volumePenjualanUnorganik?: number;
+        rincianAnorganik?: string | Record<string, number>;
         programEdukasi?: string;
         permasalahan?: string;
         aksiYangDilakukan?: string;
@@ -472,6 +473,43 @@ export default function DetailLaporan() {
                                     </div>
                                 </div>
                             </div>
+
+                            <div>
+                                <h4 className="font-medium text-gray-700 mb-3">Rincian Volume Pemilahan Spesifik</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {(() => {
+                                        const rawRincian = laporan.kinerjaPengolahan?.rincianAnorganik;
+                                        let rincianObj: Record<string, number> = {};
+                                        try {
+                                            if (typeof rawRincian === 'string') {
+                                                rincianObj = JSON.parse(rawRincian);
+                                            } else if (typeof rawRincian === 'object' && rawRincian !== null) {
+                                                rincianObj = rawRincian;
+                                            }
+                                        } catch (e) {
+                                            console.error("Failed to parse rincianAnorganik", e);
+                                        }
+
+                                        const entries = Object.entries(rincianObj).filter(([_, val]) => val > 0);
+                                        
+                                        if (entries.length === 0) {
+                                            return <p className="text-gray-500 col-span-full">Belum ada rincian pemilahan</p>;
+                                        }
+
+                                        return entries.map(([key, value]) => {
+                                            const formattedKey = key.replace('_', ' - ').replace(/([A-Z])/g, ' $1').trim();
+                                            return (
+                                                <div key={key} className="p-3 bg-gray-50 border border-gray-100 rounded-lg flex justify-between items-center">
+                                                    <p className="text-sm text-gray-600 mb-1 capitalize">{formattedKey}</p>
+                                                    <p className="font-medium text-purple-700 bg-purple-100 px-2 py-1 rounded-full text-sm">{value} kg</p>
+                                                </div>
+                                            );
+                                        });
+                                    })()}
+                                </div>
+                            </div>
+
+                            <hr className="border-gray-200" />
 
                             <div>
                                 <h4 className="font-medium text-gray-700 mb-2">Program Edukasi</h4>

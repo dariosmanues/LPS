@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -83,16 +83,11 @@ model WasteLog {
   recordedBy  String      @map("recorded_by")
   user        User        @relation(fields: [recordedBy], references: [id])
   beratKg     Decimal     @map("berat_kg")
-  status      WasteStatus
+  status      String      // MASUK or KELUAR (SQLite doesn't support enums natively)
   recordedAt  DateTime    @default(now()) @map("recorded_at")
   metadata    String      @default("{}")
   
   @@map("waste_logs")
-}
-
-enum WasteStatus {
-  MASUK
-  KELUAR
 }
 
 // Model untuk Laporan Bulanan LPS
@@ -140,6 +135,10 @@ model KinerjaPengolahan {
   volumePemilahanUnorganik  Float?  @map("volume_pemilahan_unorganik")
   volumePenjualanOrganik    Float?  @map("volume_penjualan_organik")
   volumePenjualanUnorganik  Float?  @map("volume_penjualan_unorganik")
+  
+  // Specific Anorganik Types JSON String
+  rincianAnorganik          String? @map("rincian_anorganik")
+  
   programEdukasi            String? @map("program_edukasi")
   permasalahan              String?
   aksiYangDilakukan         String? @map("aksi_yang_dilakukan")
@@ -197,7 +196,7 @@ model MeetingSummary {
   id        String   @id @default(uuid())
   content   String
   updatedAt DateTime @updatedAt
-  
+
   @@map("meeting_summaries")
 }
 
@@ -208,4 +207,23 @@ model MeetingSummaryArchive {
   createdBy   String?  @map("created_by")
 
   @@map("meeting_summary_archive")
+}
+
+// Laporan Masyarakat via WhatsApp
+model LaporanMasyarakat {
+  id            String   @id @default(uuid())
+  waMessageId   String?  @unique @map("wa_message_id")
+  senderPhone   String   @map("sender_phone")
+  senderName    String?  @map("sender_name")
+  message       String
+  mediaUrl      String?  @map("media_url")
+  kategori      String   @default("LAINNYA") // SAMPAH_MENUMPUK, ARMADA_TIDAK_DATANG, JADWAL_PENGANGKUTAN, IURAN, LAINNYA
+  status        String   @default("BARU") // BARU, DIPROSES, SELESAI, DITOLAK
+  adminNotes    String?  @map("admin_notes")
+  replyMessage  String?  @map("reply_message")
+  repliedAt     DateTime? @map("replied_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("laporan_masyarakat")
 }

@@ -87,13 +87,17 @@ export async function POST(req: NextRequest) {
             // Also map by potential variations if needed
         });
 
-        for (const row of jsonData as any[]) {
+        for (let i = 0; i < (jsonData as any[]).length; i++) {
+            const row = (jsonData as any[])[i];
+            const rowNum = i + 2; // +2 because row 1 is header, array is 0-indexed
             try {
                 const platNomor = row["Nomor Polisi"] || row["platNomor"] || row["Plat Nomor"];
 
                 if (!platNomor) {
                     stats.errors++;
-                    continue; // Skip rows without plat nomor
+                    const namaLps = row["nama lps"] || row["Nama LPS"] || row["Nama LPS 2"] || '(kosong)';
+                    stats.details.push(`Baris ${rowNum}: Kolom 'Nomor Polisi' kosong (LPS: ${namaLps})`);
+                    continue;
                 }
 
                 const normalizedPlat = platNomor.toString().trim().toUpperCase();
@@ -168,9 +172,10 @@ export async function POST(req: NextRequest) {
                 }
 
             } catch (err: any) {
-                console.error("Row Error:", err);
+                console.error(`Row ${rowNum} Error:`, err);
                 stats.errors++;
-                stats.details.push(`Row error: ${err.message}`);
+                const platInfo = row["Nomor Polisi"] || row["platNomor"] || row["Plat Nomor"] || '(kosong)';
+                stats.details.push(`Baris ${rowNum} (Plat: ${platInfo}): ${err.message}`);
             }
         }
 

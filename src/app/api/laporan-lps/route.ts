@@ -103,6 +103,9 @@ export async function POST(request: NextRequest) {
                         volumePemilahanUnorganik: kinerjaPengolahan.volumePemilahanUnorganik,
                         volumePenjualanOrganik: kinerjaPengolahan.volumePenjualanOrganik,
                         volumePenjualanUnorganik: kinerjaPengolahan.volumePenjualanUnorganik,
+                        rincianAnorganik: typeof kinerjaPengolahan.rincianAnorganik === 'object'
+                            ? JSON.stringify(kinerjaPengolahan.rincianAnorganik)
+                            : kinerjaPengolahan.rincianAnorganik,
                         programEdukasi: kinerjaPengolahan.programEdukasi,
                         permasalahan: kinerjaPengolahan.permasalahan,
                         aksiYangDilakukan: kinerjaPengolahan.aksiYangDilakukan

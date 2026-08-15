@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatedBackground, GlassCard } from '@/components/ui';
@@ -10,6 +10,22 @@ import { useSession, signOut } from 'next-auth/react';
 interface ScanResult {
     armadaQrCode: string | null;
     armadaInfo: { platNomor: string; namaLps: string; namaSupir: string } | null;
+}
+
+interface SerialPortInfo {
+    path: string;
+    manufacturer: string;
+    serialNumber: string;
+    pnpId: string;
+}
+
+interface SerialConfig {
+    path: string;
+    baudRate: number;
+    dataBits: number;
+    parity: string;
+    stopBits: number;
+    delimiter: string;
 }
 
 export default function ScanPage() {
@@ -38,10 +54,30 @@ export default function ScanPage() {
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
 
+    // --- RS232 Serial Port State ---
+    const [serialConnected, setSerialConnected] = useState(false);
+    const [serialConnecting, setSerialConnecting] = useState(false);
+    const [serialError, setSerialError] = useState<string | null>(null);
+    const [serialData, setSerialData] = useState<string | null>(null);
+    const [serialDataLog, setSerialDataLog] = useState<string[]>([]);
+    const [availablePorts, setAvailablePorts] = useState<SerialPortInfo[]>([]);
+    const [showSerialConfig, setShowSerialConfig] = useState(false);
+    const [autoFillWeight, setAutoFillWeight] = useState(true);
+    const [serialConfig, setSerialConfig] = useState<SerialConfig>({
+        path: 'COM3',
+        baudRate: 9600,
+        dataBits: 8,
+        parity: 'none',
+        stopBits: 1,
+        delimiter: '\r\n',
+    });
+    const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
     const handleLogout = () => {
         signOut({ callbackUrl: '/' });
     };
 
+    // --- Scanner cleanup ---
     useEffect(() => {
         return () => {
             if (scannerRef.current?.isScanning) {
@@ -49,6 +85,154 @@ export default function ScanPage() {
             }
         };
     }, []);
+
+    // --- Serial Port: List available ports ---
+    const fetchPorts = useCallback(async () => {
+        try {
+            const res = await fetch('/api/serial?action=ports');
+            const data = await res.json();
+            if (data.success) {
+                setAvailablePorts(data.ports);
+            }
+        } catch {
+            console.error('Failed to fetch ports');
+        }
+    }, []);
+
+    // --- Serial Port: Poll for data ---
+    const startPolling = useCallback(() => {
+        if (pollingRef.current) clearInterval(pollingRef.current);
+
+        pollingRef.current = setInterval(async () => {
+            try {
+                const res = await fetch('/api/serial?action=consume');
+                const result = await res.json();
+
+                if (!result.isConnected) {
+                    setSerialConnected(false);
+                    if (pollingRef.current) clearInterval(pollingRef.current);
+                    return;
+                }
+
+                if (result.data) {
+                    setSerialData(result.data);
+                    setSerialDataLog((prev) => [...prev.slice(-19), result.data]);
+
+                    // Auto-fill weight if enabled — try to parse number from data
+                    if (autoFillWeight) {
+                        const match = result.data.match(/[\d.]+/);
+                        if (match) {
+                            setBeratKg(match[0]);
+                        }
+                    }
+                }
+            } catch {
+                // Ignore polling errors silently
+            }
+        }, 500);
+    }, [autoFillWeight]);
+
+    const stopPolling = useCallback(() => {
+        if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        }
+    }, []);
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+        return () => stopPolling();
+    }, [stopPolling]);
+
+    // --- Serial Port: Check initial status ---
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const res = await fetch('/api/serial?action=status');
+                const data = await res.json();
+                if (data.isConnected) {
+                    setSerialConnected(true);
+                    startPolling();
+                }
+            } catch {
+                // Ignore
+            }
+        };
+        checkStatus();
+    }, [startPolling]);
+
+    // --- Serial Port: Connect ---
+    const connectSerial = async () => {
+        setSerialConnecting(true);
+        setSerialError(null);
+
+        try {
+            const res = await fetch('/api/serial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'connect',
+                    config: serialConfig,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                setSerialConnected(true);
+                setSerialError(null);
+                startPolling();
+                setMessage({ type: 'success', text: `✅ Terhubung ke ${serialConfig.path}` });
+            } else {
+                setSerialError(data.message);
+                setMessage({ type: 'error', text: `❌ ${data.message}` });
+            }
+        } catch {
+            setSerialError('Gagal menghubungi server');
+            setMessage({ type: 'error', text: '❌ Gagal menghubungi server' });
+        } finally {
+            setSerialConnecting(false);
+        }
+    };
+
+    // --- Serial Port: Disconnect ---
+    const disconnectSerial = async () => {
+        try {
+            const res = await fetch('/api/serial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'disconnect' }),
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                setSerialConnected(false);
+                stopPolling();
+                setSerialData(null);
+                setMessage({ type: 'success', text: '🔌 Koneksi serial diputus' });
+            }
+        } catch {
+            setMessage({ type: 'error', text: '❌ Gagal memutus koneksi' });
+        }
+    };
+
+    // --- Serial Port: Send data ---
+    const sendSerialData = async (data: string) => {
+        try {
+            const res = await fetch('/api/serial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'send', data }),
+            });
+
+            const result = await res.json();
+            if (!result.success) {
+                setMessage({ type: 'error', text: `❌ ${result.message}` });
+            }
+        } catch {
+            setMessage({ type: 'error', text: '❌ Gagal mengirim data' });
+        }
+    };
 
     // Start scanner when scanning state changes
     useEffect(() => {
@@ -198,6 +382,198 @@ export default function ScanPage() {
                         </div>
                     )}
 
+                    {/* RS232 Serial Connection Panel */}
+                    <GlassCard hover={false}>
+                        <div className="flex items-center justify-between mb-3">
+                            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                Koneksi RS232
+                                <span className={`inline-block w-2.5 h-2.5 rounded-full ${serialConnected ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`} />
+                            </h2>
+                            <button
+                                onClick={() => {
+                                    setShowSerialConfig(!showSerialConfig);
+                                    if (!showSerialConfig) fetchPorts();
+                                }}
+                                className="text-sm text-blue-500 hover:text-blue-700 transition-colors font-medium"
+                            >
+                                {showSerialConfig ? 'Tutup ▲' : 'Konfigurasi ▼'}
+                            </button>
+                        </div>
+
+                        {/* Connection status */}
+                        <div className="flex items-center gap-3 mb-3">
+                            {serialConnected ? (
+                                <button
+                                    onClick={disconnectSerial}
+                                    className="flex-1 py-2.5 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 transition-colors text-sm border border-red-200"
+                                >
+                                    🔌 Putuskan Koneksi
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={connectSerial}
+                                    disabled={serialConnecting}
+                                    className="flex-1 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-medium hover:bg-blue-100 transition-colors text-sm disabled:opacity-50 border border-blue-200"
+                                >
+                                    {serialConnecting ? '⏳ Menghubungkan...' : `🔗 Hubungkan ke ${serialConfig.path}`}
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Serial data display */}
+                        {serialConnected && serialData && (
+                            <div className="p-3 bg-gray-900 rounded-xl text-green-400 font-mono text-lg text-center mb-3">
+                                📩 {serialData}
+                            </div>
+                        )}
+
+                        {/* Auto-fill toggle */}
+                        {serialConnected && (
+                            <label className="flex items-center gap-2 text-sm text-gray-600 mb-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={autoFillWeight}
+                                    onChange={(e) => setAutoFillWeight(e.target.checked)}
+                                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                />
+                                Auto-isi berat dari data serial
+                            </label>
+                        )}
+
+                        {/* Serial error */}
+                        {serialError && (
+                            <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs mb-3">
+                                ⚠️ {serialError}
+                            </div>
+                        )}
+
+                        {/* Config Panel */}
+                        {showSerialConfig && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                                {/* Available ports */}
+                                {availablePorts.length > 0 && (
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Port Tersedia</label>
+                                        <div className="space-y-1">
+                                            {availablePorts.map((p) => (
+                                                <button
+                                                    key={p.path}
+                                                    onClick={() => setSerialConfig({ ...serialConfig, path: p.path })}
+                                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                                        serialConfig.path === p.path
+                                                            ? 'bg-blue-100 border border-blue-300 text-blue-700'
+                                                            : 'bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100'
+                                                    }`}
+                                                >
+                                                    <span className="font-mono font-semibold">{p.path}</span>
+                                                    <span className="text-xs text-gray-400 ml-2">({p.manufacturer})</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Port</label>
+                                        <input
+                                            type="text"
+                                            value={serialConfig.path}
+                                            onChange={(e) => setSerialConfig({ ...serialConfig, path: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                                            placeholder="COM3"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Baud Rate</label>
+                                        <select
+                                            value={serialConfig.baudRate}
+                                            onChange={(e) => setSerialConfig({ ...serialConfig, baudRate: parseInt(e.target.value) })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                                        >
+                                            <option value={4800}>4800</option>
+                                            <option value={9600}>9600</option>
+                                            <option value={19200}>19200</option>
+                                            <option value={38400}>38400</option>
+                                            <option value={57600}>57600</option>
+                                            <option value={115200}>115200</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Data Bits</label>
+                                        <select
+                                            value={serialConfig.dataBits}
+                                            onChange={(e) => setSerialConfig({ ...serialConfig, dataBits: parseInt(e.target.value) })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                                        >
+                                            <option value={7}>7</option>
+                                            <option value={8}>8</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Parity</label>
+                                        <select
+                                            value={serialConfig.parity}
+                                            onChange={(e) => setSerialConfig({ ...serialConfig, parity: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                                        >
+                                            <option value="none">None</option>
+                                            <option value="even">Even</option>
+                                            <option value="odd">Odd</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Stop Bits</label>
+                                        <select
+                                            value={serialConfig.stopBits}
+                                            onChange={(e) => setSerialConfig({ ...serialConfig, stopBits: parseInt(e.target.value) })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                                        >
+                                            <option value={1}>1</option>
+                                            <option value={2}>2</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-500 mb-1">Delimiter</label>
+                                        <input
+                                            type="text"
+                                            value={serialConfig.delimiter}
+                                            onChange={(e) => setSerialConfig({ ...serialConfig, delimiter: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono text-gray-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none"
+                                            placeholder="\r\n"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Data log */}
+                                {serialDataLog.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-xs font-medium text-gray-500">Log Data Serial</label>
+                                            <button
+                                                onClick={() => setSerialDataLog([])}
+                                                className="text-xs text-red-500 hover:text-red-700"
+                                            >
+                                                Hapus Log
+                                            </button>
+                                        </div>
+                                        <div className="max-h-32 overflow-y-auto p-2 bg-gray-900 rounded-lg text-xs font-mono text-green-400 space-y-0.5">
+                                            {serialDataLog.map((line, i) => (
+                                                <div key={i} className="flex gap-2">
+                                                    <span className="text-gray-600 select-none">{String(i + 1).padStart(2, '0')}</span>
+                                                    <span>{line}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </GlassCard>
+
                     {/* Scanner Modal */}
                     {scanning && (
                         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
@@ -253,16 +629,28 @@ export default function ScanPage() {
                             <label className="block text-gray-600 text-sm mb-2 font-medium">
                                 Berat Sampah (kg) <span className="text-red-500">*</span>
                             </label>
-                            <input
-                                type="number"
-                                value={beratKg}
-                                onChange={(e) => setBeratKg(e.target.value)}
-                                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-2xl font-bold text-center text-gray-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none"
-                                placeholder="0"
-                                min="0"
-                                step="0.01"
-                                required
-                            />
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    value={beratKg}
+                                    onChange={(e) => setBeratKg(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-2xl font-bold text-center text-gray-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none"
+                                    placeholder="0"
+                                    min="0"
+                                    step="0.01"
+                                    required
+                                />
+                                {serialConnected && (
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                                        RS232
+                                    </span>
+                                )}
+                            </div>
+                            {serialConnected && autoFillWeight && (
+                                <p className="text-xs text-blue-500 mt-1 text-center">
+                                    ⚡ Auto-isi dari timbangan via RS232
+                                </p>
+                            )}
                         </GlassCard>
 
                         {/* Status */}
