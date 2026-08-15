@@ -6,6 +6,8 @@ function isLpsRole(role: string): boolean {
     return ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(role);
 }
 
+const secret = process.env.NEXTAUTH_SECRET || 'lps-secret-key-change-in-production';
+
 export default withAuth(
     function middleware(req) {
         const token = req.nextauth.token;
@@ -27,7 +29,7 @@ export default withAuth(
             }
 
             // LPS routes - LPS roles only
-            if (pathname.startsWith('/lps')) {
+            if (pathname.startsWith('/lps') && !pathname.includes('/login')) {
                 if (!isLpsRole(userRole)) {
                     // Admin goes to dashboard
                     if (userRole === 'ADMIN') {
@@ -52,12 +54,17 @@ export default withAuth(
         return NextResponse.next();
     },
     {
+        secret,
         callbacks: {
             authorized: ({ token, req }) => {
                 const pathname = req.nextUrl.pathname;
 
-                // Allow access to login page without token
-                if (pathname === '/login' || pathname.includes('/login')) {
+                // Allow access to public routes without token
+                if (
+                    pathname === '/' ||
+                    pathname === '/login' ||
+                    pathname.includes('/login')
+                ) {
                     return true;
                 }
 
