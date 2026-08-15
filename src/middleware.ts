@@ -20,31 +20,43 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // Extract raw session token string from Next.js 15 RequestCookies
-    const rawToken =
-        req.cookies.get('__Secure-next-auth.session-token')?.value ||
-        req.cookies.get('next-auth.session-token')?.value;
+    const secureCookie = req.cookies.get('__Secure-next-auth.session-token')?.value;
+    const devCookie = req.cookies.get('next-auth.session-token')?.value;
 
     let token = null;
 
-    if (rawToken) {
+    // 1. Try decoding HTTPS secure cookie with salt '__Secure-next-auth.session-token'
+    if (secureCookie) {
         try {
             token = await decode({
-                token: rawToken,
+                token: secureCookie,
                 secret: NEXTAUTH_SECRET,
+                salt: '__Secure-next-auth.session-token',
             });
         } catch (err) {
-            console.error('Failed to decode session token string:', err);
+            console.error('[Middleware] Secure token decode error:', err);
         }
     }
 
-    // Fallback: try standard getToken methods
+    // 2. Try decoding HTTP dev cookie with salt 'next-auth.session-token'
+    if (!token && devCookie) {
+        try {
+            token = await decode({
+                token: devCookie,
+                secret: NEXTAUTH_SECRET,
+                salt: 'next-auth.session-token',
+            });
+        } catch (err) {
+            console.error('[Middleware] Dev token decode error:', err);
+        }
+    }
+
+    // 3. Fallback: try standard getToken with explicit secureCookie boolean
     if (!token) {
         token = await getToken({
             req,
             secret: NEXTAUTH_SECRET,
             secureCookie: true,
-            cookieName: '__Secure-next-auth.session-token',
         });
     }
 
@@ -53,7 +65,6 @@ export async function middleware(req: NextRequest) {
             req,
             secret: NEXTAUTH_SECRET,
             secureCookie: false,
-            cookieName: 'next-auth.session-token',
         });
     }
 
