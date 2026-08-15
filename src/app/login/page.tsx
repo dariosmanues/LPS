@@ -25,27 +25,15 @@ export default function LoginPage() {
                 redirect: false,
             });
 
-            if (result?.error) {
+            if (result?.error || !result?.ok) {
                 setError('Email atau password salah');
+                setLoading(false);
             } else {
-                // Fetch session to get user role
-                const res = await fetch('/api/auth/session');
-                const session = await res.json();
-
-                const userRole = session?.user?.role;
-                const lpsRoles = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'];
-
-                if (userRole === 'ADMIN') {
-                    router.push('/dashboard');
-                } else if (lpsRoles.includes(userRole)) {
-                    router.push('/lps');
-                } else {
-                    router.push('/scan');
-                }
+                // Full page navigation so middleware reads updated auth cookie
+                window.location.href = '/dashboard';
             }
         } catch {
             setError('Terjadi kesalahan, silakan coba lagi');
-        } finally {
             setLoading(false);
         }
     };

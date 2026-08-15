@@ -33,27 +33,15 @@ export default function LpsLoginPage({ params }: { params: Promise<{ kelurahan: 
                 redirect: false,
             });
 
-            if (result?.error) {
+            if (result?.error || !result?.ok) {
                 setError('Email atau password salah');
+                setLoading(false);
             } else {
-                // Check session to confirm role
-                const res = await fetch('/api/auth/session');
-                const session = await res.json();
-
-                if (['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(session?.user?.role)) {
-                    router.push('/lps');
-                } else {
-                    // If an admin or other role tries to log in here, we still let them in but redirect appropriately
-                    if (session?.user?.role === 'ADMIN') {
-                        router.push('/dashboard');
-                    } else {
-                        router.push('/scan');
-                    }
-                }
+                // Full page navigation so middleware reads updated auth cookie
+                window.location.href = '/lps';
             }
         } catch {
             setError('Terjadi kesalahan, silakan coba lagi');
-        } finally {
             setLoading(false);
         }
     };
