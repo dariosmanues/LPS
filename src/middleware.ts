@@ -1,8 +1,7 @@
 import { getToken } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-const secret = process.env.NEXTAUTH_SECRET || 'lps-secret-key-change-in-production';
+import { NEXTAUTH_SECRET } from '@/lib/auth-secret';
 
 function isLpsRole(role: string): boolean {
     return ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(role);
@@ -10,35 +9,40 @@ function isLpsRole(role: string): boolean {
 
 export async function middleware(req: NextRequest) {
     const pathname = req.nextUrl.pathname;
-    const isHttps = req.nextUrl.protocol === 'https:' || process.env.NODE_ENV === 'production';
 
-    // Try reading token with both secure and non-secure cookie options to guarantee detection
-    let token = await getToken({ req, secret, secureCookie: isHttps });
-    if (!token && isHttps) {
-        token = await getToken({ req, secret, secureCookie: false });
-    }
-
-    // Public routes that don't require authentication
+    // Public routes: /, /login, any /[kelurahan]/login, and all /api/auth/*
     if (
         pathname === '/' ||
         pathname === '/login' ||
-        pathname.includes('/login')
+        pathname.includes('/login') ||
+        pathname.startsWith('/api/auth')
     ) {
-        // If user is already logged in and tries to access /login, redirect to their role dashboard
-        if (token && (pathname === '/login' || pathname.endsWith('/login'))) {
-            const userRole = token.role as string;
-            if (userRole === 'ADMIN') {
-                return NextResponse.redirect(new URL('/dashboard', req.url));
-            } else if (isLpsRole(userRole)) {
-                return NextResponse.redirect(new URL('/lps', req.url));
-            } else {
-                return NextResponse.redirect(new URL('/scan', req.url));
-            }
-        }
         return NextResponse.next();
     }
 
-    // Protected routes: require valid token
+    // Determine cookie name based on environment
+    const isProd = process.env.NODE_ENV === 'production';
+    const primaryCookieName = isProd
+        ? '__Secure-next-auth.session-token'
+        : 'next-auth.session-token';
+
+    // Try reading JWT token with explicit cookieName
+    let token = await getToken({
+        req,
+        secret: NEXTAUTH_SECRET,
+        cookieName: primaryCookieName,
+    });
+
+    // Fallback check for dev/HTTP cookie name if proxied in production or edge runtime
+    if (!token && isProd) {
+        token = await getToken({
+            req,
+            secret: NEXTAUTH_SECRET,
+            cookieName: 'next-auth.session-token',
+        });
+    }
+
+    // Unauthenticated: redirect to login
     if (!token) {
         const loginUrl = new URL('/login', req.url);
         loginUrl.searchParams.set('callbackUrl', req.url);
@@ -72,15 +76,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - uploads (uploaded files)
-         * - Static image files
-         */
         '/((?!api|_next/static|_next/image|favicon.ico|uploads|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
     ],
 };

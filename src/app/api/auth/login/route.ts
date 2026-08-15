@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { encode } from 'next-auth/jwt';
+import { NEXTAUTH_SECRET } from '@/lib/auth-secret';
 
 export async function POST(req: Request) {
     try {
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
                 name: user.name,
                 role: user.role,
             },
-            secret: process.env.NEXTAUTH_SECRET || 'lps-secret-key-change-in-production',
+            secret: NEXTAUTH_SECRET,
         });
 
         // Return the response in the format expected by the Flutter app

@@ -2,18 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-
-if (!process.env.NEXTAUTH_SECRET) {
-    process.env.NEXTAUTH_SECRET = 'lps-secret-key-change-in-production';
-}
-
-if (process.env.VERCEL) {
-    process.env.NEXTAUTH_URL = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : 'https://lps-flame.vercel.app';
-} else if (!process.env.NEXTAUTH_URL) {
-    process.env.NEXTAUTH_URL = 'http://localhost:3000';
-}
+import { NEXTAUTH_SECRET } from '@/lib/auth-secret';
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -54,7 +43,7 @@ export const authOptions: NextAuthOptions = {
                 return {
                     id: user.id,
                     email: user.email,
-                    name: user.name,
+                    name: user.name ?? undefined,
                     role: user.role,
                     kelurahanId: user.kelurahanId,
                 };
@@ -64,16 +53,17 @@ export const authOptions: NextAuthOptions = {
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
+                const u = user as { role: string; kelurahanId?: string | null };
+                token.role = u.role;
                 token.id = user.id;
-                token.role = (user as { role: string }).role;
-                token.kelurahanId = (user as { kelurahanId?: string | null }).kelurahanId;
+                token.kelurahanId = u.kelurahanId;
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user) {
-                (session.user as { id: string }).id = token.id as string;
-                (session.user as { role: string }).role = token.role as string;
+                (session.user as { role?: string }).role = token.role as string;
+                (session.user as { id?: string }).id = token.id as string;
                 (session.user as { kelurahanId?: string | null }).kelurahanId = token.kelurahanId as string | null;
             }
             return session;
@@ -85,6 +75,5 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: 'jwt',
     },
-    secret: process.env.NEXTAUTH_SECRET || 'lps-secret-key-change-in-production',
+    secret: NEXTAUTH_SECRET,
 };
-
