@@ -1,4 +1,4 @@
-import { getToken } from 'next-auth/jwt';
+import { decode, getToken } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { NEXTAUTH_SECRET } from '@/lib/auth-secret';
@@ -20,29 +20,40 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // 1. Try HTTPS production secure cookie
-    let token = await getToken({
-        req,
-        secret: NEXTAUTH_SECRET,
-        secureCookie: true,
-        cookieName: '__Secure-next-auth.session-token',
-    });
+    // Extract raw session token string from Next.js 15 RequestCookies
+    const rawToken =
+        req.cookies.get('__Secure-next-auth.session-token')?.value ||
+        req.cookies.get('next-auth.session-token')?.value;
 
-    // 2. Try HTTP development cookie
+    let token = null;
+
+    if (rawToken) {
+        try {
+            token = await decode({
+                token: rawToken,
+                secret: NEXTAUTH_SECRET,
+            });
+        } catch (err) {
+            console.error('Failed to decode session token string:', err);
+        }
+    }
+
+    // Fallback: try standard getToken methods
+    if (!token) {
+        token = await getToken({
+            req,
+            secret: NEXTAUTH_SECRET,
+            secureCookie: true,
+            cookieName: '__Secure-next-auth.session-token',
+        });
+    }
+
     if (!token) {
         token = await getToken({
             req,
             secret: NEXTAUTH_SECRET,
             secureCookie: false,
             cookieName: 'next-auth.session-token',
-        });
-    }
-
-    // 3. Fallback: let NextAuth auto-detect cookie name and chunking
-    if (!token) {
-        token = await getToken({
-            req,
-            secret: NEXTAUTH_SECRET,
         });
     }
 
