@@ -48,8 +48,8 @@ next-env.d.ts
 
 # prisma generated
 /src/generated/prisma
-!prisma/dev.db
-prisma/dev.db-journal
+prisma/dev.db
+prisma/dev.db*
 
 # temp/log files
 *.log
