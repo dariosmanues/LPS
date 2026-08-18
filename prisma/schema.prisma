@@ -18,7 +18,6 @@ model User {
   kelurahanId  String?     @map("kelurahan_id")
   kelurahan    Kelurahan?  @relation(fields: [kelurahanId], references: [id])
   wasteLogs    WasteLog[]
-  timbangQrSyncs TimbangQrSync[]
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
   
