@@ -87,6 +87,7 @@ model WasteLog {
   status      String      // MASUK or KELUAR (SQLite doesn't support enums natively)
   recordedAt  DateTime    @default(now()) @map("recorded_at")
   metadata    String      @default("{}")
+  timbangQrSync TimbangQrSync?
   
   @@map("waste_logs")
 }
@@ -227,4 +228,24 @@ model LaporanMasyarakat {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("laporan_masyarakat")
+}
+
+
+model TimbangQrSync {
+  id           String   @id @default(uuid())
+  ticketNumber String   @unique @map("ticket_number")
+  plateNumber  String   @map("plate_number")
+  lpsName      String   @map("lps_name")
+  transdepo    String
+  grossKg      Decimal  @map("gross_kg")
+  tareKg       Decimal  @map("tare_kg")
+  rafaksiKg    Decimal  @default(0) @map("rafaksi_kg")
+  nettoKg      Decimal  @map("netto_kg")
+  weighedAt    DateTime @map("weighed_at")
+  wasteLogId   String   @unique @map("waste_log_id")
+  wasteLog     WasteLog @relation(fields: [wasteLogId], references: [id], onDelete: Restrict)
+  payload      String
+  receivedAt   DateTime @default(now()) @map("received_at")
+
+  @@map("timbangqr_syncs")
 }
