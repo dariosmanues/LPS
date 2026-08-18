@@ -4,9 +4,6 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   serverExternalPackages: ['serialport', '@serialport/parser-readline', '@serialport/bindings-cpp'],
-  outputFileTracingIncludes: {
-    '/**/*': ['./prisma/dev.db'],
-  },
   async headers() {
     return [
       {

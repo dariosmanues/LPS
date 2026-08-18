@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import * as fs from "fs";
+import * as path from "path";
 
 // Helper to parse excel dates
 function parseExcelDate(serial: number | string | null): Date | null {
@@ -52,6 +54,87 @@ function parseExcelDate(serial: number | string | null): Date | null {
     return null;
 }
 
+// Helper to extract values from Excel row using flexible key matching
+function getFlexibleValue(row: Record<string, any>, possibleKeys: string[]): any {
+    if (!row || typeof row !== 'object') return undefined;
+
+    // 1. Direct exact key lookup
+    for (const key of possibleKeys) {
+        if (row[key] !== undefined && row[key] !== null) {
+            const val = row[key];
+            if (typeof val === 'string') {
+                const trimmed = val.trim();
+                if (trimmed !== '') return trimmed;
+            } else {
+                return val;
+            }
+        }
+    }
+
+    // 2. Normalized key lookup (lowercase, remove spaces & non-alphanumeric)
+    const rowKeys = Object.keys(row);
+    const keyMap = new Map<string, string>();
+    for (const rKey of rowKeys) {
+        const cleanRKey = rKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+        keyMap.set(cleanRKey, rKey);
+    }
+
+    for (const pKey of possibleKeys) {
+        const cleanPKey = pKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (keyMap.has(cleanPKey)) {
+            const actualKey = keyMap.get(cleanPKey)!;
+            const val = row[actualKey];
+            if (val !== undefined && val !== null) {
+                if (typeof val === 'string') {
+                    const trimmed = val.trim();
+                    if (trimmed !== '') return trimmed;
+                } else {
+                    return val;
+                }
+            }
+        }
+    }
+
+    // 3. Substring match: ONLY check if cleanRKey (Excel header) contains cleanPKey (candidate)
+    // NEVER check cleanPKey.includes(cleanRKey), because candidate keys like 'No Pol' would falsely match column 'No' or 'No Izin'
+    for (const pKey of possibleKeys) {
+        const cleanPKey = pKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanPKey.length < 4) continue;
+        for (const [cleanRKey, actualKey] of keyMap.entries()) {
+            if (cleanRKey.includes(cleanPKey)) {
+                const val = row[actualKey];
+                if (val !== undefined && val !== null) {
+                    if (typeof val === 'string') {
+                        const trimmed = val.trim();
+                        if (trimmed !== '') return trimmed;
+                    } else {
+                        return val;
+                    }
+                }
+            }
+        }
+    }
+
+    return undefined;
+}
+
+function normalizeTransdepo(val: any): string | null {
+    if (!val) return null;
+    const str = val.toString().toUpperCase();
+    if (str.includes('HAM') || str.includes('AIR')) return 'AIRHITAM';
+    if (str.includes('HARAPAN')) return 'HARAPANJAYA';
+    return str;
+}
+
+function normalizeJenis(val: any): string | null {
+    if (!val) return null;
+    const str = val.toString().toUpperCase();
+    if (str.includes('PICK')) return 'PICKUP';
+    if (str.includes('DUMP') || str.includes('TRUCK')) return 'DUMPTRUCK';
+    if (str.includes('BENTOR') || str.includes('MOTOR')) return 'BENTOR';
+    return str;
+}
+
 export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData();
@@ -65,7 +148,24 @@ export async function POST(req: NextRequest) {
         const workbook = XLSX.read(buffer, { type: "buffer" });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+        // Auto-detect header row index (in case file has title or blank rows at the top)
+        const rawMatrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as any[][];
+        let headerRowIndex = 0;
+        for (let r = 0; r < Math.min(rawMatrix.length, 10); r++) {
+            const rowCells = rawMatrix[r];
+            if (!Array.isArray(rowCells)) continue;
+            const rowStr = rowCells.map(c => String(c).toLowerCase()).join(' ');
+            if (
+                (rowStr.includes('polisi') || rowStr.includes('plat')) &&
+                (rowStr.includes('lps') || rowStr.includes('izin') || rowStr.includes('supir') || rowStr.includes('armada'))
+            ) {
+                headerRowIndex = r;
+                break;
+            }
+        }
+
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex });
 
         const stats = {
             total: jsonData.length,
@@ -75,52 +175,71 @@ export async function POST(req: NextRequest) {
             details: [] as string[]
         };
 
-        // Pre-fetch all kelurahans to minimize DB calls
+        // Pre-fetch all kelurahans and armadas to minimize DB calls and ensure 100% reliable matching
         const allKelurahan = await prisma.kelurahan.findMany({
             include: { kecamatan: true }
         });
 
         const kelurahanMap = new Map();
         allKelurahan.forEach(k => {
-            // Map by name (lowercase for loose matching)
             kelurahanMap.set(k.nama.toLowerCase().trim(), k.id);
-            // Also map by potential variations if needed
+        });
+
+        const allArmada = await prisma.armada.findMany();
+        const armadaMapByPlat = new Map<string, typeof allArmada[0]>();
+        const armadaMapByNoIzin = new Map<string, typeof allArmada[0]>();
+
+        allArmada.forEach(a => {
+            const cleanPlatKey = a.platNomor.replace(/\s+/g, '').toUpperCase();
+            armadaMapByPlat.set(cleanPlatKey, a);
+            if (a.noIzinOperasi) {
+                armadaMapByNoIzin.set(a.noIzinOperasi.trim().toUpperCase(), a);
+            }
         });
 
         for (let i = 0; i < (jsonData as any[]).length; i++) {
             const row = (jsonData as any[])[i];
             const rowNum = i + 2; // +2 because row 1 is header, array is 0-indexed
             try {
-                const platNomor = row["Nomor Polisi"] || row["platNomor"] || row["Plat Nomor"];
+                const platNomorRaw = getFlexibleValue(row, ["Nomor Polisi", "Plat Nomor", "platNomor", "No Polisi", "Nomor Pol", "Plat Mobil", "Plat"]);
 
-                if (!platNomor) {
+                if (!platNomorRaw) {
                     stats.errors++;
-                    const namaLps = row["nama lps"] || row["Nama LPS"] || row["Nama LPS 2"] || '(kosong)';
+                    const namaLps = getFlexibleValue(row, ["nama lps", "Nama LPS", "Nama LPS 2", "LPS"]) || '(kosong)';
                     stats.details.push(`Baris ${rowNum}: Kolom 'Nomor Polisi' kosong (LPS: ${namaLps})`);
                     continue;
                 }
 
-                const normalizedPlat = platNomor.toString().trim().toUpperCase();
+                const cleanPlatStr = platNomorRaw.toString().replace(/\s+/g, ' ').trim().toUpperCase();
+                const platKey = cleanPlatStr.replace(/\s+/g, '');
 
-                // Safe mapping
-                const namaLps = row["nama lps"] || row["Nama LPS"] || row["Nama LPS 2"] || "LPS Unknown";
-                const namaSupir = row["Nama Supir"] || row["supir"] || "";
-                const kelurahanName = row["Kelurahan LPS"] || row["Kelurahan"] || "";
+                // Safe mapping using flexible key matching
+                const namaLps = getFlexibleValue(row, ["nama lps", "Nama LPS", "Nama LPS 2", "LPS"]) || "LPS Unknown";
+                const namaSupir = getFlexibleValue(row, ["Nama Supir", "supir", "Nama Driver", "Driver", "nama_supir", "driver_name", "Nama Pengemudi", "Pengemudi"]);
+                const kelurahanName = getFlexibleValue(row, ["Kelurahan LPS", "Kelurahan", "Kelurahan/Desa"]);
+                const noIzinOperasi = getFlexibleValue(row, ["Nomor izin", "No Izin", "Nomor Izin Operasi", "No Izin Operasional", "No. Izin", "Nomor Izin"]);
+                const nomorSkLps = getFlexibleValue(row, ["Nomor SK LPS", "No SK LPS", "Nomor SK", "No SK", "No. SK LPS"]);
+                const namaKetuaLps = getFlexibleValue(row, ["Nama Ketua LPS", "Ketua LPS", "Nama Ketua", "Ketua"]);
+                const alamatLps = getFlexibleValue(row, ["Alamat LPS", "Alamat", "Alamat Lengkap"]);
+                const wilayahKerja = getFlexibleValue(row, ["Wilayah Kerja", "Wilayah", "Wilayah Operasional"]);
+                const lokasiTransdepoRaw = getFlexibleValue(row, ["Lokasi TPS Wilayah", "Lokasi TPS", "Transdepo", "Lokasi Transdepo", "Lokasi Depo"]);
+                const jenisArmadaRaw = getFlexibleValue(row, ["Jenis Armada", "Jenis", "Tipe Armada"]);
 
-                // Robust date field finding
-                const tglTerbitRaw = row["tanggal Terbit Izin opersional"] ||
-                    row["Tanggal Terbit Izin Operasional"] ||
-                    row["Tanggal Terbit Izin"] ||
-                    row["tanggal terbit izin"] || null;
+                const tglTerbitRaw = getFlexibleValue(row, [
+                    "tanggal Terbit Izin opersional",
+                    "Tanggal Terbit Izin Operasional",
+                    "Tanggal Terbit Izin",
+                    "tanggal terbit izin",
+                    "Tgl Terbit Izin",
+                    "Tanggal Terbit"
+                ]);
 
-                // Debug logging for first few rows
-                if (stats.created + stats.updated < 3) {
-                    console.log(`[DEBUG] Row platNomor: ${normalizedPlat}`);
-                    console.log(`[DEBUG] All date columns in row:`, Object.keys(row).filter(k => k.toLowerCase().includes('tanggal') || k.toLowerCase().includes('terbit')));
-                    console.log(`[DEBUG] tglTerbitRaw value: "${tglTerbitRaw}" (type: ${typeof tglTerbitRaw})`);
-                    const parsedDate = parseExcelDate(tglTerbitRaw);
-                    console.log(`[DEBUG] parsedDate: ${parsedDate}`);
-                }
+                const tglSkRaw = getFlexibleValue(row, [
+                    "Tanggal Sk LPS",
+                    "Tanggal SK LPS",
+                    "Tgl SK LPS",
+                    "Tanggal SK"
+                ]);
 
                 // Match Kelurahan
                 let kelurahanId = null;
@@ -129,34 +248,37 @@ export async function POST(req: NextRequest) {
                 }
 
                 const parsedTanggalTerbitIzin = parseExcelDate(tglTerbitRaw);
-                const parsedTanggalSkLps = parseExcelDate(row["Tanggal Sk LPS"]);
+                const parsedTanggalSkLps = parseExcelDate(tglSkRaw);
 
                 const dataToSave: any = {
-                    namaLps: namaLps,
-                    platNomor: normalizedPlat,
+                    namaLps: namaLps.toString().trim(),
+                    platNomor: cleanPlatStr,
                     isActive: true,
                 };
 
-                // Only include fields that have values (to avoid overwriting with null)
-                if (row["Nomor izin"]) dataToSave.noIzinOperasi = row["Nomor izin"].toString();
-                if (row["Nomor SK LPS"]) dataToSave.nomorSkLps = row["Nomor SK LPS"].toString();
+                // Save non-null/valid fields
+                if (noIzinOperasi) dataToSave.noIzinOperasi = noIzinOperasi.toString().trim();
+                if (nomorSkLps) dataToSave.nomorSkLps = nomorSkLps.toString().trim();
                 if (parsedTanggalSkLps) dataToSave.tanggalSkLps = parsedTanggalSkLps;
-                if (row["Nama Ketua LPS"]) dataToSave.namaKetuaLps = row["Nama Ketua LPS"];
-                if (row["Alamat LPS"]) dataToSave.alamatLps = row["Alamat LPS"];
-                if (row["Wilayah Kerja"]) dataToSave.wilayahKerja = row["Wilayah Kerja"];
-                if (row["Lokasi TPS Wilayah"]) dataToSave.lokasiTransdepo = row["Lokasi TPS Wilayah"];
-                if (row["Jenis Armada"]) dataToSave.jenisArmada = row["Jenis Armada"].toUpperCase();
+                if (namaKetuaLps) dataToSave.namaKetuaLps = namaKetuaLps.toString().trim();
+                if (alamatLps) dataToSave.alamatLps = alamatLps.toString().trim();
+                if (wilayahKerja) dataToSave.wilayahKerja = wilayahKerja.toString().trim();
+                if (lokasiTransdepoRaw) dataToSave.lokasiTransdepo = normalizeTransdepo(lokasiTransdepoRaw);
+                if (jenisArmadaRaw) dataToSave.jenisArmada = normalizeJenis(jenisArmadaRaw);
                 if (parsedTanggalTerbitIzin) dataToSave.tanggalTerbitIzin = parsedTanggalTerbitIzin;
-                if (namaSupir) dataToSave.namaSupir = namaSupir;
+                if (namaSupir && namaSupir.toString().trim() !== '' && namaSupir.toString().trim() !== '-') {
+                    dataToSave.namaSupir = namaSupir.toString().trim();
+                }
                 if (kelurahanId) dataToSave.kelurahanId = kelurahanId;
 
-                // Upsert
-                const existing = await prisma.armada.findUnique({
-                    where: { platNomor: normalizedPlat }
-                });
+                // Match existing record by plat (space-insensitive) or by noIzinOperasi
+                let existing = armadaMapByPlat.get(platKey);
+                if (!existing && noIzinOperasi) {
+                    const noIzinKey = noIzinOperasi.toString().trim().toUpperCase();
+                    existing = armadaMapByNoIzin.get(noIzinKey);
+                }
 
                 if (existing) {
-                    // Don't overwrite qrCode on update
                     await prisma.armada.update({
                         where: { id: existing.id },
                         data: dataToSave
@@ -164,10 +286,15 @@ export async function POST(req: NextRequest) {
                     stats.updated++;
                 } else {
                     // For new records, add qrCode
-                    dataToSave.qrCode = normalizedPlat.replace(/\s/g, '');
-                    await prisma.armada.create({
+                    dataToSave.qrCode = platKey;
+                    const createdRecord = await prisma.armada.create({
                         data: dataToSave
                     });
+                    // Add to map for subsequent rows
+                    armadaMapByPlat.set(platKey, createdRecord);
+                    if (createdRecord.noIzinOperasi) {
+                        armadaMapByNoIzin.set(createdRecord.noIzinOperasi.trim().toUpperCase(), createdRecord);
+                    }
                     stats.created++;
                 }
 

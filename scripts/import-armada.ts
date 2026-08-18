@@ -98,6 +98,9 @@ async function main() {
                 }
             }
 
+            const namaSupirRaw = row['Nama Supir'] || row['supir'] || row['Nama Driver'] || row['Driver'] || null;
+            const namaSupir = namaSupirRaw ? namaSupirRaw.toString().trim() : null;
+
             // Upsert
             const result = await prisma.armada.upsert({
                 where: { platNomor: platNomor },
@@ -113,6 +116,7 @@ async function main() {
                     lokasiTransdepo: lokasi,
                     jenisArmada: jenis,
                     kelurahanId: kelurahanId,
+                    namaSupir: namaSupir,
                     updatedAt: new Date()
                 },
                 create: {
@@ -128,7 +132,7 @@ async function main() {
                     lokasiTransdepo: lokasi,
                     jenisArmada: jenis,
                     kelurahanId: kelurahanId,
-                    namaSupir: row['Nama Supir'] || '-',
+                    namaSupir: namaSupir,
                     qrCode: `ARMADA-${platNomor.replace(/\s/g, '')}`,
                     isActive: true,
                 }

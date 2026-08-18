@@ -283,9 +283,9 @@ export default function ArmadaPage() {
             if (res.ok) {
                 const data = await res.json();
                 const errorDetails = data.stats.errors > 0 && data.stats.details?.length > 0
-                    ? `\n\nDetail Gagal:\n${data.stats.details.join('\n')}`
+                    ? `\n\nDetail Gagal (${data.stats.errors}):\n${data.stats.details.slice(0, 5).join('\n')}${data.stats.details.length > 5 ? '\n...dan lainnya' : ''}`
                     : '';
-                alert(`Import berhasil!\nTotal: ${data.stats.total}\nBaru: ${data.stats.created}\nUpdate: ${data.stats.updated}\nGagal: ${data.stats.errors}${errorDetails}`);
+                alert(`Import berhasil!\nTotal data: ${data.stats.total}\nData baru: ${data.stats.created}\nData diperbarui: ${data.stats.updated}\nGagal: ${data.stats.errors}${errorDetails}`);
                 fetchArmada();
             } else {
                 const errorData = await res.json();

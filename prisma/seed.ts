@@ -82,69 +82,65 @@ const wilayahData = [
 ];
 
 async function main() {
-  console.log('🌱 Starting seed...');
+  console.log('🌱 Starting safe, non-destructive seed...');
 
-  // Clear existing data
-  await prisma.wasteLog.deleteMany();
-  await prisma.armada.deleteMany();
-  await prisma.kelurahan.deleteMany();
-  await prisma.kecamatan.deleteMany();
-  await prisma.user.deleteMany();
-
-  // Create admin user
-  const hashedPassword = await bcrypt.hash('admin123', 10);
-  const admin = await prisma.user.create({
-    data: {
+  // 1. Seed Users safely using upsert (will not delete existing data or duplicate)
+  const defaultUsers = [
+    {
       email: 'admin@lps.pekanbaru.go.id',
-      passwordHash: hashedPassword,
+      password: 'admin123',
       name: 'Administrator',
-      role: 'ADMIN'
-    }
-  });
-  console.log('✅ Created admin user:', admin.email);
-
-  // Create operator for Transdepo Harapan Jaya
-  const operatorHJ = await prisma.user.create({
-    data: {
+      role: 'ADMIN',
+      transdepo: null,
+    },
+    {
       email: 'operator.hj@lps.com',
-      passwordHash: await bcrypt.hash('operator123', 10),
+      password: 'operator123',
       name: 'Operator Harapan Jaya',
       role: 'OPERATOR',
-      transdepo: 'HARAPAN_JAYA'
-    }
-  });
-  console.log('✅ Created operator user:', operatorHJ.email);
-
-  // Create operator for Transdepo Air Hitam
-  const operatorAH = await prisma.user.create({
-    data: {
+      transdepo: 'HARAPAN_JAYA',
+    },
+    {
       email: 'operator.ah@lps.com',
-      passwordHash: await bcrypt.hash('operator123', 10),
+      password: 'operator123',
       name: 'Operator Air Hitam',
       role: 'OPERATOR',
-      transdepo: 'AIR_HITAM'
-    }
-  });
-  console.log('✅ Created operator user:', operatorAH.email);
-
-  // Create gatekeeper user
-  const gatekeeper = await prisma.user.create({
-    data: {
+      transdepo: 'AIR_HITAM',
+    },
+    {
       email: 'gatekeeper@lps.pekanbaru.go.id',
-      passwordHash: await bcrypt.hash('gate123', 10),
+      password: 'gate123',
       name: 'Petugas TPA',
-      role: 'GATEKEEPER'
+      role: 'GATEKEEPER',
+      transdepo: null,
     }
-  });
-  console.log('✅ Created gatekeeper user:', gatekeeper.email);
+  ];
 
-  // Create kecamatan and kelurahan
+  for (const user of defaultUsers) {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+    await prisma.user.upsert({
+      where: { email: user.email },
+      update: {}, // keep existing user data intact
+      create: {
+        email: user.email,
+        passwordHash: hashedPassword,
+        name: user.name,
+        role: user.role,
+        transdepo: user.transdepo,
+      }
+    });
+  }
+  console.log('✅ Users verified and seeded.');
+
+  // 2. Seed Kecamatan & Kelurahan master reference data using upsert
   let kelurahanCounter = 1;
   let totalKelurahan = 0;
 
   for (const kec of wilayahData) {
-    const kecamatan = await prisma.kecamatan.create({
-      data: {
+    const kecamatan = await prisma.kecamatan.upsert({
+      where: { kodeKemendagri: kec.kode },
+      update: { nama: kec.nama },
+      create: {
         kodeKemendagri: kec.kode,
         nama: kec.nama,
       }
@@ -152,8 +148,10 @@ async function main() {
 
     for (const kel of kec.kelurahan) {
       const kelCode = `${kec.kode}.${String(kelurahanCounter).padStart(3, '0')}`;
-      await prisma.kelurahan.create({
-        data: {
+      await prisma.kelurahan.upsert({
+        where: { kodeKemendagri: kelCode },
+        update: { nama: kel, kecamatanId: kecamatan.id },
+        create: {
           kecamatanId: kecamatan.id,
           kodeKemendagri: kelCode,
           nama: kel,
@@ -164,29 +162,8 @@ async function main() {
       totalKelurahan++;
     }
   }
-  console.log(`✅ Created ${wilayahData.length} kecamatan and ${totalKelurahan} kelurahan`);
-
-  // Create sample armada
-  // Create sample armada
-  const armadaData = [
-    { namaLps: 'LPS Binawidya 1', platNomor: 'BM 8001 AA', namaSupir: 'Ahmad Rizki', namaKetuaLps: 'Budi' },
-    { namaLps: 'LPS Bukit Raya 1', platNomor: 'BM 8002 AB', namaSupir: 'Budi Santoso', namaKetuaLps: 'Andi' },
-    { namaLps: 'LPS Kulim 1', platNomor: 'BM 8003 AC', namaSupir: 'Cahyo Pratama', namaKetuaLps: 'Citra' },
-    { namaLps: 'LPS Lima Puluh 1', platNomor: 'BM 8004 AD', namaSupir: 'Dedi Kurniawan', namaKetuaLps: 'Doni' },
-    { namaLps: 'LPS Marpoyan 1', platNomor: 'BM 8005 AE', namaSupir: 'Eko Wijaya', namaKetuaLps: 'Eka' },
-  ];
-
-  for (const armada of armadaData) {
-    await prisma.armada.create({
-      data: {
-        ...armada,
-        qrCode: `ARM-${armada.platNomor.replace(/\s/g, '')}`,
-      }
-    });
-  }
-  console.log(`✅ Created ${armadaData.length} armada`);
-
-  console.log('🎉 Seed completed successfully!');
+  console.log(`✅ Verified ${wilayahData.length} kecamatan and ${totalKelurahan} kelurahan master data.`);
+  console.log('🎉 Safe seed completed successfully! (Armada records are preserved)');
 }
 
 main()

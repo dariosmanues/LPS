@@ -6,7 +6,7 @@ Aplikasi ini adalah sistem informasi berbasis web yang dibangun menggunakan **Ne
 
 - **Framework**: [Next.js](https://nextjs.org) (App Router, v16)
 - **Database ORM**: [Prisma](https://www.prisma.io/)
-- **Database**: SQLite (Development)
+- **Database**: PostgreSQL (Neon / Supabase / Vercel Postgres)
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
 - **Autentikasi**: [NextAuth.js](https://next-auth.js.org/)
 - **Lain-lain**: Recharts (Grafik), HTML5-QRCode (Scanner), ExcelJS (Export/Import), SerialPort (Integrasi Timbangan)
@@ -52,12 +52,12 @@ Aplikasi ini adalah sistem informasi berbasis web yang dibangun menggunakan **Ne
 3. **Konfigurasi Environment:**
    Buat file `.env` di root folder (bisa menyalin dari `.env.example` jika tersedia) dan atur variabel yang dibutuhkan, seperti:
    ```env
-   DATABASE_URL="file:./dev.db"
+   DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
    NEXTAUTH_SECRET="your_nextauth_secret_here"
    NEXTAUTH_URL="http://localhost:3000"
    ```
 4. **Setup Database (Prisma):**
-   Jalankan migrasi skema database ke SQLite lokal, lalu jalankan seed data awal jika perlu.
+   Jalankan migrasi skema database ke PostgreSQL, lalu jalankan seed data awal jika perlu.
    ```bash
    npm run db:push
    npm run db:seed
