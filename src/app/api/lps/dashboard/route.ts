@@ -14,11 +14,27 @@ export async function GET() {
             )
         }
 
-        const kelurahanId = session.user.kelurahanId
+        let kelurahanId = session.user.kelurahanId
+
+        // If kelurahanId is missing, query database by user id or email
+        if (!kelurahanId) {
+            const dbUser = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        ...(session.user.id ? [{ id: session.user.id }] : []),
+                        ...(session.user.email ? [{ email: session.user.email }] : [])
+                    ]
+                },
+                select: { kelurahanId: true }
+            })
+            if (dbUser?.kelurahanId) {
+                kelurahanId = dbUser.kelurahanId
+            }
+        }
 
         if (!kelurahanId) {
             return NextResponse.json(
-                { success: false, error: 'User tidak terhubung dengan kelurahan' },
+                { success: false, error: 'User tidak terhubung dengan kelurahan. Silakan login kembali.' },
                 { status: 400 }
             )
         }
@@ -31,7 +47,7 @@ export async function GET() {
 
         if (!kelurahan) {
             return NextResponse.json(
-                { success: false, error: 'Kelurahan tidak ditemukan' },
+                { success: false, error: 'Kelurahan tidak ditemukan dalam database. Silakan login kembali.' },
                 { status: 404 }
             )
         }
@@ -115,8 +131,8 @@ export async function GET() {
         })
 
         const armadaStats = armadas.map(armada => {
-            const totalBerat = armada.wasteLogs.reduce((sum, log) => {
-                return sum + Number(log.beratKg)
+            const totalBerat = (armada.wasteLogs || []).reduce((sum, log) => {
+                return sum + Number(log.beratKg || 0)
             }, 0)
 
             return {
@@ -143,7 +159,7 @@ export async function GET() {
             kelurahan: {
                 id: kelurahan.id,
                 nama: kelurahan.nama,
-                kecamatan: kelurahan.kecamatan.nama
+                kecamatan: kelurahan.kecamatan?.nama || '-'
             },
             stats,
             armadaStats,

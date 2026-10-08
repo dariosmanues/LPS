@@ -24,13 +24,23 @@ export async function GET() {
             );
         }
 
-        // Get user's kelurahan from session
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
+        // Get user's kelurahan from session or DB
+        let kelurahanId = session.user.kelurahanId;
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    ...(session.user.id ? [{ id: session.user.id }] : []),
+                    ...(session.user.email ? [{ email: session.user.email }] : [])
+                ]
+            },
             select: { kelurahanId: true }
         });
 
-        if (!user?.kelurahanId) {
+        if (user?.kelurahanId) {
+            kelurahanId = user.kelurahanId;
+        }
+
+        if (!kelurahanId) {
             return NextResponse.json(
                 { error: 'User kelurahan not found' },
                 { status: 404 }
@@ -40,7 +50,7 @@ export async function GET() {
         // Fetch armada for this kelurahan
         const armada = await prisma.armada.findMany({
             where: {
-                kelurahanId: user.kelurahanId,
+                kelurahanId: kelurahanId,
                 isActive: true
             },
             select: {

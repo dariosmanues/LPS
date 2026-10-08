@@ -65,6 +65,24 @@ export const authOptions: NextAuthOptions = {
                 (session.user as { role?: string }).role = token.role as string;
                 (session.user as { id?: string }).id = token.id as string;
                 (session.user as { kelurahanId?: string | null }).kelurahanId = token.kelurahanId as string | null;
+
+                // Sync with latest DB user data if token has id or email
+                if (token.id || token.email) {
+                    try {
+                        const dbUser = await prisma.user.findFirst({
+                            where: token.id ? { id: token.id as string } : { email: token.email as string },
+                            select: { id: true, role: true, kelurahanId: true, name: true }
+                        });
+                        if (dbUser) {
+                            (session.user as { id?: string }).id = dbUser.id;
+                            (session.user as { role?: string }).role = dbUser.role;
+                            (session.user as { kelurahanId?: string | null }).kelurahanId = dbUser.kelurahanId;
+                            if (dbUser.name) session.user.name = dbUser.name;
+                        }
+                    } catch (e) {
+                        console.error('[Session Callback] DB sync error:', e);
+                    }
+                }
             }
             return session;
         },

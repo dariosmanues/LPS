@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { signOut } from 'next-auth/react'
 import { MonthlyWasteChart } from '@/components/dashboard/MonthlyWasteChart'
 
 interface LaporanStats {
@@ -120,17 +121,26 @@ export default function LpsDashboardPage() {
     if (error) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-center">
-                    <svg className="w-16 h-16 mx-auto text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center max-w-md p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
+                    <svg className="w-16 h-16 mx-auto text-amber-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <p className="text-red-500 mb-4">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                    >
-                        Coba Lagi
-                    </button>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Terjadi Kendala</h3>
+                    <p className="text-gray-600 text-sm mb-6">{error}</p>
+                    <div className="flex items-center justify-center gap-3">
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                        >
+                            Coba Lagi
+                        </button>
+                        <button
+                            onClick={() => signOut({ callbackUrl: '/login' })}
+                            className="px-4 py-2 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 transition-colors shadow-sm"
+                        >
+                            Login Ulang
+                        </button>
+                    </div>
                 </div>
             </div>
         )
