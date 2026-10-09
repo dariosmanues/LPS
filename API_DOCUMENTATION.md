@@ -20,6 +20,7 @@ Dokumentasi lengkap REST API untuk Sistem Informasi Lembaga Pengelola Sampah (LP
 7. [Statistik & Analitik (Dashboard Metrics)](#7-statistik--analitik-dashboard-metrics)
 8. [Produktivitas: Tugas & Catatan Rapat (To-Do & Notes)](#8-produktivitas-tugas--catatan-rapat-to-do--notes)
 9. [Integrasi Perangkat Keras: Timbangan Digital (Serial Port)](#9-integrasi-perangkat-keras-timbangan-digital-serial-port)
+10. [Integrasi Aplikasi TimbangQR & QR Code Generator](#10-integrasi-aplikasi-timbangqr--qr-code-generator)
 
 ---
 
@@ -433,6 +434,117 @@ Dokumentasi lengkap REST API untuk Sistem Informasi Lembaga Pengelola Sampah (LP
 {
   "port": "COM3",
   "baudRate": 9600
+}
+```
+
+---
+
+## 10. Integrasi Aplikasi TimbangQR & QR Code Generator
+
+Endpoint khusus untuk komunikasi dua arah antara sistem LPS dan **Aplikasi TimbangQR** (jembatan timbangan dan scanner armada di Transdepo Harapan Jaya / Air Hitam).
+
+- **Base Endpoint**:
+  - `GET/POST /integrations/timbangqr/qr-generator`
+  - Alias: `GET/POST /qr-generator`, `GET/POST /lps/qr-generator`
+  - Alias Data Armada: `GET /integrations/timbangqr/armada`
+- **CORS**: `*` (diizinkan dari perangkat desktop, web, maupun mobile scanner)
+- **Autentikasi**: Header `Authorization: Bearer <TIMBANGQR_INTEGRATION_SECRET>` atau `x-api-key: <SECRET>`. Untuk request `GET` data publik armada & gambar QR, akses dapat dilakukan secara langsung.
+
+### 10.1 Ambil Semua Data Armada & QR Code
+- **Endpoint**: `GET /integrations/timbangqr/qr-generator`
+- **Query Parameters**:
+  - `transdepo`: Filter transdepo (`HARAPAN_JAYA`, `AIR_HITAM`)
+  - `kelurahan`: Filter kelurahan
+  - `search`: Pencarian nama supir, plat nomor, atau LPS
+  - `includeInactive`: `true` untuk menyertakan armada non-aktif (default: `false`)
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "count": 3,
+  "total": 3,
+  "data": [
+    {
+      "id": "armada-uuid",
+      "platNomor": "BM 8081 TT",
+      "normalizedPlate": "BM8081TT",
+      "namaLps": "Sejahtera Mandiri",
+      "namaSupir": "RIAN",
+      "jenisArmada": "PICKUP",
+      "lokasiTransdepo": "HARAPAN_JAYA",
+      "qrCode": "BM8081TT",
+      "qrUrl": "https://lps-app-iota.vercel.app/api/qr-generator?code=BM8081TT&format=svg",
+      "qrDataUrl": "data:image/svg+xml;base64,...",
+      "isActive": true,
+      "kelurahan": {
+        "id": "kel-uuid",
+        "nama": "Tangkerang Timur",
+        "kecamatan": "Tenayan Raya"
+      }
+    }
+  ]
+}
+```
+
+### 10.2 Lookup & Verifikasi Hasil Scan QR dari Aplikasi TimbangQR
+- **Endpoint**: `GET /integrations/timbangqr/qr-generator?code=BM8081TT`
+- **Deskripsi**: Dipanggil saat barcode/QR scanner di TimbangQR membaca QR code armada. Mengembalikan data lengkap supir dan kendaraan jika valid.
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "valid": true,
+  "data": {
+    "id": "armada-uuid",
+    "platNomor": "BM 8081 TT",
+    "normalizedPlate": "BM8081TT",
+    "namaLps": "Sejahtera Mandiri",
+    "namaSupir": "RIAN",
+    "jenisArmada": "PICKUP",
+    "lokasiTransdepo": "HARAPAN_JAYA",
+    "qrCode": "BM8081TT",
+    "qrUrl": "https://lps-app-iota.vercel.app/api/qr-generator?code=BM8081TT&format=svg",
+    "qrDataUrl": "data:image/svg+xml;base64,...",
+    "isActive": true,
+    "kelurahan": {
+      "nama": "Tangkerang Timur",
+      "kecamatan": "Tenayan Raya"
+    }
+  }
+}
+```
+
+### 10.3 Lookup Berdasarkan Plat Nomor Kendaraan
+- **Endpoint**: `GET /integrations/timbangqr/qr-generator?plate=BM8081TT`
+- **Deskripsi**: Pencarian cerdas plat nomor armada (menerima `BM 8081 TT` maupun `BM8081TT`).
+
+### 10.4 Render Gambar QR Code Langsung (Vector SVG)
+- **Endpoint**: `GET /qr-generator?plate=BM8081TT&format=svg` atau `GET /qr-generator?code=BM8081TT&format=svg`
+- **Response `200 OK`**: Standalone SVG Image (`Content-Type: image/svg+xml; charset=utf-8`).
+- **Penggunaan**: Dapat langsung dipasang ke elemen gambar `<img src="https://lps-app-iota.vercel.app/api/qr-generator?plate=BM8081TT&format=svg" />` atau dicetak.
+
+### 10.5 Generate / Regenerate QR Code Armada
+- **Endpoint**: `POST /integrations/timbangqr/qr-generator`
+- **Request Body**:
+```json
+{
+  "platNomor": "BM 8081 TT",
+  "regenerate": true
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "QR Code berhasil di-generate.",
+  "data": {
+    "id": "armada-uuid",
+    "platNomor": "BM 8081 TT",
+    "qrCode": "LPS-BM8081TT-1728512345678",
+    "qrUrl": "https://lps-app-iota.vercel.app/api/qr-generator?code=LPS-BM8081TT-1728512345678&format=svg",
+    "qrSvg": "<svg ...>...</svg>",
+    "qrDataUrl": "data:image/svg+xml;base64,..."
+  }
 }
 ```
 

@@ -15,42 +15,47 @@ export async function GET() {
             );
         }
 
-        // Check if user is LPS role
+        // Check if user is LPS role or ADMIN
+        const userRole = (session.user.role || '').toUpperCase();
         const lpsRoles = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'];
-        if (!lpsRoles.includes(session.user.role.toUpperCase())) {
+        const isAdmin = userRole === 'ADMIN';
+
+        if (!isAdmin && !lpsRoles.includes(userRole)) {
             return NextResponse.json(
-                { error: 'Forbidden - LPS role required' },
+                { error: 'Forbidden - LPS role or ADMIN required' },
                 { status: 403 }
             );
         }
 
-        // Get user's kelurahan from session or DB
         let kelurahanId = session.user.kelurahanId;
-        const user = await prisma.user.findFirst({
-            where: {
-                OR: [
-                    ...(session.user.id ? [{ id: session.user.id }] : []),
-                    ...(session.user.email ? [{ email: session.user.email }] : [])
-                ]
-            },
-            select: { kelurahanId: true }
-        });
+        if (!isAdmin) {
+            // Get user's kelurahan from session or DB
+            const user = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        ...(session.user.id ? [{ id: session.user.id }] : []),
+                        ...(session.user.email ? [{ email: session.user.email }] : [])
+                    ]
+                },
+                select: { kelurahanId: true }
+            });
 
-        if (user?.kelurahanId) {
-            kelurahanId = user.kelurahanId;
+            if (user?.kelurahanId) {
+                kelurahanId = user.kelurahanId;
+            }
+
+            if (!kelurahanId) {
+                return NextResponse.json(
+                    { error: 'User kelurahan not found' },
+                    { status: 404 }
+                );
+            }
         }
 
-        if (!kelurahanId) {
-            return NextResponse.json(
-                { error: 'User kelurahan not found' },
-                { status: 404 }
-            );
-        }
-
-        // Fetch armada for this kelurahan
+        // Fetch armada for this kelurahan (or all if ADMIN)
         const armada = await prisma.armada.findMany({
             where: {
-                kelurahanId: kelurahanId,
+                ...(kelurahanId ? { kelurahanId } : {}),
                 isActive: true
             },
             select: {
