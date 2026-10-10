@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
+import { generateArmadaQrCodeString } from '@/lib/timbangqr-qr-service';
 
 export async function PUT(
     request: Request,
@@ -78,7 +79,7 @@ export async function PUT(
         }
 
         // Generate new QR code with timestamp to ensure uniqueness
-        const newQrCode = `LPS-${armada.platNomor.replace(/\s/g, '')}-${Date.now()}`;
+        const newQrCode = generateArmadaQrCodeString(armada.platNomor);
         console.log('[QR Regenerate] Generated new QR code:', newQrCode);
 
         // Update armada with new QR code
