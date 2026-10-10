@@ -196,13 +196,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                         },
                     },
                 });
-
-<<<<<<< HEAD
-                // QR-token lookups MUST be exact. A QR superseded by
-                // "Generate Ulang" is revoked as soon as the Armada.qrCode
-                // record changes. Never fall back from a QR code to a plate.
-=======
-                // If not found with exact qrCode match, check if code is an older LPS QR format
+                // If not found with exact qrCode match, check if code is an older LPS QR token
                 if (!armada) {
                     const lpsMatch = code.match(/^LPS-([A-Z0-9]+)-(\d+)$/i);
                     if (lpsMatch) {
@@ -238,7 +232,6 @@ export async function handleTimbangQrGet(request: NextRequest) {
                         (a) => normalizePlate(a.platNomor) === norm || normalizePlate(a.qrCode) === norm
                     ) || null;
                 }
->>>>>>> 91e015a (feat: implement single-use burned QR code and regenerate lifecycle for LPS Harapan Jaya)
             } else if (plate) {
                 const norm = normalizePlate(plate);
                 const allArmadas = await prisma.armada.findMany({
