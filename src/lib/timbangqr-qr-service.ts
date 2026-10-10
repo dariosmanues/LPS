@@ -23,7 +23,8 @@ export function normalizePlate(plate: string): string {
 
 export function generateArmadaQrCodeString(platNomor: string): string {
     const clean = normalizePlate(platNomor);
-    return `LPS-${clean}-${Date.now()}`;
+    // Unique 17-digit version: every regeneration creates a fresh QR payload.
+    return `LPS-${clean}-${Date.now()}${crypto.randomInt(0, 10000).toString().padStart(4, '0')}`;
 }
 
 // SVG dibuat dari matriks QR murni tanpa react-dom/server, karena
