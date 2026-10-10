@@ -1,0 +1,28 @@
+name: Verify LPS QR integration build
+on:
+  pull_request:
+    paths:
+      - "src/lib/timbangqr-qr-service.ts"
+      - "src/app/api/integrations/timbangqr/**"
+      - "package.json"
+      - "prisma/**"
+      - ".github/workflows/verify-timbangqr-qr.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/lps_ci
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ci-testing-secret-do-not-use-production
+      TIMBANGQR_INTEGRATION_SECRET: ci-test-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build

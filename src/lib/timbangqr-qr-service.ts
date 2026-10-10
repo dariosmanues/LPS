@@ -1,7 +1,5 @@
 import crypto from 'node:crypto';
-import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { QRCodeSVG } from 'qrcode.react';
+import QRCode from 'qrcode';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -28,15 +26,23 @@ export function generateArmadaQrCodeString(platNomor: string): string {
     return `LPS-${clean}-${Date.now()}`;
 }
 
+// SVG dibuat dari matriks QR murni tanpa react-dom/server, karena
+// Next.js 16 melarang react-dom/server di dalam App Route handlers.
 export function generateQrSvg(value: string, size = 256): string {
-    return renderToStaticMarkup(
-        React.createElement(QRCodeSVG, {
-            value,
-            size,
-            level: 'H',
-            marginSize: 2,
-        })
-    );
+    const qr = QRCode.create(value, { errorCorrectionLevel: 'H' });
+    const modules = qr.modules;
+    const quietZone = 2;
+    const viewSize = modules.size + quietZone * 2;
+    const safeSize = Math.max(64, Math.min(1024, Math.floor(size) || 256));
+    const shapes: string[] = [];
+    for (let row = 0; row < modules.size; row++) {
+        for (let col = 0; col < modules.size; col++) {
+            if (modules.get(row, col)) {
+                shapes.push(`M${col + quietZone} ${row + quietZone}h1v1h-1z`);
+            }
+        }
+    }
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${safeSize}" height="${safeSize}" viewBox="0 0 ${viewSize} ${viewSize}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h${viewSize}v${viewSize}H0z"/><path fill="#000" d="${shapes.join('')}"/></svg>`;
 }
 
 export function generateQrDataUrl(value: string, size = 256): string {
@@ -46,7 +52,7 @@ export function generateQrDataUrl(value: string, size = 256): string {
 
 export function isTimbangQrAuthorized(request: NextRequest): boolean {
     const secret = process.env.TIMBANGQR_INTEGRATION_SECRET || process.env.LPS_INTEGRATION_SECRET;
-    if (!secret) return true; // Open in dev if no secret configured
+    if (!secret) return false; // API integrations must fail closed without a shared secret
 
     const authHeader = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim() || '';
     const apiKeyHeader = request.headers.get('x-api-key')?.trim() || request.headers.get('x-timbangqr-key')?.trim() || '';
@@ -117,6 +123,11 @@ export async function handleTimbangQrGet(request: NextRequest) {
         const transdepoQuery = searchParams.get('transdepo');
         const search = searchParams.get('search');
         const format = searchParams.get('format') || 'json';
+        // SVG public rendering is retained for the LPS QR UI; JSON armada
+        // lookup and bulk listing are private server-to-server operations.
+        if (format !== 'svg' && !isTimbangQrAuthorized(request)) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+        }
         const rawText = searchParams.get('text');
         const includeInactive = searchParams.get('includeInactive') === 'true';
 
@@ -298,6 +309,9 @@ export async function handleTimbangQrGet(request: NextRequest) {
 }
 
 export async function handleTimbangQrPost(request: NextRequest) {
+    if (!isTimbangQrAuthorized(request)) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+    }
     try {
         const body = await request.json().catch(() => ({}));
         const { armadaId, platNomor, regenerate, text } = body;
