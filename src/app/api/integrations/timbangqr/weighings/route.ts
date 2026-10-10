@@ -162,6 +162,17 @@ export async function POST(request: NextRequest) {
         },
         select: { id: true },
       });
+
+      // Burn QR code so it cannot be reused (hangus)
+      await tx.armada.update({
+        where: { id: armada.id },
+        data: {
+          isQrUsed: true,
+          qrUsedAt: new Date(input.weighedAt),
+          lastTicketNumber: input.ticketNumber,
+        },
+      });
+
       return { duplicate: false, syncId: sync.id, wasteLogId: wasteLog.id };
     });
 

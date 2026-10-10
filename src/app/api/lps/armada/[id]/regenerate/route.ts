@@ -82,10 +82,14 @@ export async function PUT(
         const newQrCode = generateArmadaQrCodeString(armada.platNomor);
         console.log('[QR Regenerate] Generated new QR code:', newQrCode);
 
-        // Update armada with new QR code
+        // Update armada with new QR code and reset used status
         const updatedArmada = await prisma.armada.update({
             where: { id: armadaId },
-            data: { qrCode: newQrCode },
+            data: {
+                qrCode: newQrCode,
+                isQrUsed: false,
+                qrUsedAt: null,
+            },
             select: {
                 id: true,
                 namaLps: true,
@@ -93,6 +97,9 @@ export async function PUT(
                 namaSupir: true,
                 jenisArmada: true,
                 qrCode: true,
+                isQrUsed: true,
+                qrUsedAt: true,
+                lastTicketNumber: true,
                 kelurahan: {
                     select: {
                         nama: true,

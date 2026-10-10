@@ -3,9 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
+export const runtime = 'nodejs';
+
+export async function POST() {
     try {
-        // Get authenticated session
         const session = await getServerSession(authOptions);
 
         if (!session?.user) {
@@ -15,7 +16,6 @@ export async function GET() {
             );
         }
 
-        // Check if user is LPS role or ADMIN
         const userRole = (session.user.role || '').toUpperCase();
         const lpsRoles = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'];
         const isAdmin = userRole === 'ADMIN';
@@ -29,7 +29,6 @@ export async function GET() {
 
         let kelurahanId = session.user.kelurahanId;
         if (!isAdmin) {
-            // Get user's kelurahan from session or DB
             const user = await prisma.user.findFirst({
                 where: {
                     OR: [
@@ -43,55 +42,43 @@ export async function GET() {
             if (user?.kelurahanId) {
                 kelurahanId = user.kelurahanId;
             }
-
-            if (!kelurahanId) {
-                return NextResponse.json(
-                    { error: 'User kelurahan not found' },
-                    { status: 404 }
-                );
-            }
         }
 
-        // Fetch armada for this kelurahan (or all if ADMIN)
-        const armada = await prisma.armada.findMany({
+        const armadas = await prisma.armada.findMany({
             where: {
                 ...(kelurahanId ? { kelurahanId } : {}),
-                isActive: true
+                isActive: true,
             },
-            select: {
-                id: true,
-                namaLps: true,
-                platNomor: true,
-                namaSupir: true,
-                jenisArmada: true,
-                qrCode: true,
-                isQrUsed: true,
-                qrUsedAt: true,
-                lastTicketNumber: true,
-                kelurahan: {
-                    select: {
-                        nama: true,
-                        kecamatan: {
-                            select: {
-                                nama: true
-                            }
-                        }
-                    }
-                }
-            },
-            orderBy: {
-                platNomor: 'asc'
-            }
+            select: { id: true, platNomor: true }
         });
+
+        const now = Date.now();
+        let updatedCount = 0;
+
+        for (let i = 0; i < armadas.length; i++) {
+            const a = armadas[i];
+            const cleanPlate = a.platNomor.replace(/\s/g, '').toUpperCase();
+            const newQrCode = `LPS-${cleanPlate}-${now + i}`;
+            await prisma.armada.update({
+                where: { id: a.id },
+                data: {
+                    qrCode: newQrCode,
+                    isQrUsed: false,
+                    qrUsedAt: null,
+                }
+            });
+            updatedCount++;
+        }
 
         return NextResponse.json({
             success: true,
-            data: armada
+            message: `Berhasil regenerate ${updatedCount} QR Code armada.`,
+            count: updatedCount
         });
     } catch (error) {
-        console.error('Error fetching LPS armada:', error);
+        console.error('[QR Regenerate All] Error:', error);
         return NextResponse.json(
-            { error: 'Failed to fetch armada' },
+            { error: 'Gagal me-regenerate semua QR code', details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }

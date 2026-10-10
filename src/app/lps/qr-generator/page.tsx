@@ -10,6 +10,9 @@ interface Armada {
     namaSupir: string | null;
     jenisArmada: string | null;
     qrCode: string;
+    isQrUsed?: boolean;
+    qrUsedAt?: string | null;
+    lastTicketNumber?: string | null;
     kelurahan: {
         nama: string;
         kecamatan: {
@@ -83,11 +86,17 @@ export default function QRGeneratorPage() {
             const data = await response.json();
 
             if (data.success) {
-                // Update local armada list with new QR code
+                // Update local armada list with new QR code and reset used status
                 setArmadaList(prevList =>
                     prevList.map(armada =>
                         armada.id === armadaId
-                            ? { ...armada, qrCode: data.data.qrCode }
+                            ? {
+                                ...armada,
+                                qrCode: data.data.qrCode,
+                                isQrUsed: false,
+                                qrUsedAt: null,
+                                lastTicketNumber: null,
+                            }
                             : armada
                     )
                 );
@@ -113,6 +122,30 @@ export default function QRGeneratorPage() {
         } catch (error) {
             console.error('Error calling regenerate API:', error);
             alert('Gagal me-regenerate QR code. Silakan coba lagi.');
+        }
+    };
+
+    const [regeneratingAll, setRegeneratingAll] = useState(false);
+
+    const regenerateAllQRCodes = async () => {
+        if (!confirm('Apakah Anda yakin ingin me-regenerate semua QR Code armada? QR Code lama akan hangus.')) {
+            return;
+        }
+        setRegeneratingAll(true);
+        try {
+            const response = await fetch('/api/lps/armada/regenerate-all', { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                await fetchArmada();
+                alert(data.message || 'Semua QR Code berhasil di-regenerate!');
+            } else {
+                alert('Gagal: ' + (data.error || 'Terjadi kesalahan'));
+            }
+        } catch (error) {
+            console.error('Error regenerate all:', error);
+            alert('Gagal me-regenerate semua QR code. Silakan coba lagi.');
+        } finally {
+            setRegeneratingAll(false);
         }
     };
 
@@ -170,6 +203,17 @@ export default function QRGeneratorPage() {
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={regenerateAllQRCodes}
+                        disabled={regeneratingAll}
+                        className="px-3.5 py-2 bg-amber-600 text-white text-sm font-medium rounded-xl hover:bg-amber-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                        title="Generate ulang QR Code untuk semua armada sekaligus"
+                    >
+                        <svg className={`w-4 h-4 ${regeneratingAll ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {regeneratingAll ? 'Memproses...' : 'Generate Ulang Semua'}
+                    </button>
                     <button
                         onClick={() => toggleAllQRs(true)}
                         className="px-3.5 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-xl hover:bg-blue-100 transition-colors"
@@ -279,6 +323,23 @@ export default function QRGeneratorPage() {
                             key={armada.id}
                             className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                         >
+                            {/* Status Indicator */}
+                            <div className="flex items-center justify-between mb-3">
+                                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full flex items-center gap-1.5 ${
+                                    armada.isQrUsed
+                                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                }`}>
+                                    <span className={`w-2 h-2 rounded-full ${armada.isQrUsed ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`}></span>
+                                    {armada.isQrUsed ? 'QR HANGUS' : 'QR AKTIF (SIAP SCAN)'}
+                                </span>
+                                {armada.lastTicketNumber && (
+                                    <span className="text-[11px] text-gray-500 font-mono">
+                                        Tiket: {armada.lastTicketNumber}
+                                    </span>
+                                )}
+                            </div>
+
                             {/* Armada Info */}
                             <div className="mb-4">
                                 <h3 className="font-semibold text-gray-800 text-lg mb-1">
@@ -299,6 +360,18 @@ export default function QRGeneratorPage() {
                                 )}
                             </div>
 
+                            {/* Alert if QR is burned */}
+                            {armada.isQrUsed && (
+                                <div className="mb-3 p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-center">
+                                    <p className="text-xs font-semibold text-rose-800">
+                                        QR Code ini sudah hangus
+                                    </p>
+                                    <p className="text-[11px] text-rose-600 mt-0.5">
+                                        Sudah dipakai pada penimbangan. Klik tombol "Generate Ulang" di bawah untuk trip berikutnya.
+                                    </p>
+                                </div>
+                            )}
+
                             {/* QR Code Area */}
                             {!generatedQRs.has(armada.id) ? (
                                 <div className="bg-gray-50 p-8 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center mb-4 min-h-[248px]">
@@ -310,7 +383,11 @@ export default function QRGeneratorPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="bg-white p-4 rounded-xl border-2 border-gray-200 flex items-center justify-center mb-4">
+                                <div className={`p-4 rounded-xl border-2 flex items-center justify-center mb-4 transition-colors ${
+                                    armada.isQrUsed
+                                        ? 'bg-rose-50/50 border-rose-300 opacity-60 relative'
+                                        : 'bg-white border-gray-200'
+                                }`}>
                                     <QRCodeCanvas
                                         id={`qr-${armada.platNomor}`}
                                         value={armada.qrCode}
@@ -345,12 +422,16 @@ export default function QRGeneratorPage() {
                                     </button>
                                     <button
                                         onClick={() => regenerateQRCode(armada.id)}
-                                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-all"
+                                        className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
+                                            armada.isQrUsed
+                                                ? 'bg-linear-to-r from-amber-600 to-orange-600 text-white hover:from-amber-700 hover:to-orange-700 shadow-md shadow-orange-100 ring-2 ring-orange-400/40'
+                                                : 'bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50'
+                                        }`}
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                         </svg>
-                                        Generate Ulang
+                                        {armada.isQrUsed ? '⚡ Generate QR Ulang Sekarang' : 'Generate Ulang'}
                                     </button>
                                 </div>
                             )}

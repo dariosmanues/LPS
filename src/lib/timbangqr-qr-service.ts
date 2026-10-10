@@ -81,6 +81,9 @@ export function formatArmadaForTimbangQr(
         lokasiTransdepo: string | null;
         noIzinOperasi?: string | null;
         qrCode: string;
+        isQrUsed?: boolean;
+        qrUsedAt?: Date | null;
+        lastTicketNumber?: string | null;
         isActive: boolean;
         kelurahan?: {
             id?: string;
@@ -107,6 +110,9 @@ export function formatArmadaForTimbangQr(
         qrUrl,
         qrDataUrl: generateQrDataUrl(qrCode, 200),
         isActive: armada.isActive,
+        isQrUsed: Boolean(armada.isQrUsed),
+        qrUsedAt: armada.qrUsedAt || null,
+        lastTicketNumber: armada.lastTicketNumber || null,
         kelurahan: armada.kelurahan ? {
             id: armada.kelurahan.id,
             nama: armada.kelurahan.nama,
@@ -191,9 +197,48 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     },
                 });
 
+<<<<<<< HEAD
                 // QR-token lookups MUST be exact. A QR superseded by
                 // "Generate Ulang" is revoked as soon as the Armada.qrCode
                 // record changes. Never fall back from a QR code to a plate.
+=======
+                // If not found with exact qrCode match, check if code is an older LPS QR format
+                if (!armada) {
+                    const lpsMatch = code.match(/^LPS-([A-Z0-9]+)-(\d+)$/i);
+                    if (lpsMatch) {
+                        const targetPlate = lpsMatch[1];
+                        const existingArmada = await prisma.armada.findFirst({
+                            where: { platNomor: { equals: targetPlate, mode: 'insensitive' } },
+                            include: { kelurahan: { include: { kecamatan: true } } },
+                        });
+
+                        if (existingArmada) {
+                            return NextResponse.json(
+                                {
+                                    success: false,
+                                    valid: false,
+                                    burned: true,
+                                    message: `QR Code ini sudah hangus / kedaluwarsa. Silakan generate QR ulang di aplikasi LPS (https://lps-app-iota.vercel.app/lps/qr-generator).`,
+                                    data: formatArmadaForTimbangQr(existingArmada, origin),
+                                },
+                                { status: 400, headers: corsHeaders }
+                            );
+                        }
+                    }
+
+                    const norm = normalizePlate(code);
+                    const allArmadas = await prisma.armada.findMany({
+                        include: {
+                            kelurahan: {
+                                include: { kecamatan: true },
+                            },
+                        },
+                    });
+                    armada = allArmadas.find(
+                        (a) => normalizePlate(a.platNomor) === norm || normalizePlate(a.qrCode) === norm
+                    ) || null;
+                }
+>>>>>>> 91e015a (feat: implement single-use burned QR code and regenerate lifecycle for LPS Harapan Jaya)
             } else if (plate) {
                 const norm = normalizePlate(plate);
                 const allArmadas = await prisma.armada.findMany({
@@ -218,10 +263,26 @@ export async function handleTimbangQrGet(request: NextRequest) {
             }
 
             const formatted = formatArmadaForTimbangQr(armada, origin);
+
+            // Check if QR code is already burned / used!
+            if (armada.isQrUsed) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        valid: false,
+                        burned: true,
+                        message: `QR Code untuk armada ${armada.platNomor} sudah hangus (sudah digunakan untuk penimbangan${armada.lastTicketNumber ? ' tiket ' + armada.lastTicketNumber : ''}). Silakan generate QR ulang di aplikasi LPS.`,
+                        data: formatted,
+                    },
+                    { status: 400, headers: corsHeaders }
+                );
+            }
+
             return NextResponse.json(
                 {
                     success: true,
-                    valid: armada.isActive,
+                    valid: armada.isActive && !armada.isQrUsed,
+                    burned: Boolean(armada.isQrUsed),
                     data: formatted,
                 },
                 { headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0' } }

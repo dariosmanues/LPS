@@ -67,6 +67,9 @@ model Armada {
   lokasiTransdepo String?     @map("lokasi_transdepo") // AIRHITAM or HARAPANJAYA
   jenisArmada     String?     @map("jenis_armada") // DUMPTRUCK, PICKUP, or BENTOR
   qrCode          String      @unique @map("qr_code")
+  isQrUsed        Boolean     @default(false) @map("is_qr_used")
+  qrUsedAt        DateTime?   @map("qr_used_at")
+  lastTicketNumber String?    @map("last_ticket_number")
   isActive        Boolean     @default(true) @map("is_active")
   wasteLogs       WasteLog[]
   createdAt       DateTime    @default(now()) @map("created_at")
