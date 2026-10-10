@@ -73,6 +73,7 @@ export default function QRGeneratorPage() {
     };
 
     const regenerateQRCode = async (armadaId: string) => {
+        if (!window.confirm('Generate QR baru? QR lama armada ini langsung tidak berlaku dan harus diganti pada kendaraan.')) return;
         try {
             // Call API to regenerate QR code in database
             const response = await fetch(`/api/lps/armada/${armadaId}/regenerate`, {
