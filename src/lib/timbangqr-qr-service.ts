@@ -23,7 +23,8 @@ export function normalizePlate(plate: string): string {
 
 export function generateArmadaQrCodeString(platNomor: string): string {
     const clean = normalizePlate(platNomor);
-    return `LPS-${clean}-${Date.now()}`;
+    // Unique 17-digit version: every regeneration creates a fresh QR payload.
+    return `LPS-${clean}-${Date.now()}${crypto.randomInt(0, 10000).toString().padStart(4, '0')}`;
 }
 
 // SVG dibuat dari matriks QR murni tanpa react-dom/server, karena
@@ -190,20 +191,9 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     },
                 });
 
-                // If not found, try normalized match (e.g. if code was BM8081TT)
-                if (!armada) {
-                    const norm = normalizePlate(code);
-                    const allArmadas = await prisma.armada.findMany({
-                        include: {
-                            kelurahan: {
-                                include: { kecamatan: true },
-                            },
-                        },
-                    });
-                    armada = allArmadas.find(
-                        (a) => normalizePlate(a.platNomor) === norm || normalizePlate(a.qrCode) === norm
-                    ) || null;
-                }
+                // QR-token lookups MUST be exact. A QR superseded by
+                // "Generate Ulang" is revoked as soon as the Armada.qrCode
+                // record changes. Never fall back from a QR code to a plate.
             } else if (plate) {
                 const norm = normalizePlate(plate);
                 const allArmadas = await prisma.armada.findMany({
@@ -223,7 +213,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                         valid: false,
                         message: `Armada tidak ditemukan untuk parameter yang diberikan.`,
                     },
-                    { status: 404, headers: corsHeaders }
+                    { status: 404, headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0' } }
                 );
             }
 
@@ -234,7 +224,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     valid: armada.isActive,
                     data: formatted,
                 },
-                { headers: corsHeaders }
+                { headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0' } }
             );
         }
 
