@@ -212,7 +212,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                                     success: false,
                                     valid: false,
                                     burned: true,
-                                    message: `QR Code ini sudah hangus / kedaluwarsa. Silakan generate QR ulang di aplikasi LPS (https://lps-app-iota.vercel.app/lps/qr-generator).`,
+                                    message: `QR Code ini sudah hangus (sudah pernah digunakan untuk transaksi tiket #${existingArmada.lastTicketNumber || '...'}). Silakan Hubungi Ketua Atau Pengurus LPS Anda .`,
                                     data: formatArmadaForTimbangQr(existingArmada, origin),
                                 },
                                 { status: 400, headers: corsHeaders }
@@ -264,7 +264,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                         success: false,
                         valid: false,
                         burned: true,
-                        message: `QR Code untuk armada ${armada.platNomor} sudah hangus (sudah digunakan untuk penimbangan${armada.lastTicketNumber ? ' tiket ' + armada.lastTicketNumber : ''}). Silakan generate QR ulang di aplikasi LPS.`,
+                        message: `QR Code ini sudah hangus (sudah pernah digunakan untuk transaksi tiket #${armada.lastTicketNumber || '...'}). Silakan Hubungi Ketua Atau Pengurus LPS Anda .`,
                         data: formatted,
                     },
                     { status: 400, headers: corsHeaders }
