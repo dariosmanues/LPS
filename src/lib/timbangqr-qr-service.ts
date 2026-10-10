@@ -46,7 +46,7 @@ export function generateQrDataUrl(value: string, size = 256): string {
 
 export function isTimbangQrAuthorized(request: NextRequest): boolean {
     const secret = process.env.TIMBANGQR_INTEGRATION_SECRET || process.env.LPS_INTEGRATION_SECRET;
-    if (!secret) return true; // Open in dev if no secret configured
+    if (!secret) return false; // API integrations must fail closed without a shared secret
 
     const authHeader = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim() || '';
     const apiKeyHeader = request.headers.get('x-api-key')?.trim() || request.headers.get('x-timbangqr-key')?.trim() || '';
@@ -117,6 +117,11 @@ export async function handleTimbangQrGet(request: NextRequest) {
         const transdepoQuery = searchParams.get('transdepo');
         const search = searchParams.get('search');
         const format = searchParams.get('format') || 'json';
+        // SVG public rendering is retained for the LPS QR UI; JSON armada
+        // lookup and bulk listing are private server-to-server operations.
+        if (format !== 'svg' && !isTimbangQrAuthorized(request)) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+        }
         const rawText = searchParams.get('text');
         const includeInactive = searchParams.get('includeInactive') === 'true';
 
@@ -298,6 +303,9 @@ export async function handleTimbangQrGet(request: NextRequest) {
 }
 
 export async function handleTimbangQrPost(request: NextRequest) {
+    if (!isTimbangQrAuthorized(request)) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401, headers: corsHeaders });
+    }
     try {
         const body = await request.json().catch(() => ({}));
         const { armadaId, platNomor, regenerate, text } = body;
