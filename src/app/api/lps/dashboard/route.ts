@@ -140,6 +140,10 @@ export async function GET() {
                 platNomor: armada.platNomor,
                 namaSupir: armada.namaSupir || '-',
                 jenisArmada: armada.jenisArmada || '-',
+                wilayahKerja: armada.wilayahKerja || '-',
+                noIzinOperasi: armada.noIzinOperasi || '-',
+                namaKetuaLps: armada.namaKetuaLps || '-',
+                lokasiTransdepo: armada.lokasiTransdepo || '-',
                 totalBerat: totalBerat
             }
         })

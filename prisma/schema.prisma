@@ -54,7 +54,7 @@ model Armada {
   namaLps         String      @map("nama_lps")
   kelurahanId     String?     @map("kelurahan_id")
   kelurahan       Kelurahan?  @relation(fields: [kelurahanId], references: [id])
-  platNomor       String      @unique @map("plat_nomor")
+  platNomor       String      @map("plat_nomor")
   noIzinOperasi   String?     @map("no_izin_operasi")
   namaSupir       String?     @map("nama_supir")
   namaKetuaLps    String?     @map("nama_ketua_lps")

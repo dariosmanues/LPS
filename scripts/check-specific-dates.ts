@@ -7,7 +7,7 @@ async function main() {
     const testPlates = ['BM 8106 QP', 'BM 8359 QN', 'BM 8622 QP'];
 
     for (const plate of testPlates) {
-        const armada = await prisma.armada.findUnique({
+        const armada = await prisma.armada.findFirst({
             where: { platNomor: plate },
             select: {
                 platNomor: true,

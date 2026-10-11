@@ -19,9 +19,29 @@ export const authOptions: NextAuthOptions = {
                     return null;
                 }
 
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
+                let user = await prisma.user.findUnique({
+                    where: { email: credentials.email.toLowerCase().trim() },
                 });
+
+                if (!user) {
+                    const normalized = credentials.email.toLowerCase().trim().replace(/[-_]/g, '');
+                    user = await prisma.user.findUnique({
+                        where: { email: normalized }
+                    });
+                }
+
+                if (!user) {
+                    // Try Sukamulia <-> Sukamulya fallback
+                    if (credentials.email.includes('sukamulia')) {
+                        user = await prisma.user.findUnique({
+                            where: { email: credentials.email.toLowerCase().trim().replace('sukamulia', 'sukamulya') }
+                        });
+                    } else if (credentials.email.includes('sukamulya')) {
+                        user = await prisma.user.findUnique({
+                            where: { email: credentials.email.toLowerCase().trim().replace('sukamulya', 'sukamulia') }
+                        });
+                    }
+                }
 
                 if (!user) {
                     console.log('User not found:', credentials.email);

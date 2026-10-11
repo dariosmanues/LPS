@@ -41,6 +41,9 @@ interface ArmadaStats {
     platNomor: string;
     namaSupir: string;
     jenisArmada: string;
+    wilayahKerja?: string;
+    noIzinOperasi?: string;
+    lokasiTransdepo?: string;
     totalBerat: number;
 }
 
@@ -257,17 +260,25 @@ export default function LpsDashboardPage() {
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plat Nomor</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supir</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No. Izin</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wilayah Kerja / Rute</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sampah (Kg)</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {armadaStats.map((armada) => (
                                     <tr key={armada.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{armada.platNomor}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{armada.namaSupir}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{armada.jenisArmada}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{armada.platNomor}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">
+                                                {armada.jenisArmada}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">{armada.noIzinOperasi || '-'}</td>
+                                        <td className="px-6 py-4 text-xs text-gray-600 max-w-xs truncate" title={armada.wilayahKerja}>
+                                            {armada.wilayahKerja || '-'}
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
                                             {armada.totalBerat.toLocaleString('id-ID')} Kg
                                         </td>

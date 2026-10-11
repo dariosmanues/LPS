@@ -9,6 +9,10 @@ interface Armada {
     platNomor: string;
     namaSupir: string | null;
     jenisArmada: string | null;
+    noIzinOperasi?: string | null;
+    wilayahKerja?: string | null;
+    nomorSkLps?: string | null;
+    lokasiTransdepo?: string | null;
     qrCode: string;
     isQrUsed?: boolean;
     qrUsedAt?: string | null;
@@ -348,16 +352,28 @@ export default function QRGeneratorPage() {
                                 <p className="text-sm text-gray-600 mb-1">
                                     {armada.namaLps}
                                 </p>
-                                {armada.namaSupir && (
-                                    <p className="text-xs text-gray-500">
-                                        Supir: {armada.namaSupir}
+                                {armada.noIzinOperasi && (
+                                    <p className="text-xs text-gray-500 font-mono mt-0.5">
+                                        Izin: {armada.noIzinOperasi}
                                     </p>
                                 )}
-                                {armada.jenisArmada && (
-                                    <span className="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                                        {armada.jenisArmada}
-                                    </span>
+                                {armada.wilayahKerja && (
+                                    <p className="text-xs text-gray-600 line-clamp-2 mt-1 bg-gray-50 p-1.5 rounded-lg border border-gray-100" title={armada.wilayahKerja}>
+                                        <span className="font-medium text-gray-700">Rute:</span> {armada.wilayahKerja}
+                                    </p>
                                 )}
+                                <div className="flex items-center gap-2 mt-2">
+                                    {armada.jenisArmada && (
+                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-md">
+                                            {armada.jenisArmada}
+                                        </span>
+                                    )}
+                                    {armada.lokasiTransdepo && (
+                                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-md">
+                                            {armada.lokasiTransdepo}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Alert if QR is burned */}

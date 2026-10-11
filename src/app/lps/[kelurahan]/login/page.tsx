@@ -17,9 +17,11 @@ export default function LpsLoginPage({ params }: { params: Promise<{ kelurahan: 
     const router = useRouter();
 
     // Format kelurahan slug to Title Case for display
-    // e.g., "simpangbaru" -> "Simpangbaru" (Simple formatting)
-    // For better formatting we might need to fetch from DB, but this suffices for now.
-    const displayNama = kelurahan.charAt(0).toUpperCase() + kelurahan.slice(1);
+    // e.g., "pematang-kapau" -> "Pematang Kapau", "sukamaju" -> "Sukamaju"
+    const displayNama = kelurahan
+        .split(/[-_]/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

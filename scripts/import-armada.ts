@@ -101,42 +101,51 @@ async function main() {
             const namaSupirRaw = row['Nama Supir'] || row['supir'] || row['Nama Driver'] || row['Driver'] || null;
             const namaSupir = namaSupirRaw ? namaSupirRaw.toString().trim() : null;
 
-            // Upsert
-            const result = await prisma.armada.upsert({
-                where: { platNomor: platNomor },
-                update: {
-                    namaLps: namaLps,
-                    namaKetuaLps: namaKetua,
-                    alamatLps: alamat,
-                    wilayahKerja: wilayahKerja,
-                    noIzinOperasi: noIzin,
-                    nomorSkLps: noSk,
-                    tanggalSkLps: parsedTglSk,
-                    tanggalTerbitIzin: parsedTglIzin,
-                    lokasiTransdepo: lokasi,
-                    jenisArmada: jenis,
-                    kelurahanId: kelurahanId,
-                    namaSupir: namaSupir,
-                    updatedAt: new Date()
-                },
-                create: {
-                    platNomor: platNomor,
-                    namaLps: namaLps,
-                    namaKetuaLps: namaKetua,
-                    alamatLps: alamat,
-                    wilayahKerja: wilayahKerja,
-                    noIzinOperasi: noIzin,
-                    nomorSkLps: noSk,
-                    tanggalSkLps: parsedTglSk,
-                    tanggalTerbitIzin: parsedTglIzin,
-                    lokasiTransdepo: lokasi,
-                    jenisArmada: jenis,
-                    kelurahanId: kelurahanId,
-                    namaSupir: namaSupir,
-                    qrCode: `ARMADA-${platNomor.replace(/\s/g, '')}`,
-                    isActive: true,
-                }
+            // Upsert / Update
+            const existing = await prisma.armada.findFirst({
+                where: kelurahanId ? { platNomor, kelurahanId } : { platNomor }
             });
+
+            if (existing) {
+                await prisma.armada.update({
+                    where: { id: existing.id },
+                    data: {
+                        namaLps,
+                        namaKetuaLps: namaKetua,
+                        alamatLps: alamat,
+                        wilayahKerja: wilayahKerja,
+                        noIzinOperasi: noIzin,
+                        nomorSkLps: noSk,
+                        tanggalSkLps: parsedTglSk,
+                        tanggalTerbitIzin: parsedTglIzin,
+                        lokasiTransdepo: lokasi,
+                        jenisArmada: jenis,
+                        kelurahanId,
+                        namaSupir: namaSupir,
+                        updatedAt: new Date()
+                    }
+                });
+            } else {
+                await prisma.armada.create({
+                    data: {
+                        platNomor,
+                        namaLps,
+                        namaKetuaLps: namaKetua,
+                        alamatLps: alamat,
+                        wilayahKerja: wilayahKerja,
+                        noIzinOperasi: noIzin,
+                        nomorSkLps: noSk,
+                        tanggalSkLps: parsedTglSk,
+                        tanggalTerbitIzin: parsedTglIzin,
+                        lokasiTransdepo: lokasi,
+                        jenisArmada: jenis,
+                        kelurahanId,
+                        namaSupir: namaSupir,
+                        qrCode: `ARMADA-${platNomor.replace(/\s/g, '')}`,
+                        isActive: true,
+                    }
+                });
+            }
 
             // We can't easily tell IF it was created or updated from the return value of upsert in Prisma (it just returns the object).
             // But we can check if createdAt is close to now.
