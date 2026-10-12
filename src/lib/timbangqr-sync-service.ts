@@ -27,8 +27,8 @@ function getSecret(): string {
 
 export function isHarapanJaya(lokasiTransdepo?: string | null, wilayahKerja?: string | null): boolean {
   const lokasiClean = (lokasiTransdepo || '').toUpperCase().replace(/\s+/g, '');
-  const wilayahClean = (wilayahKerja || '').toUpperCase();
-  return lokasiClean.includes('HARAPANJAYA') || wilayahClean.includes('HARAPAN JAYA');
+  const wilayahClean = (wilayahKerja || '').toUpperCase().replace(/\s+/g, '');
+  return lokasiClean.includes('HARAPANJAYA') || wilayahClean.includes('HARAPANJAYA');
 }
 
 export function formatArmadaPayload(armada: any) {
