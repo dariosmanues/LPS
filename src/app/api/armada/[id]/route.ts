@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
 
 export async function PATCH(
     request: Request,
@@ -34,9 +35,25 @@ export async function PATCH(
                 jenisArmada: jenisArmada || null,
                 isActive: isActive !== undefined ? isActive : undefined,
             },
+            include: {
+                kelurahan: {
+                    include: { kecamatan: true }
+                }
+            }
         });
 
-        return NextResponse.json(armada);
+        // Otomatis sinkronkan ke TimbangQR jembatan timbang Harapan Jaya
+        let timbangQrSync = null;
+        try {
+            timbangQrSync = await syncArmadaToTimbangQr(armada);
+        } catch (syncErr) {
+            console.warn('[PATCH /api/armada/[id]] TimbangQR sync warning:', syncErr);
+        }
+
+        return NextResponse.json({
+            ...armada,
+            timbangQrSync
+        });
     } catch (error) {
         console.error('Error updating armada:', error);
         return NextResponse.json({ error: 'Failed to update armada' }, { status: 500 });

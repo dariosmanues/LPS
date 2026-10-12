@@ -58,6 +58,8 @@ export async function GET(request: Request) {
     }
 }
 
+import { syncArmadaToTimbangQr, isHarapanJaya } from '@/lib/timbangqr-sync-service';
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -92,9 +94,27 @@ export async function POST(request: Request) {
                 jenisArmada: jenisArmada || null,
                 qrCode,
             },
+            include: {
+                kelurahan: {
+                    include: { kecamatan: true }
+                }
+            }
         });
 
-        return NextResponse.json(armada, { status: 201 });
+        // Sinkronisasi ke TimbangQR jika lokasi atau wilayah kerja adalah Harapan Jaya
+        let timbangQrSync = null;
+        if (isHarapanJaya(armada.lokasiTransdepo, armada.wilayahKerja)) {
+            try {
+                timbangQrSync = await syncArmadaToTimbangQr(armada);
+            } catch (syncErr) {
+                console.warn('[POST /api/armada] TimbangQR sync warning:', syncErr);
+            }
+        }
+
+        return NextResponse.json({
+            ...armada,
+            timbangQrSync
+        }, { status: 201 });
     } catch (error) {
         console.error('Error creating armada:', error);
         return NextResponse.json({ error: 'Failed to create armada' }, { status: 500 });

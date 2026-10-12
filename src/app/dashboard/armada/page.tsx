@@ -42,6 +42,7 @@ export default function ArmadaPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [sortBy, setSortBy] = useState<'kelurahan' | 'namaLps' | 'platNomor' | 'createdAt'>('createdAt');
+    const [syncingTimbangQr, setSyncingTimbangQr] = useState(false);
 
     // Filter armada berdasarkan nomor plat, nama LPS, supir, ketua, kelurahan, no izin
     const filteredArmadaList = useMemo(() => {
@@ -223,8 +224,12 @@ export default function ArmadaPage() {
                 body: JSON.stringify(payload),
             });
             if (res.ok) {
+                const resultData = await res.json().catch(() => ({}));
                 resetForm();
                 fetchArmada();
+                if (resultData.timbangQrSync?.success) {
+                    alert(`✅ Data armada berhasil disimpan dan otomatis disinkronkan ke sistem TimbangQR (Harapan Jaya).`);
+                }
             } else {
                 const errorData = await res.json();
                 alert(`Gagal menyimpan: ${errorData.error}`);
@@ -338,6 +343,28 @@ export default function ArmadaPage() {
         }
     };
 
+    const handleSyncTimbangQr = async () => {
+        if (!confirm('Sinkronkan seluruh armada Harapan Jaya ke jembatan timbang (https://timbangqr-ocr-led.vercel.app/armada) sekarang?')) return;
+        setSyncingTimbangQr(true);
+        try {
+            const res = await fetch('/api/armada/sync-timbangqr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`✅ ${data.message || 'Sinkronisasi ke TimbangQR berhasil!'}`);
+                fetchArmada();
+            } else {
+                alert(`⚠️ Gagal sinkronisasi: ${data.message || data.error || 'Terjadi kesalahan'}`);
+            }
+        } catch (err: any) {
+            alert(`Terjadi kesalahan jaringan saat menghubungi TimbangQR: ${err.message}`);
+        } finally {
+            setSyncingTimbangQr(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -387,6 +414,24 @@ export default function ArmadaPage() {
                             </svg>
                         )}
                         Cek Anomali Data
+                    </button>
+                    <button
+                        onClick={handleSyncTimbangQr}
+                        disabled={syncingTimbangQr}
+                        className="px-5 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl flex items-center gap-2 hover:bg-blue-100 transition-all font-medium disabled:opacity-50"
+                        title="Sinkronkan seluruh armada Harapan Jaya ke TimbangQR"
+                    >
+                        {syncingTimbangQr ? (
+                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        )}
+                        Sync TimbangQR
                     </button>
                     <button
                         onClick={() => { resetForm(); setShowModal(true); }}
@@ -764,6 +809,16 @@ export default function ArmadaPage() {
                                     <option value="AIRHITAM">Air Hitam</option>
                                     <option value="HARAPANJAYA">Harapan Jaya</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className="block text-gray-600 text-sm mb-2 font-medium">Wilayah Kerja</label>
+                                <input
+                                    type="text"
+                                    value={formData.wilayahKerja}
+                                    onChange={(e) => setFormData({ ...formData, wilayahKerja: e.target.value })}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none transition-all"
+                                    placeholder="Contoh: Harapan Jaya / KELURAHAN KULIM"
+                                />
                             </div>
                             <div>
                                 <label className="block text-gray-600 text-sm mb-2 font-medium">Jenis Armada</label>
