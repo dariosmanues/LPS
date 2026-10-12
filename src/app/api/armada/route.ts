@@ -21,7 +21,24 @@ export async function GET(request: Request) {
             orderBy = { platNomor: 'asc' };
         }
 
+        const search = searchParams.get('search') || searchParams.get('q') || '';
+
+        let where: any = undefined;
+        if (search.trim()) {
+            const s = search.trim();
+            where = {
+                OR: [
+                    { platNomor: { contains: s, mode: 'insensitive' } },
+                    { namaLps: { contains: s, mode: 'insensitive' } },
+                    { namaSupir: { contains: s, mode: 'insensitive' } },
+                    { noIzinOperasi: { contains: s, mode: 'insensitive' } },
+                    { kelurahan: { nama: { contains: s, mode: 'insensitive' } } },
+                ]
+            };
+        }
+
         const armada = await prisma.armada.findMany({
+            where,
             orderBy,
             include: {
                 kelurahan: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { GlassCard } from '@/components/ui';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -33,6 +33,7 @@ interface Armada {
 
 export default function ArmadaPage() {
     const [armadaList, setArmadaList] = useState<Armada[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [kelurahanList, setKelurahanList] = useState<Kelurahan[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -41,6 +42,41 @@ export default function ArmadaPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
     const [sortBy, setSortBy] = useState<'kelurahan' | 'namaLps' | 'platNomor' | 'createdAt'>('createdAt');
+
+    // Filter armada berdasarkan nomor plat, nama LPS, supir, ketua, kelurahan, no izin
+    const filteredArmadaList = useMemo(() => {
+        if (!searchQuery.trim()) return armadaList;
+        const q = searchQuery.toLowerCase().trim();
+        const qNorm = q.replace(/[^a-z0-9]/g, '');
+
+        return armadaList.filter((armada) => {
+            const plat = (armada.platNomor || '').toLowerCase();
+            const platNorm = plat.replace(/[^a-z0-9]/g, '');
+            const lps = (armada.namaLps || '').toLowerCase();
+            const supir = (armada.namaSupir || '').toLowerCase();
+            const ketua = (armada.namaKetuaLps || '').toLowerCase();
+            const kelurahan = (armada.kelurahan?.nama || '').toLowerCase();
+            const kecamatan = (armada.kelurahan?.kecamatan?.nama || '').toLowerCase();
+            const noIzin = (armada.noIzinOperasi || '').toLowerCase();
+            const noSk = (armada.nomorSkLps || '').toLowerCase();
+            const wilayah = (armada.wilayahKerja || '').toLowerCase();
+            const jenis = (armada.jenisArmada || '').toLowerCase();
+
+            return (
+                plat.includes(q) ||
+                platNorm.includes(qNorm) ||
+                lps.includes(q) ||
+                supir.includes(q) ||
+                ketua.includes(q) ||
+                kelurahan.includes(q) ||
+                kecamatan.includes(q) ||
+                noIzin.includes(q) ||
+                noSk.includes(q) ||
+                wilayah.includes(q) ||
+                jenis.includes(q)
+            );
+        });
+    }, [armadaList, searchQuery]);
     const [formData, setFormData] = useState({
         namaLps: '',
         kelurahanId: '',
@@ -234,7 +270,7 @@ export default function ArmadaPage() {
         if (tableContainerRef.current) {
             setTableWidth(tableContainerRef.current.scrollWidth);
         }
-    }, [armadaList, loading]);
+    }, [filteredArmadaList, loading]);
 
     const [showAnomalyModal, setShowAnomalyModal] = useState(false);
     const [anomalyData, setAnomalyData] = useState<any>(null);
@@ -364,27 +400,93 @@ export default function ArmadaPage() {
                 </div>
             </div>
 
-            {/* Sort Filter */}
-            <GlassCard hover={false} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                    </svg>
-                    <span className="text-gray-600 font-medium">Urutkan:</span>
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as any)}
-                        className="px-4 py-2 border border-gray-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none transition-all bg-white font-medium text-gray-700"
-                    >
-                        <option value="kelurahan">Kelurahan</option>
-                        <option value="namaLps">Nama LPS</option>
-                        <option value="platNomor">No. Plat</option>
-                        <option value="createdAt">Terbaru</option>
-                    </select>
+            {/* Search & Sort Filter Toolbar */}
+            <GlassCard hover={false} className="space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {/* Search Bar */}
+                    <div className="flex-1 max-w-xl">
+                        <div className="relative flex items-center">
+                            <div className="absolute left-3.5 text-gray-400 pointer-events-none">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Cari nama LPS atau nomor plat (contoh: BM 8185 BI, Sukamaju)..."
+                                className="w-full pl-11 pr-24 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl focus:bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-100 text-sm outline-none transition-all placeholder:text-gray-400"
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-20 text-gray-400 hover:text-gray-600 p-1 rounded-md transition-colors"
+                                    title="Hapus pencarian"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => {}}
+                                className="absolute right-1.5 px-4 py-1.5 bg-linear-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-all flex items-center gap-1.5"
+                            >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                Cari
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Sort Dropdown & Statistics */}
+                    <div className="flex items-center justify-between md:justify-end gap-4">
+                        <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                            </svg>
+                            <span className="text-gray-600 text-sm font-medium">Urutkan:</span>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as any)}
+                                className="px-3 py-1.5 border border-gray-200 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none transition-all bg-white text-sm font-medium text-gray-700"
+                            >
+                                <option value="kelurahan">Kelurahan</option>
+                                <option value="namaLps">Nama LPS</option>
+                                <option value="platNomor">No. Plat</option>
+                                <option value="createdAt">Terbaru</option>
+                            </select>
+                        </div>
+                        <div className="text-sm text-gray-500 whitespace-nowrap">
+                            {searchQuery ? (
+                                <>
+                                    Ditemukan: <span className="font-semibold text-purple-700">{filteredArmadaList.length}</span> / {armadaList.length} armada
+                                </>
+                            ) : (
+                                <>
+                                    Total: <span className="font-semibold text-gray-700">{armadaList.length}</span> armada
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                    Total: <span className="font-semibold text-gray-700">{armadaList.length}</span> armada
-                </div>
+
+                {searchQuery && (
+                    <div className="flex items-center gap-2 pt-2 border-t border-gray-100 text-xs text-gray-500">
+                        <span>Hasil pencarian untuk: <strong className="text-gray-800">"{searchQuery}"</strong> ({filteredArmadaList.length} armada)</span>
+                        <button
+                            type="button"
+                            onClick={() => setSearchQuery('')}
+                            className="text-purple-600 hover:text-purple-800 hover:underline font-semibold ml-2"
+                        >
+                            Reset pencarian
+                        </button>
+                    </div>
+                )}
             </GlassCard>
 
             {/* Table */}
@@ -413,15 +515,29 @@ export default function ArmadaPage() {
                             Coba Lagi
                         </button>
                     </div>
-                ) : armadaList.length === 0 ? (
+                ) : filteredArmadaList.length === 0 ? (
                     <div className="p-8 text-center">
                         <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
-                        <p className="font-medium text-gray-800 mb-1">Belum Ada Data Armada</p>
-                        <p className="text-sm text-gray-500">Klik tombol "Tambah Armada" untuk menambahkan data baru</p>
+                        <p className="font-medium text-gray-800 mb-1">
+                            {searchQuery ? 'Tidak Ada Armada yang Cocok' : 'Belum Ada Data Armada'}
+                        </p>
+                        <p className="text-sm text-gray-500 mb-4">
+                            {searchQuery
+                                ? `Tidak ditemukan armada dengan kata kunci "${searchQuery}". Coba periksa kembali nomor plat atau nama LPS.`
+                                : 'Klik tombol "Tambah Armada" untuk menambahkan data baru'}
+                        </p>
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="px-4 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 font-medium rounded-lg text-sm transition-colors"
+                            >
+                                Hapus Filter Pencarian
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div>
@@ -457,7 +573,7 @@ export default function ArmadaPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {armadaList.map((armada) => (
+                                    {filteredArmadaList.map((armada) => (
                                         <tr key={armada.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4 text-gray-600">{armada.noIzinOperasi || '-'}</td>
                                             <td className="px-6 py-4 text-gray-600">
