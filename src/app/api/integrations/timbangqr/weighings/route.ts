@@ -95,13 +95,41 @@ export async function POST(request: NextRequest) {
 
     const armadas = await prisma.armada.findMany({
       where: { isActive: true },
-      select: { id: true, platNomor: true, kelurahanId: true },
+      select: {
+        id: true,
+        platNomor: true,
+        namaLps: true,
+        kelurahanId: true,
+        kelurahan: { select: { nama: true } },
+      },
     });
-    const armada = armadas.find((item) => normalizePlate(item.platNomor) === normalizePlate(input.plateNumber));
-    if (!armada) {
+
+    const matchingArmadas = armadas.filter(
+      (item) => normalizePlate(item.platNomor) === normalizePlate(input.plateNumber)
+    );
+
+    if (matchingArmadas.length === 0) {
       return NextResponse.json({
         error: `Armada dengan plat ${input.plateNumber} belum terdaftar atau tidak aktif di LPS.`,
       }, { status: 422 });
+    }
+
+    // Jika plat nomor dipakai oleh lebih dari 1 LPS (misal BM 9601 TZ di LPS Pesisir & LPS Rintis),
+    // cocokkan armada berdasarkan nama LPS atau kelurahan dari tiket timbangan.
+    let armada = matchingArmadas[0];
+    if (matchingArmadas.length > 1 && input.lpsName) {
+      const cleanLpsInput = input.lpsName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const specific = matchingArmadas.find((item) => {
+        const cleanNamaLps = (item.namaLps || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const cleanKelurahan = (item.kelurahan?.nama || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        return (
+          (cleanNamaLps && (cleanLpsInput.includes(cleanNamaLps) || cleanNamaLps.includes(cleanLpsInput))) ||
+          (cleanKelurahan && (cleanLpsInput.includes(cleanKelurahan) || cleanKelurahan.includes(cleanLpsInput)))
+        );
+      });
+      if (specific) {
+        armada = specific;
+      }
     }
 
     const saved = await prisma.$transaction(async (tx) => {
