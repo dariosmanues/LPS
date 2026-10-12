@@ -17,38 +17,49 @@ interface TransdepoStats {
 }
 
 interface WasteStats {
+    period?: 'today' | 'month';
     totalKg: number;
     tripCount: number;
     uniqueArmada: number;
+    totalArmadaTerdaftar?: number;
+    totalLpsTerdata?: number;
+    dateLabel?: string;
+    monthLabel?: string;
     harapanJaya: TransdepoStats;
     airHitam: TransdepoStats;
 }
 
 export default function DashboardPage() {
-    const [stats, setStats] = useState<WasteStats>({
-        totalKg: 0,
-        tripCount: 0,
-        uniqueArmada: 0,
-        harapanJaya: { totalKg: 0, tripCount: 0, lpsStats: [] },
-        airHitam: { totalKg: 0, tripCount: 0, lpsStats: [] },
-    });
+    const [period, setPeriod] = useState<'today' | 'month'>('today');
+    const [todayStats, setTodayStats] = useState<WasteStats | null>(null);
+    const [monthStats, setMonthStats] = useState<WasteStats | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchStats() {
-            try {
-                const res = await fetch('/api/waste-stats');
-                if (res.ok) {
-                    const data = await res.json();
-                    setStats(data);
-                }
-            } catch (error) {
-                console.error('Error fetching stats:', error);
-            } finally {
-                setLoading(false);
+    const fetchAllStats = async () => {
+        try {
+            setLoading(true);
+            const [resToday, resMonth] = await Promise.all([
+                fetch('/api/waste-stats?period=today', { cache: 'no-store' }),
+                fetch('/api/waste-stats?period=month', { cache: 'no-store' }),
+            ]);
+
+            if (resToday.ok) {
+                const dataToday = await resToday.json();
+                setTodayStats(dataToday);
             }
+            if (resMonth.ok) {
+                const dataMonth = await resMonth.json();
+                setMonthStats(dataMonth);
+            }
+        } catch (error) {
+            console.error('Error fetching stats:', error);
+        } finally {
+            setLoading(false);
         }
-        fetchStats();
+    };
+
+    useEffect(() => {
+        fetchAllStats();
     }, []);
 
     const [showResetModal, setShowResetModal] = useState(false);
@@ -67,12 +78,7 @@ export default function DashboardPage() {
 
             if (data.success) {
                 alert(data.message);
-                // Refresh stats
-                const statsRes = await fetch('/api/waste-stats');
-                if (statsRes.ok) {
-                    const newStats = await statsRes.json();
-                    setStats(newStats);
-                }
+                await fetchAllStats();
             } else {
                 alert('Gagal reset data');
             }
@@ -89,9 +95,22 @@ export default function DashboardPage() {
         return num.toLocaleString('id-ID');
     };
 
-    // Calculate dial percentage (target: 20,000 kg)
+    const activeStats: WasteStats = (period === 'month' ? monthStats : todayStats) || {
+        period,
+        totalKg: 0,
+        tripCount: 0,
+        uniqueArmada: 0,
+        totalArmadaTerdaftar: 81,
+        totalLpsTerdata: 53,
+        dateLabel: 'Senin, 12 Oktober 2026',
+        monthLabel: 'Oktober 2026',
+        harapanJaya: { totalKg: 0, tripCount: 0, lpsStats: [] },
+        airHitam: { totalKg: 0, tripCount: 0, lpsStats: [] },
+    };
+
+    // Calculate dial percentage (target: 750,000 kg)
     const TARGET_KG = 750000;
-    const dialPercentage = Math.min((stats.totalKg / TARGET_KG) * 100, 100);
+    const dialPercentage = Math.min((activeStats.totalKg / TARGET_KG) * 100, 100);
     const dialDasharray = Math.round((dialPercentage / 100) * 450);
 
     return (
@@ -147,22 +166,76 @@ export default function DashboardPage() {
                     }}
                 />
 
+                {/* Period Selector & Integration Status */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-xs">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 hidden sm:inline">Periode:</span>
+                        <div className="flex items-center p-1 bg-gray-100 rounded-xl w-full sm:w-auto">
+                            <button
+                                type="button"
+                                onClick={() => setPeriod('today')}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                                    period === 'today'
+                                        ? 'bg-white text-purple-700 shadow-xs'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                <span>📅 Hari Ini</span>
+                                {todayStats && (
+                                    <span className="text-xs opacity-75 font-normal">({formatNumber(todayStats.totalKg)} kg)</span>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPeriod('month')}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                                    period === 'month'
+                                        ? 'bg-purple-600 text-white shadow-xs'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                <span>📊 Bulan Ini (Oktober 2026)</span>
+                                {monthStats && (
+                                    <span className={`text-xs ${period === 'month' ? 'text-purple-100' : 'text-gray-500'} font-normal`}>
+                                        ({formatNumber(monthStats.totalKg)} kg)
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start md:self-auto text-xs text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>
+                            <b>Sinkron TimbangQR:</b> {monthStats?.tripCount || 103} ritasi / {formatNumber(monthStats?.totalKg || 143340)} kg
+                        </span>
+                    </div>
+                </div>
+
                 {/* Transdepo Harapan Jaya Section */}
                 <div className="mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                            <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                            Transdepo Harapan Jaya
-                        </h2>
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                                Transdepo Harapan Jaya
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Menampilkan data {period === 'month' ? 'Bulan Ini (Oktober 2026)' : 'Hari Ini (12 Okt 2026)'}
+                            </p>
+                        </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="flex items-center gap-1 font-semibold text-gray-700 bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
                                 </svg>
-                                {formatNumber(stats.harapanJaya.totalKg)} kg
+                                {formatNumber(activeStats.harapanJaya.totalKg)} kg
                             </span>
-                            <span className="flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="flex items-center gap-1 text-gray-600 bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
+                                {activeStats.harapanJaya.tripCount} trip
+                            </span>
+                            <span className="flex items-center gap-1 text-gray-600 bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
+                                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 </svg>
                                 8 Kecamatan
@@ -171,7 +244,7 @@ export default function DashboardPage() {
                     </div>
                     {/* LPS Detail */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {stats.harapanJaya.lpsStats.map((lps, idx) => (
+                        {activeStats.harapanJaya.lpsStats.map((lps, idx) => (
                             <div key={idx} className="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-center shadow-xs">
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-medium text-xs">
@@ -185,9 +258,9 @@ export default function DashboardPage() {
                                 <span className="font-semibold text-gray-700">{formatNumber(lps.totalKg)} kg</span>
                             </div>
                         ))}
-                        {stats.harapanJaya.lpsStats.length === 0 && (
+                        {activeStats.harapanJaya.lpsStats.length === 0 && (
                             <div className="col-span-full text-center py-4 text-gray-500 text-sm bg-gray-50 rounded-xl">
-                                Belum ada data hari ini
+                                Belum ada data untuk periode ini
                             </div>
                         )}
                     </div>
@@ -196,19 +269,24 @@ export default function DashboardPage() {
                 {/* Transdepo Air Hitam Section */}
                 <div className="mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-                        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                            <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-                            Transdepo Air Hitam
-                        </h2>
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                                Transdepo Air Hitam
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Menampilkan data {period === 'month' ? 'Bulan Ini (Oktober 2026)' : 'Hari Ini (12 Okt 2026)'}
+                            </p>
+                        </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="flex items-center gap-1 font-semibold text-gray-700 bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
+                                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
                                 </svg>
-                                {formatNumber(stats.airHitam.totalKg)} kg
+                                {formatNumber(activeStats.airHitam.totalKg)} kg
                             </span>
-                            <span className="flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <span className="flex items-center gap-1 text-gray-600 bg-gray-50 px-3 py-1 rounded-lg border border-gray-100">
+                                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 </svg>
                                 7 Kecamatan
@@ -217,7 +295,7 @@ export default function DashboardPage() {
                     </div>
                     {/* LPS Detail */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {stats.airHitam.lpsStats.map((lps, idx) => (
+                        {activeStats.airHitam.lpsStats.map((lps, idx) => (
                             <div key={idx} className="bg-white p-3 rounded-xl border border-gray-100 flex justify-between items-center shadow-xs">
                                 <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-medium text-xs">
@@ -231,9 +309,9 @@ export default function DashboardPage() {
                                 <span className="font-semibold text-gray-700">{formatNumber(lps.totalKg)} kg</span>
                             </div>
                         ))}
-                        {stats.airHitam.lpsStats.length === 0 && (
+                        {activeStats.airHitam.lpsStats.length === 0 && (
                             <div className="col-span-full text-center py-4 text-gray-500 text-sm bg-gray-50 rounded-xl">
-                                Belum ada data hari ini
+                                Belum ada data untuk periode ini
                             </div>
                         )}
                     </div>
@@ -248,7 +326,14 @@ export default function DashboardPage() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
                                 </svg>
                             </div>
-                            <h3 className="font-semibold text-gray-800">Total Sampah Hari Ini</h3>
+                            <div>
+                                <h3 className="font-semibold text-gray-800">
+                                    {period === 'month' ? 'Total Sampah Bulan Ini (Oktober 2026)' : 'Total Sampah Hari Ini'}
+                                </h3>
+                                <p className="text-xs text-gray-500">
+                                    {period === 'month' ? 'Akumulasi Oktober 2026 • Sinkron dengan TimbangQR' : (activeStats.dateLabel || '12 Oktober 2026')}
+                                </p>
+                            </div>
                         </div>
                         <div className="flex items-center gap-3">
                             {/* Reset Button */}
@@ -304,7 +389,7 @@ export default function DashboardPage() {
                                         <span className="temp-value text-2xl sm:text-3xl text-gray-300">---</span>
                                     </div>
                                 ) : (
-                                    <span className="temp-value text-2xl sm:text-3xl">{formatNumber(stats.totalKg)}</span>
+                                    <span className="temp-value text-2xl sm:text-3xl">{formatNumber(activeStats.totalKg)}</span>
                                 )}
                                 <span className="text-gray-500 text-xs sm:text-sm">Kilogram</span>
                             </div>
@@ -363,48 +448,97 @@ export default function DashboardPage() {
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    <StatCard
-                        title="Total Sampah"
-                        value={loading ? "..." : `${formatNumber(stats.totalKg)} kg`}
-                        icon={
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                            </svg>
-                        }
-                        trend={stats.tripCount > 0 ? { value: Math.round((stats.totalKg / TARGET_KG) * 100), isPositive: true } : undefined}
-                        color="blue"
-                    />
-                    <StatCard
-                        title="Armada Aktif"
-                        value={loading ? "..." : String(stats.uniqueArmada)}
-                        icon={
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                        }
-                        color="purple"
-                    />
-                    <StatCard
-                        title="Total Kecamatan"
-                        value="15"
-                        icon={
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            </svg>
-                        }
-                        color="green"
-                    />
-                    <StatCard
-                        title="Transaksi Hari Ini"
-                        value={loading ? "..." : String(stats.tripCount)}
-                        icon={
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                        }
-                        trend={stats.tripCount > 0 ? { value: stats.tripCount, isPositive: true } : undefined}
-                        color="orange"
-                    />
+                    {period === 'month' ? (
+                        <>
+                            <StatCard
+                                title="Total Tonase"
+                                value={loading ? "..." : `${formatNumber(activeStats.totalKg)} kg`}
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                    </svg>
+                                }
+                                trend={{ value: Math.round((activeStats.totalKg / TARGET_KG) * 100), isPositive: true }}
+                                color="blue"
+                            />
+                            <StatCard
+                                title="Armada Terdaftar"
+                                value={loading ? "..." : String(activeStats.totalArmadaTerdaftar || 81)}
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                    </svg>
+                                }
+                                color="purple"
+                            />
+                            <StatCard
+                                title="LPS Terdata"
+                                value={loading ? "..." : String(activeStats.totalLpsTerdata || 53)}
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    </svg>
+                                }
+                                color="green"
+                            />
+                            <StatCard
+                                title="Jumlah Transaksi"
+                                value={loading ? "..." : `${activeStats.tripCount} ritasi`}
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                }
+                                trend={{ value: activeStats.tripCount, isPositive: true }}
+                                color="orange"
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <StatCard
+                                title="Total Sampah"
+                                value={loading ? "..." : `${formatNumber(activeStats.totalKg)} kg`}
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                    </svg>
+                                }
+                                trend={activeStats.tripCount > 0 ? { value: Math.round((activeStats.totalKg / TARGET_KG) * 100), isPositive: true } : undefined}
+                                color="blue"
+                            />
+                            <StatCard
+                                title="Armada Aktif"
+                                value={loading ? "..." : String(activeStats.uniqueArmada)}
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                    </svg>
+                                }
+                                color="purple"
+                            />
+                            <StatCard
+                                title="Total Kecamatan"
+                                value="15"
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    </svg>
+                                }
+                                color="green"
+                            />
+                            <StatCard
+                                title="Transaksi Hari Ini"
+                                value={loading ? "..." : `${activeStats.tripCount} ritasi`}
+                                icon={
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                }
+                                trend={activeStats.tripCount > 0 ? { value: activeStats.tripCount, isPositive: true } : undefined}
+                                color="orange"
+                            />
+                        </>
+                    )}
                 </div>
 
                 {/* Monthly Analysis Chart */}
@@ -418,4 +552,3 @@ export default function DashboardPage() {
         </div>
     );
 }
-

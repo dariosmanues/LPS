@@ -11,7 +11,13 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
 
     try {
+        const systemStartDate = new Date('2026-10-12T00:00:00+07:00');
         const logs = await prisma.wasteLog.findMany({
+            where: {
+                recordedAt: {
+                    gte: systemStartDate
+                }
+            },
             take: limit,
             skip: (page - 1) * limit,
             orderBy: { recordedAt: 'desc' },
@@ -24,7 +30,13 @@ export async function GET(request: NextRequest) {
             },
         });
 
-        const total = await prisma.wasteLog.count();
+        const total = await prisma.wasteLog.count({
+            where: {
+                recordedAt: {
+                    gte: systemStartDate
+                }
+            }
+        });
 
         return NextResponse.json({ logs, total, page, limit });
     } catch (error) {

@@ -42,11 +42,12 @@ export async function GET() {
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
 
+        const systemStartDate = new Date('2026-10-12T00:00:00+07:00');
         // Fetch logs for the current year, filtered by kelurahanId through armada relation or direct kelurahanId
         const logs = await prisma.wasteLog.findMany({
             where: {
                 recordedAt: {
-                    gte: startOfYear,
+                    gte: systemStartDate,
                     lte: endOfYear
                 },
                 OR: [

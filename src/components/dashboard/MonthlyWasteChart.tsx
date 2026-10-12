@@ -19,9 +19,15 @@ interface MonthlyData {
 
 interface MonthlyWasteChartProps {
     apiUrl?: string;
+    title?: string;
+    subtitle?: string;
 }
 
-export function MonthlyWasteChart({ apiUrl = '/api/waste-stats/monthly' }: MonthlyWasteChartProps) {
+export function MonthlyWasteChart({
+    apiUrl = '/api/waste-stats/monthly',
+    title = 'Tren Sampah Bulanan (Januari - Desember)',
+    subtitle = 'Total volume sampah per bulan tahun ini (Data resmi terhitung mulai 12 Okt 2026)'
+}: MonthlyWasteChartProps) {
     const [data, setData] = useState<MonthlyData[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -42,6 +48,9 @@ export function MonthlyWasteChart({ apiUrl = '/api/waste-stats/monthly' }: Month
 
         fetchData();
     }, [apiUrl]);
+
+    const totalAnnualKg = data.reduce((acc, curr) => acc + (curr.totalKg || 0), 0);
+    const highestMonth = data.reduce((max, curr) => (curr.totalKg > max.totalKg ? curr : max), { month: '-', totalKg: 0 });
 
     const formatYAxis = (value: number) => {
         if (value >= 1000) {
@@ -73,17 +82,60 @@ export function MonthlyWasteChart({ apiUrl = '/api/waste-stats/monthly' }: Month
     }
 
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h3 className="text-lg font-semibold text-gray-800">Analisis Sampah Bulanan</h3>
-                    <p className="text-sm text-gray-500">Total volume sampah per bulan tahun ini</p>
+        <div className="space-y-4">
+            {/* KPI Cards for Monthly Trend */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-linear-to-br from-purple-50 to-indigo-50/50 p-4 rounded-2xl border border-purple-100/80">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-purple-800 uppercase tracking-wider">Total Sampah Terdata</span>
+                        <span className="text-purple-600">📦</span>
+                    </div>
+                    <div className="text-xl font-bold text-gray-900">
+                        {totalAnnualKg.toLocaleString('id-ID')} <span className="text-xs font-normal text-gray-500">Kg</span>
+                    </div>
+                    <p className="text-xs text-purple-700 mt-1">
+                        ± {(totalAnnualKg / 1000).toFixed(2)} Ton (Tahun 2026)
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
-                    <span className="text-sm text-gray-600">Total Berat (Kg)</span>
+
+                <div className="bg-linear-to-br from-blue-50 to-sky-50/50 p-4 rounded-2xl border border-blue-100/80">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-blue-800 uppercase tracking-wider">Volume Tertinggi</span>
+                        <span className="text-blue-600">📈</span>
+                    </div>
+                    <div className="text-xl font-bold text-gray-900">
+                        {highestMonth.totalKg > 0 ? `${highestMonth.month} (${highestMonth.totalKg.toLocaleString('id-ID')} kg)` : '-'}
+                    </div>
+                    <p className="text-xs text-blue-700 mt-1">
+                        {highestMonth.totalKg > 0 ? `Bulan dengan ritasi timbang terbanyak` : 'Belum ada data'}
+                    </p>
+                </div>
+
+                <div className="bg-linear-to-br from-emerald-50 to-teal-50/50 p-4 rounded-2xl border border-emerald-100/80">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Periode Data Aktif</span>
+                        <span className="text-emerald-600">🛡️</span>
+                    </div>
+                    <div className="text-base font-bold text-gray-900 mt-0.5">
+                        Mulai 12 Okt 2026
+                    </div>
+                    <p className="text-xs text-emerald-700 mt-1">
+                        Data uji coba pra-12 Okt diabaikan
+                    </p>
                 </div>
             </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+                    <div>
+                        <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+                        <p className="text-sm text-gray-500">{subtitle}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
+                        <span className="text-sm text-gray-600 font-medium">Total Berat (Kg)</span>
+                    </div>
+                </div>
 
             <div className="h-[320px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -125,5 +177,6 @@ export function MonthlyWasteChart({ apiUrl = '/api/waste-stats/monthly' }: Month
                 </ResponsiveContainer>
             </div>
         </div>
+    </div>
     );
 }

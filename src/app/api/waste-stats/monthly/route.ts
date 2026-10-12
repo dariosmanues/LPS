@@ -1,17 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
     try {
         const now = new Date();
         const startOfYear = new Date(now.getFullYear(), 0, 1);
         const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
 
-        // Fetch logs for the current year
+        const systemStartDate = new Date('2026-10-12T00:00:00+07:00');
+        // Fetch logs for the current year (mulai dari 12 Oktober 2026)
         const logs = await prisma.wasteLog.findMany({
             where: {
                 recordedAt: {
-                    gte: startOfYear,
+                    gte: systemStartDate,
                     lte: endOfYear
                 }
             },

@@ -31,9 +31,6 @@ export default function QRGeneratorPage() {
     const [error, setError] = useState<string | null>(null);
     const [generatedQRs, setGeneratedQRs] = useState<Set<string>>(new Set());
 
-    const [copiedApi, setCopiedApi] = useState(false);
-    const [showApiModal, setShowApiModal] = useState(false);
-
     useEffect(() => {
         fetchArmada();
     }, []);
@@ -66,13 +63,6 @@ export default function QRGeneratorPage() {
         } else {
             setGeneratedQRs(new Set());
         }
-    };
-
-    const copyApiUrl = () => {
-        const url = `${window.location.origin}/api/integrations/timbangqr/qr-generator`;
-        navigator.clipboard.writeText(url);
-        setCopiedApi(true);
-        setTimeout(() => setCopiedApi(false), 2500);
     };
 
     const generateQRCode = (armadaId: string) => {
@@ -203,7 +193,7 @@ export default function QRGeneratorPage() {
                         QR Code Generator Armada
                     </h1>
                     <p className="text-gray-600 mt-1">
-                        Generate dan download QR code untuk armada LPS Anda serta integrasi ke aplikasi TimbangQR
+                        Generate dan download QR code untuk armada LPS Anda
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -230,67 +220,6 @@ export default function QRGeneratorPage() {
                     >
                         Sembunyikan Semua
                     </button>
-                    <button
-                        onClick={() => setShowApiModal(true)}
-                        className="px-3.5 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-1.5 shadow-sm"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                        </svg>
-                        API TimbangQR
-                    </button>
-                </div>
-            </div>
-
-            {/* TimbangQR Integration Banner */}
-            <div className="bg-linear-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-2xl p-5 shadow-xs">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                                API TimbangQR Aktif
-                            </span>
-                            <span className="text-xs text-purple-700 font-medium">REST API Endpoint</span>
-                        </div>
-                        <h2 className="text-base font-semibold text-gray-800">
-                            Akses Data & Verifikasi QR dari Aplikasi TimbangQR
-                        </h2>
-                        <p className="text-xs text-gray-600">
-                            Aplikasi TimbangQR dapat membaca daftar armada, lookup plat nomor/QR, atau merender QR langsung via API:
-                        </p>
-                        <code className="inline-block mt-1 px-2.5 py-1 bg-white/80 border border-purple-200 rounded-lg text-xs font-mono text-purple-900 select-all">
-                            /api/integrations/timbangqr/qr-generator
-                        </code>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={copyApiUrl}
-                            className="px-3.5 py-2 bg-white text-gray-700 border border-purple-300 text-xs font-medium rounded-xl hover:bg-purple-50 transition-colors shadow-xs flex items-center gap-1.5"
-                        >
-                            {copiedApi ? (
-                                <>
-                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    <span className="text-green-600 font-semibold">Tersalin!</span>
-                                </>
-                            ) : (
-                                <>
-                                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                    </svg>
-                                    Salin Endpoint
-                                </>
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setShowApiModal(true)}
-                            className="px-3.5 py-2 bg-purple-600 text-white text-xs font-medium rounded-xl hover:bg-purple-700 transition-colors shadow-xs"
-                        >
-                            Dokumentasi API
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -453,100 +382,6 @@ export default function QRGeneratorPage() {
                             )}
                         </div>
                     ))}
-                </div>
-            )}
-
-            {/* API Documentation Modal */}
-            {showApiModal && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-                    <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto border border-gray-100">
-                        <div className="flex items-center justify-between border-b pb-4">
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                    <span className="w-3 h-3 rounded-full bg-purple-600"></span>
-                                    Dokumentasi API TimbangQR & QR Generator
-                                </h3>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Gunakan endpoint ini di aplikasi timbangan atau mobile scanner Anda
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => setShowApiModal(false)}
-                                className="text-gray-400 hover:text-gray-600 p-2 rounded-xl hover:bg-gray-100"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div className="space-y-4 text-sm">
-                            <div>
-                                <h4 className="font-semibold text-gray-800 mb-1">1. Ambil Semua Armada & Data QR</h4>
-                                <div className="bg-gray-900 text-green-400 p-3 rounded-xl font-mono text-xs overflow-x-auto">
-                                    GET /api/integrations/timbangqr/qr-generator
-                                </div>
-                                <p className="text-xs text-gray-600 mt-1">
-                                    Mengembalikan daftar seluruh armada aktif beserta string QR Code unik, plat nomor, supir, dan nama LPS.
-                                </p>
-                            </div>
-
-                            <div>
-                                <h4 className="font-semibold text-gray-800 mb-1">2. Lookup / Validasi Hasil Scan QR Code</h4>
-                                <div className="bg-gray-900 text-green-400 p-3 rounded-xl font-mono text-xs overflow-x-auto">
-                                    GET /api/integrations/timbangqr/qr-generator?code=&#123;scanned_code&#125;
-                                </div>
-                                <p className="text-xs text-gray-600 mt-1">
-                                    Contoh: <code className="bg-gray-100 px-1 py-0.5 rounded">?code=BM8081TT</code> atau string QR armada lainnya.
-                                </p>
-                            </div>
-
-                            <div>
-                                <h4 className="font-semibold text-gray-800 mb-1">3. Lookup Armada Berdasarkan Plat Nomor</h4>
-                                <div className="bg-gray-900 text-green-400 p-3 rounded-xl font-mono text-xs overflow-x-auto">
-                                    GET /api/integrations/timbangqr/qr-generator?plate=BM8081TT
-                                </div>
-                                <p className="text-xs text-gray-600 mt-1">
-                                    Dukungan format plat fleksibel (dengan spasi maupun tanpa spasi).
-                                </p>
-                            </div>
-
-                            <div>
-                                <h4 className="font-semibold text-gray-800 mb-1">4. Render Gambar QR Code Langsung (SVG Image)</h4>
-                                <div className="bg-gray-900 text-green-400 p-3 rounded-xl font-mono text-xs overflow-x-auto">
-                                    GET /api/qr-generator?plate=BM8081TT&amp;format=svg
-                                </div>
-                                <p className="text-xs text-gray-600 mt-1">
-                                    Bisa langsung dipasang di tag <code className="bg-gray-100 px-1 py-0.5 rounded">&lt;img src="..." /&gt;</code> atau dicetak.
-                                </p>
-                            </div>
-
-                            <div>
-                                <h4 className="font-semibold text-gray-800 mb-1">5. Generate / Regenerate QR Code (POST)</h4>
-                                <div className="bg-gray-900 text-blue-300 p-3 rounded-xl font-mono text-xs overflow-x-auto">
-                                    POST /api/integrations/timbangqr/qr-generator<br />
-                                    Body: &#123; &quot;platNomor&quot;: &quot;BM 8081 TT&quot;, &quot;regenerate&quot;: true &#125;
-                                </div>
-                            </div>
-
-                            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-xs text-purple-900">
-                                <strong>💡 Autentikasi Integrasi:</strong> Kirim header{' '}
-                                <code className="bg-white px-1.5 py-0.5 rounded border">
-                                    Authorization: Bearer &lt;TIMBANGQR_INTEGRATION_SECRET&gt;
-                                </code>{' '}
-                                untuk akses server-ke-server terverifikasi, atau query <code className="bg-white px-1.5 py-0.5 rounded border">?secret=...</code>.
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end pt-2">
-                            <button
-                                onClick={() => setShowApiModal(false)}
-                                className="px-5 py-2.5 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 transition-colors"
-                            >
-                                Tutup
-                            </button>
-                        </div>
-                    </div>
                 </div>
             )}
         </div>

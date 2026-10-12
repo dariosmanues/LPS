@@ -53,6 +53,11 @@ export async function GET(request: NextRequest) {
             startDate.setHours(0, 0, 0, 0);
     }
 
+    const systemStartDate = new Date('2026-10-12T00:00:00+07:00');
+    if (startDate < systemStartDate) {
+        startDate = systemStartDate;
+    }
+
     try {
         // Get all kecamatan with waste logs
         const kecamatanData = await prisma.kecamatan.findMany({

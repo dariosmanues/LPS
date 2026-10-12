@@ -118,11 +118,18 @@ export async function GET() {
             where: { kelurahanId: kelurahanId }
         })
 
-        // Get armada details with waste stats for this kelurahan
+        const systemStartDate = new Date('2026-10-12T00:00:00+07:00');
+
+        // Get armada details with waste stats for this kelurahan (hanya mulai 12 Oktober 2026)
         const armadas = await prisma.armada.findMany({
             where: { kelurahanId: kelurahanId },
             include: {
                 wasteLogs: {
+                    where: {
+                        recordedAt: {
+                            gte: systemStartDate
+                        }
+                    },
                     select: {
                         beratKg: true
                     }
