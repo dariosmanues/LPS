@@ -206,19 +206,26 @@ export async function handleTimbangQrGet(request: NextRequest) {
                 if (!armada) {
                     const lpsMatch = code.match(/^LPS-([A-Z0-9]+)-(\d+)$/i);
                     if (lpsMatch) {
-                        const targetPlate = lpsMatch[1];
-                        const existingArmada = await prisma.armada.findFirst({
-                            where: { platNomor: { equals: targetPlate, mode: 'insensitive' } },
+                        const targetNorm = normalizePlate(lpsMatch[1]);
+                        const allArmadasForMatch = await prisma.armada.findMany({
                             include: { kelurahan: { include: { kecamatan: true } } },
                         });
+                        const existingArmada = allArmadasForMatch.find(
+                            (a) => normalizePlate(a.platNomor) === targetNorm
+                        );
 
                         if (existingArmada) {
+                            const isRegenerated = existingArmada.qrCode !== code;
+                            const msg = isRegenerated
+                                ? `QR Code ini sudah usang / tidak berlaku karena QR Code armada ${existingArmada.platNomor} telah di-generate ulang di Dashboard LPS. Silakan gunakan/cetak QR Code terbaru.`
+                                : `QR Code ini sudah hangus (sudah pernah digunakan untuk transaksi tiket #${existingArmada.lastTicketNumber || '...'}). Silakan Hubungi Ketua Atau Pengurus LPS Anda .`;
+
                             return NextResponse.json(
                                 {
                                     success: false,
                                     valid: false,
                                     burned: true,
-                                    message: `QR Code ini sudah hangus (sudah pernah digunakan untuk transaksi tiket #${existingArmada.lastTicketNumber || '...'}). Silakan Hubungi Ketua Atau Pengurus LPS Anda .`,
+                                    message: msg,
                                     data: formatArmadaForTimbangQr(existingArmada, origin),
                                 },
                                 { status: 400, headers: corsHeaders }
