@@ -85,6 +85,9 @@ export function formatArmadaForTimbangQr(
         qrUsedAt?: Date | null;
         lastTicketNumber?: string | null;
         isActive: boolean;
+        isMultiLpsVerified?: boolean;
+        verifiedAt?: Date | null;
+        verifiedBy?: string | null;
         kelurahan?: {
             id?: string;
             nama: string;
@@ -113,6 +116,9 @@ export function formatArmadaForTimbangQr(
         isQrUsed: Boolean(armada.isQrUsed),
         qrUsedAt: armada.qrUsedAt || null,
         lastTicketNumber: armada.lastTicketNumber || null,
+        isMultiLpsVerified: Boolean(armada.isMultiLpsVerified),
+        verifiedAt: armada.verifiedAt || null,
+        verifiedBy: armada.verifiedBy || null,
         kelurahan: armada.kelurahan ? {
             id: armada.kelurahan.id,
             nama: armada.kelurahan.nama,
@@ -241,7 +247,8 @@ export async function handleTimbangQrGet(request: NextRequest) {
                         },
                     },
                 });
-                armada = allArmadas.find((a) => normalizePlate(a.platNomor) === norm) || null;
+                const matches = allArmadas.filter((a) => normalizePlate(a.platNomor) === norm);
+                armada = matches[0] || null;
             }
 
             if (!armada) {
@@ -255,10 +262,24 @@ export async function handleTimbangQrGet(request: NextRequest) {
                 );
             }
 
+            // Cek apakah nomor polisi ini melayani > 1 LPS dan sudah diverifikasi operator
+            const normCheck = normalizePlate(armada.platNomor);
+            const plateSiblings = await prisma.armada.findMany({
+                where: { isActive: true },
+                select: { id: true, platNomor: true, isMultiLpsVerified: true, namaLps: true },
+            });
+            const matchesForPlate = plateSiblings.filter((a) => normalizePlate(a.platNomor) === normCheck);
+            const isMultiLps = matchesForPlate.length > 1;
+            const isMultiLpsVerified = matchesForPlate.some((a) => Boolean(a.isMultiLpsVerified));
+
             const formatted = formatArmadaForTimbangQr(armada, origin);
+            if (isMultiLpsVerified) {
+                formatted.isMultiLpsVerified = true;
+            }
 
             // Check if QR code is already burned / used!
-            if (armada.isQrUsed) {
+            // Catatan: Jika armada melayani multi-LPS terverifikasi, QR fisik ARMADA tetap dapat diproses
+            if (armada.isQrUsed && !isMultiLpsVerified) {
                 return NextResponse.json(
                     {
                         success: false,
@@ -274,8 +295,10 @@ export async function handleTimbangQrGet(request: NextRequest) {
             return NextResponse.json(
                 {
                     success: true,
-                    valid: armada.isActive && !armada.isQrUsed,
-                    burned: Boolean(armada.isQrUsed),
+                    valid: armada.isActive && (!armada.isQrUsed || isMultiLpsVerified),
+                    burned: Boolean(armada.isQrUsed && !isMultiLpsVerified),
+                    isMultiLps,
+                    isMultiLpsVerified,
                     data: formatted,
                 },
                 { headers: { ...corsHeaders, 'Cache-Control': 'private, no-store, max-age=0' } }

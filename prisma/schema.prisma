@@ -71,6 +71,9 @@ model Armada {
   qrUsedAt        DateTime?   @map("qr_used_at")
   lastTicketNumber String?    @map("last_ticket_number")
   isActive        Boolean     @default(true) @map("is_active")
+  isMultiLpsVerified Boolean  @default(false) @map("is_multi_lps_verified")
+  verifiedAt      DateTime?   @map("verified_at")
+  verifiedBy      String?     @map("verified_by")
   wasteLogs       WasteLog[]
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")

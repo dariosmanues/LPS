@@ -29,6 +29,9 @@ interface Armada {
     jenisArmada: string | null; // DUMPTRUCK, PICKUP, or BENTOR
     qrCode: string;
     isActive: boolean;
+    isMultiLpsVerified?: boolean;
+    verifiedAt?: string | null;
+    verifiedBy?: string | null;
 }
 
 export default function ArmadaPage() {
@@ -43,14 +46,68 @@ export default function ArmadaPage() {
     const [editId, setEditId] = useState<string | null>(null);
     const [sortBy, setSortBy] = useState<'kelurahan' | 'namaLps' | 'platNomor' | 'createdAt'>('createdAt');
     const [syncingTimbangQr, setSyncingTimbangQr] = useState(false);
+    const [verifyingPlate, setVerifyingPlate] = useState<string | null>(null);
+    const [filterMultiLpsOnly, setFilterMultiLpsOnly] = useState(false);
+
+    // Identifikasi armada yang nomor platnya terdaftar di lebih dari 1 LPS (Multi-LPS)
+    const multiLpsPlates = useMemo(() => {
+        const countMap = new Map<string, number>();
+        armadaList.forEach(a => {
+            const norm = (a.platNomor || '').replace(/\s+/g, '').toUpperCase();
+            if (norm) countMap.set(norm, (countMap.get(norm) || 0) + 1);
+        });
+        const set = new Set<string>();
+        countMap.forEach((count, norm) => {
+            if (count > 1) set.add(norm);
+        });
+        return set;
+    }, [armadaList]);
+
+    const handleVerifyMultiLps = async (armada: Armada) => {
+        const isCurrentlyVerified = Boolean(armada.isMultiLpsVerified);
+        const actionText = isCurrentlyVerified ? 'membatalkan verifikasi' : 'memverifikasi';
+        const confirmMsg = isCurrentlyVerified
+            ? `Batalkan status verifikasi Multi-LPS untuk armada ${armada.platNomor}?`
+            : `Verifikasi armada ${armada.platNomor} yang melayani lebih dari 1 LPS?\n\nSetelah diverifikasi oleh operator, akses QR untuk armada ini di aplikasi TimbangQR (/scan) akan langsung dibuka.`;
+
+        if (!confirm(confirmMsg)) return;
+
+        setVerifyingPlate(armada.platNomor);
+        try {
+            const res = await fetch('/api/armada/verify-multi-lps', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    armadaId: armada.id,
+                    platNomor: armada.platNomor,
+                    isVerified: !isCurrentlyVerified,
+                }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(`✅ ${data.message}`);
+                await fetchArmada();
+            } else {
+                alert(`⚠️ Gagal verifikasi: ${data.error || 'Terjadi kesalahan'}`);
+            }
+        } catch (err: any) {
+            alert(`Terjadi kesalahan jaringan: ${err.message}`);
+        } finally {
+            setVerifyingPlate(null);
+        }
+    };
 
     // Filter armada berdasarkan nomor plat, nama LPS, supir, ketua, kelurahan, no izin
     const filteredArmadaList = useMemo(() => {
-        if (!searchQuery.trim()) return armadaList;
+        let list = armadaList;
+        if (filterMultiLpsOnly) {
+            list = list.filter(a => multiLpsPlates.has((a.platNomor || '').replace(/\s+/g, '').toUpperCase()));
+        }
+        if (!searchQuery.trim()) return list;
         const q = searchQuery.toLowerCase().trim();
         const qNorm = q.replace(/[^a-z0-9]/g, '');
 
-        return armadaList.filter((armada) => {
+        return list.filter((armada) => {
             const plat = (armada.platNomor || '').toLowerCase();
             const platNorm = plat.replace(/[^a-z0-9]/g, '');
             const lps = (armada.namaLps || '').toLowerCase();
@@ -491,6 +548,19 @@ export default function ArmadaPage() {
                     {/* Sort Dropdown & Statistics */}
                     <div className="flex items-center justify-between md:justify-end gap-4">
                         <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setFilterMultiLpsOnly(!filterMultiLpsOnly)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                                    filterMultiLpsOnly
+                                        ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                }`}
+                                title="Tampilkan hanya armada yang nomor platnya terdaftar di lebih dari 1 LPS"
+                            >
+                                <span className={`w-2 h-2 rounded-full ${filterMultiLpsOnly ? 'bg-white' : 'bg-amber-500'}`}></span>
+                                Multi-LPS ({multiLpsPlates.size})
+                            </button>
                             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                             </svg>
@@ -507,7 +577,7 @@ export default function ArmadaPage() {
                             </select>
                         </div>
                         <div className="text-sm text-gray-500 whitespace-nowrap">
-                            {searchQuery ? (
+                            {searchQuery || filterMultiLpsOnly ? (
                                 <>
                                     Ditemukan: <span className="font-semibold text-purple-700">{filteredArmadaList.length}</span> / {armadaList.length} armada
                                 </>
@@ -644,7 +714,21 @@ export default function ArmadaPage() {
                                                 ) : '-'}
                                             </td>
                                             <td className="px-6 py-4 text-gray-600">{armada.namaSupir || '-'}</td>
-                                            <td className="px-6 py-4 text-gray-600 font-mono">{armada.platNomor}</td>
+                                            <td className="px-6 py-4 text-gray-600 font-mono">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="font-bold text-gray-800">{armada.platNomor}</span>
+                                                    {multiLpsPlates.has((armada.platNomor || '').replace(/\s+/g, '').toUpperCase()) && (
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold w-fit border ${
+                                                            armada.isMultiLpsVerified
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                : 'bg-amber-50 text-amber-700 border-amber-300'
+                                                        }`} title={armada.isMultiLpsVerified ? `Diverifikasi oleh ${armada.verifiedBy || 'Operator'}` : 'Plat ini melayani lebih dari 1 LPS, perlu verifikasi operator'}>
+                                                            <span className={`w-1.5 h-1.5 rounded-full ${armada.isMultiLpsVerified ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                                                            {armada.isMultiLpsVerified ? '✓ Multi-LPS Terverifikasi' : '⚠️ Melayani > 1 LPS'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 text-gray-600">{armada.jenisArmada || '-'}</td>
                                             <td className="px-6 py-4 text-gray-600">
                                                 <div>
@@ -670,6 +754,23 @@ export default function ArmadaPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
+                                                    {multiLpsPlates.has((armada.platNomor || '').replace(/\s+/g, '').toUpperCase()) && (
+                                                        <button
+                                                            onClick={() => handleVerifyMultiLps(armada)}
+                                                            disabled={verifyingPlate === armada.platNomor}
+                                                            className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all shadow-xs ${
+                                                                armada.isMultiLpsVerified
+                                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100'
+                                                                    : 'bg-linear-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 ring-2 ring-amber-300/60 animate-pulse'
+                                                            }`}
+                                                            title={armada.isMultiLpsVerified ? 'Status: Terverifikasi Operator. Klik untuk membatalkan verifikasi.' : 'Klik untuk memverifikasi armada Multi-LPS agar akses QR di TimbangQR (/scan) dibuka'}
+                                                        >
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                            {armada.isMultiLpsVerified ? 'Terverifikasi' : 'Verifikasi Operator'}
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => handleEdit(armada)}
                                                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -849,15 +950,51 @@ export default function ArmadaPage() {
             {/* QR Code Modal */}
             {showQRModal && (
                 <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 text-center">
-                        <h2 className="text-xl font-bold text-gray-800 mb-2">{showQRModal.namaLps}</h2>
-                        <p className="text-gray-500 mb-1">{showQRModal.platNomor}</p>
-                        <p className="text-gray-400 text-sm mb-6">{showQRModal.namaSupir}</p>
-                        <div className="bg-gray-50 p-4 rounded-xl inline-block mb-6">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 text-center max-w-sm w-full">
+                        <h2 className="text-xl font-bold text-gray-800 mb-1">{showQRModal.namaLps}</h2>
+                        <p className="text-gray-800 font-mono font-bold text-lg mb-1">{showQRModal.platNomor}</p>
+                        
+                        {multiLpsPlates.has((showQRModal.platNomor || '').replace(/\s+/g, '').toUpperCase()) && (
+                            <div className="my-2">
+                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                                    showQRModal.isMultiLpsVerified
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                        : 'bg-amber-50 text-amber-700 border-amber-300'
+                                }`}>
+                                    <span className={`w-2 h-2 rounded-full ${showQRModal.isMultiLpsVerified ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                                    {showQRModal.isMultiLpsVerified ? 'Akses QR TimbangQR: Terbuka (Multi-LPS)' : 'Perlu Verifikasi Operator Multi-LPS'}
+                                </span>
+                            </div>
+                        )}
+
+                        <p className="text-gray-400 text-sm mb-4">{showQRModal.namaSupir || '-'}</p>
+                        <div className="bg-gray-50 p-4 rounded-xl inline-block mb-4 border border-gray-100">
                             <QRCodeSVG value={showQRModal.qrCode} size={200} />
                         </div>
-                        <p className="text-gray-400 text-sm mb-6 font-mono">{showQRModal.qrCode}</p>
-                        <button onClick={() => setShowQRModal(null)} className="w-full py-3 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                        <p className="text-gray-400 text-xs mb-4 font-mono break-all">{showQRModal.qrCode}</p>
+
+                        {multiLpsPlates.has((showQRModal.platNomor || '').replace(/\s+/g, '').toUpperCase()) && (
+                            <div className="mb-3">
+                                <button
+                                    onClick={async () => {
+                                        await handleVerifyMultiLps(showQRModal);
+                                        setShowQRModal(null);
+                                    }}
+                                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                                        showQRModal.isMultiLpsVerified
+                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                                            : 'bg-linear-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-sm'
+                                    }`}
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    {showQRModal.isMultiLpsVerified ? 'Status: Terverifikasi (Klik untuk Batalkan)' : 'Verifikasi Operator Sekarang'}
+                                </button>
+                            </div>
+                        )}
+
+                        <button onClick={() => setShowQRModal(null)} className="w-full py-2.5 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                             Tutup
                         </button>
                     </div>
