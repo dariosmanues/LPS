@@ -246,7 +246,7 @@ export default function ArmadaPage() {
             } else {
                 const data = await res.json();
 
-                if (res.status === 409 && data.requiresConfirmation) {
+                if (!force && res.status === 409 && data.requiresConfirmation) {
                     if (confirm('Armada ini memiliki riwayat data sampah (Log). \n\nApakah Anda yakin ingin menghapus armada BESERTA SELURUH RIWAYATNYA?\n\nTindakan ini akan menghapus data armada dan semua log sampah terkait secara permanen dan tidak dapat dibatalkan.')) {
                         handleDelete(id, true);
                         return;

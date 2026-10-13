@@ -70,17 +70,45 @@ export async function DELETE(
         const force = searchParams.get('force') === 'true';
 
         if (force) {
-            // Force delete: Hapus log sampah terkait dulu, baru armadanya
-            await prisma.$transaction([
-                prisma.wasteLog.deleteMany({
-                    where: { armadaId: id },
-                }),
+            // Force delete: Hapus timbangqr_syncs terkait, lalu log sampah, baru armadanya
+            const wasteLogs = await prisma.wasteLog.findMany({
+                where: { armadaId: id },
+                select: { id: true },
+            });
+            const wasteLogIds = wasteLogs.map((w) => w.id);
+
+            const operations = [];
+            if (wasteLogIds.length > 0) {
+                operations.push(
+                    prisma.timbangQrSync.deleteMany({
+                        where: { wasteLogId: { in: wasteLogIds } },
+                    })
+                );
+                operations.push(
+                    prisma.wasteLog.deleteMany({
+                        where: { armadaId: id },
+                    })
+                );
+            }
+            operations.push(
                 prisma.armada.delete({
                     where: { id },
-                }),
-            ]);
+                })
+            );
+
+            await prisma.$transaction(operations);
         } else {
-            // Normal delete
+            // Normal delete: Cek apakah armada memiliki log sampah
+            const count = await prisma.wasteLog.count({
+                where: { armadaId: id },
+            });
+            if (count > 0) {
+                return NextResponse.json({
+                    error: `Armada memiliki ${count} riwayat data sampah (Log).`,
+                    requiresConfirmation: true,
+                }, { status: 409 });
+            }
+
             await prisma.armada.delete({
                 where: { id },
             });
