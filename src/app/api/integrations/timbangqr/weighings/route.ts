@@ -93,7 +93,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, duplicate: true, syncId: existing.id, wasteLogId: existing.wasteLogId });
     }
 
-    const armadas = await prisma.armada.findMany({
+    const cleanPlate = normalizePlate(input.plateNumber);
+    let armadas = await prisma.armada.findMany({
       where: { isActive: true },
       select: {
         id: true,
@@ -104,9 +105,67 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const matchingArmadas = armadas.filter(
-      (item) => normalizePlate(item.platNomor) === normalizePlate(input.plateNumber)
+    let matchingArmadas = armadas.filter(
+      (item) => normalizePlate(item.platNomor) === cleanPlate
     );
+
+    // Fallback 1: Jika tidak ditemukan di armada aktif, cari di seluruh armada
+    if (matchingArmadas.length === 0) {
+      const allArmadas = await prisma.armada.findMany({
+        select: {
+          id: true,
+          platNomor: true,
+          namaLps: true,
+          kelurahanId: true,
+          kelurahan: { select: { nama: true } },
+        },
+      });
+      matchingArmadas = allArmadas.filter(
+        (item) => normalizePlate(item.platNomor) === cleanPlate
+      );
+    }
+
+    // Fallback 2: Jika armada dari master data belum tercatat di LPS, auto-register ke LPS agar sinkron dan QR-nya langsung hangus
+    if (matchingArmadas.length === 0) {
+      let targetKelurahan = null;
+      if (input.lpsName) {
+        const cleanLps = input.lpsName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const allKelurahan = await prisma.kelurahan.findMany({ select: { id: true, nama: true } });
+        targetKelurahan = allKelurahan.find((k) => {
+          const cleanK = k.nama.toUpperCase().replace(/[^A-Z0-9]/g, '');
+          return cleanLps.includes(cleanK) || cleanK.includes(cleanLps);
+        });
+      }
+      if (!targetKelurahan) {
+        targetKelurahan = await prisma.kelurahan.findFirst({ select: { id: true, nama: true } });
+      }
+
+      if (targetKelurahan) {
+        const newArmada = await prisma.armada.create({
+          data: {
+            platNomor: input.plateNumber.toUpperCase().trim(),
+            namaLps: input.lpsName || 'LPS Transdepo',
+            kelurahanId: targetKelurahan.id,
+            lokasiTransdepo: input.transdepo,
+            jenisArmada: input.vehicleType || 'PICKUP',
+            namaSupir: input.driverName || '-',
+            qrCode: `LPS-${cleanPlate}-${Date.now()}`,
+            isQrUsed: true,
+            qrUsedAt: new Date(input.weighedAt),
+            lastTicketNumber: input.ticketNumber,
+            isActive: true,
+          },
+          select: {
+            id: true,
+            platNomor: true,
+            namaLps: true,
+            kelurahanId: true,
+            kelurahan: { select: { nama: true } },
+          },
+        });
+        matchingArmadas = [newArmada];
+      }
+    }
 
     if (matchingArmadas.length === 0) {
       return NextResponse.json({
@@ -134,7 +193,18 @@ export async function POST(request: NextRequest) {
 
     const saved = await prisma.$transaction(async (tx) => {
       const duplicate = await tx.timbangQrSync.findUnique({ where: { ticketNumber: input.ticketNumber } });
-      if (duplicate) return { duplicate: true, syncId: duplicate.id, wasteLogId: duplicate.wasteLogId };
+      if (duplicate) {
+        // Tetap pastikan QR hangus jika transaksi duplikat/retry
+        await tx.armada.updateMany({
+          where: { id: { in: matchingArmadas.map((a) => a.id) } },
+          data: {
+            isQrUsed: true,
+            qrUsedAt: new Date(input.weighedAt),
+            lastTicketNumber: input.ticketNumber,
+          },
+        });
+        return { duplicate: true, syncId: duplicate.id, wasteLogId: duplicate.wasteLogId };
+      }
 
       const integrationUser = await tx.user.upsert({
         where: { email: 'integration@timbangqr.local' },
@@ -192,8 +262,10 @@ export async function POST(request: NextRequest) {
       });
 
       // Burn QR code so it cannot be reused (hangus)
-      await tx.armada.update({
-        where: { id: armada.id },
+      // PENTING: Update SEMUA record armada dengan nomor plat ini (updateMany)
+      // agar QR yang ada pada https://lps-app-iota.vercel.app/lps/qr-generator langsung berstatus HANGUS
+      await tx.armada.updateMany({
+        where: { id: { in: matchingArmadas.map((a) => a.id) } },
         data: {
           isQrUsed: true,
           qrUsedAt: new Date(input.weighedAt),

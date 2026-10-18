@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
     try {
         // Get authenticated session
@@ -91,6 +94,10 @@ export async function GET() {
         return NextResponse.json({
             success: true,
             data: armada
+        }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+            }
         });
     } catch (error) {
         console.error('Error fetching LPS armada:', error);

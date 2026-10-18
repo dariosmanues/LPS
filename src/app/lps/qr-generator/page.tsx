@@ -33,11 +33,25 @@ export default function QRGeneratorPage() {
 
     useEffect(() => {
         fetchArmada();
+        // Polling setiap 8 detik agar status QR HANGUS terdeteksi secara real-time saat tiket diterbitkan di TimbangQR
+        const interval = setInterval(fetchArmada, 8000);
+        const onFocus = () => fetchArmada();
+        window.addEventListener('focus', onFocus);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', onFocus);
+        };
     }, []);
 
     const fetchArmada = async () => {
         try {
-            const response = await fetch('/api/lps/armada');
+            const response = await fetch('/api/lps/armada', {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                },
+            });
             const data = await response.json();
 
             if (data.success) {

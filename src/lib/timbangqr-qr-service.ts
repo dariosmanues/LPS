@@ -285,8 +285,10 @@ export async function handleTimbangQrGet(request: NextRequest) {
             }
 
             // Check if QR code is already burned / used!
-            // Catatan: Jika armada melayani multi-LPS terverifikasi, QR fisik ARMADA tetap dapat diproses
-            if (armada.isQrUsed && !isMultiLpsVerified) {
+            // QR Code LPS yang diterbitkan dari qr-generator selalu hangus jika armada.isQrUsed = true
+            const isLpsQrCode = Boolean(code && (/^LPS-/i.test(code) || code === armada.qrCode));
+            const shouldBurn = armada.isQrUsed && (isLpsQrCode || !isMultiLpsVerified);
+            if (shouldBurn) {
                 return NextResponse.json(
                     {
                         success: false,
@@ -302,8 +304,8 @@ export async function handleTimbangQrGet(request: NextRequest) {
             return NextResponse.json(
                 {
                     success: true,
-                    valid: armada.isActive && (!armada.isQrUsed || isMultiLpsVerified),
-                    burned: Boolean(armada.isQrUsed && !isMultiLpsVerified),
+                    valid: armada.isActive && !shouldBurn,
+                    burned: Boolean(shouldBurn),
                     isMultiLps,
                     isMultiLpsVerified,
                     data: formatted,
