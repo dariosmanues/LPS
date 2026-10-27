@@ -8,12 +8,15 @@ async function main() {
 
   const logs = await prisma.wasteLog.findMany({
     where: { recordedAt: { gte: startOfMonth, lt: endOfMonth } },
-    include: { timbangQrSync: true },
+    include: { timbangQrSync: true, user: true },
     orderBy: { recordedAt: 'asc' }
   });
 
   console.log(`Month logs count: ${logs.length}`);
-  const nonHj = logs.filter(l => l.userTransdepo !== 'HARAPAN_JAYA');
+  const nonHj = logs.filter(l => l.user?.transdepo !== 'HARAPAN_JAYA');
+  if (nonHj.length > 0) {
+    console.log(`Non-Harapan Jaya count: ${nonHj.length}`);
+  }
   logs.forEach(l => {
     if (!l.timbangQrSync) {
       console.log('Log without timbangQrSync:', l);
