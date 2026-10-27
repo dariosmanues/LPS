@@ -87,12 +87,12 @@ export function LpsSidebar({ children, kelurahanName }: LpsSidebarProps) {
 
             {/* Mobile Drawer */}
             <aside className={`
-                lg:hidden fixed top-16 left-0 bottom-0 w-64 bg-white z-50 transform transition-transform duration-300
+                lg:hidden fixed top-16 left-0 bottom-0 w-64 bg-white z-50 transform transition-transform duration-300 flex flex-col justify-between
                 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
                 {/* User Info */}
                 {session?.user && (
-                    <div className="p-4 border-b border-gray-100">
+                    <div className="p-4 border-b border-gray-100 shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-600 to-green-700 flex items-center justify-center text-white font-semibold">
                                 {session.user.name?.charAt(0) || 'U'}
@@ -112,7 +112,7 @@ export function LpsSidebar({ children, kelurahanName }: LpsSidebarProps) {
                     </div>
                 )}
 
-                <nav className="p-4 space-y-1">
+                <nav className="p-4 space-y-1 flex-1 overflow-y-auto min-h-0">
                     {lpsMenuItems.map((item) => {
                         const isActive = pathname === item.href || (item.href !== '/lps' && pathname.startsWith(item.href));
                         return (
@@ -130,36 +130,38 @@ export function LpsSidebar({ children, kelurahanName }: LpsSidebarProps) {
                             </Link>
                         );
                     })}
+                </nav>
 
-                    {/* Logout Button Mobile */}
+                {/* Logout Button Mobile - Pinned at bottom */}
+                <div className="p-4 border-t border-gray-100 shrink-0 bg-white">
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-red-500 hover:bg-red-50 w-full"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-red-600 hover:bg-red-50 w-full font-medium"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        <span className="font-medium">Keluar</span>
+                        <span>Keluar</span>
                     </button>
-                </nav>
+                </div>
             </aside>
 
             {/* Desktop Sidebar */}
-            <aside className="hidden lg:flex fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex-col items-center py-6 gap-2 z-40">
+            <aside className="hidden lg:flex fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex-col items-center py-5 z-40">
                 {/* Logo */}
-                <Link href="/lps" className="mb-6">
+                <Link href="/lps" className="mb-4 shrink-0" title="Beranda LPS">
                     <Logo size="md" />
                 </Link>
 
                 {/* Navigation */}
-                <nav className="flex-1 flex flex-col gap-2">
+                <nav className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-1.5 px-2 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {lpsMenuItems.map((item) => {
                         const isActive = pathname === item.href || (item.href !== '/lps' && pathname.startsWith(item.href));
                         return (
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${isActive
+                                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all shrink-0 ${isActive
                                     ? 'bg-linear-to-r from-green-600 to-green-700 text-white shadow-lg'
                                     : 'text-gray-500 hover:bg-gray-100'
                                     }`}
@@ -172,11 +174,11 @@ export function LpsSidebar({ children, kelurahanName }: LpsSidebarProps) {
                 </nav>
 
                 {/* Bottom Actions */}
-                <div className="flex flex-col gap-2 pt-4 border-t border-gray-100">
+                <div className="shrink-0 mt-auto flex flex-col items-center gap-2 pt-3 border-t border-gray-100 w-full px-2">
                     {/* User Avatar */}
                     {session?.user && (
                         <div
-                            className="w-10 h-10 rounded-full bg-linear-to-br from-green-600 to-green-700 flex items-center justify-center text-white font-semibold text-sm cursor-pointer"
+                            className="w-10 h-10 rounded-full bg-linear-to-br from-green-600 to-green-700 flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs"
                             title={`${session.user.name} (${getRoleName(session.user.role)})`}
                         >
                             {session.user.name?.charAt(0) || 'U'}
@@ -184,8 +186,9 @@ export function LpsSidebar({ children, kelurahanName }: LpsSidebarProps) {
                     )}
                     <button
                         onClick={handleLogout}
-                        className="w-12 h-12 rounded-xl flex items-center justify-center text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
-                        title="Keluar"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-red-500 hover:bg-red-50 hover:text-red-600 transition-all shrink-0"
+                        title="Keluar (Logout)"
+                        aria-label="Logout"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

@@ -1,3 +1,5 @@
+export {};
+
 async function main() {
   const loginRes = await fetch('https://timbangqr-ocr-led.vercel.app/api/auth/login', {
     method: 'POST',

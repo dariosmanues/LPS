@@ -182,12 +182,12 @@ export function Sidebar({ children }: SidebarProps) {
 
             {/* Mobile Drawer */}
             <aside className={`
-                lg:hidden fixed top-16 left-0 bottom-0 w-64 bg-white z-50 transform transition-transform duration-300
+                lg:hidden fixed top-16 left-0 bottom-0 w-64 bg-white z-50 transform transition-transform duration-300 flex flex-col justify-between
                 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
                 {/* User Info */}
                 {session?.user && (
-                    <div className="p-4 border-b border-gray-100">
+                    <div className="p-4 border-b border-gray-100 shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold">
                                 {session.user.name?.charAt(0) || 'U'}
@@ -202,7 +202,7 @@ export function Sidebar({ children }: SidebarProps) {
                     </div>
                 )}
 
-                <nav className="p-4 space-y-1">
+                <nav className="p-4 space-y-1 flex-1 overflow-y-auto min-h-0">
                     {filteredMenuItems.map((item) => {
                         const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
                         return (
@@ -220,36 +220,38 @@ export function Sidebar({ children }: SidebarProps) {
                             </Link>
                         );
                     })}
+                </nav>
 
-                    {/* Logout Button Mobile */}
+                {/* Logout Button Mobile - Pinned at bottom */}
+                <div className="p-4 border-t border-gray-100 shrink-0 bg-white">
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-red-500 hover:bg-red-50 w-full"
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-red-600 hover:bg-red-50 w-full font-medium"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
-                        <span className="font-medium">Keluar</span>
+                        <span>Keluar</span>
                     </button>
-                </nav>
+                </div>
             </aside>
 
             {/* Desktop Sidebar */}
-            <aside className="hidden lg:flex fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex-col items-center py-6 gap-2 z-40">
+            <aside className="hidden lg:flex fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex-col items-center py-5 z-40">
                 {/* Logo */}
-                <Link href="/" className="mb-6">
+                <Link href="/" className="mb-3 shrink-0" title="Beranda">
                     <Logo size="md" />
                 </Link>
 
                 {/* Navigation */}
-                <nav className="flex-1 flex flex-col gap-2">
+                <nav className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-1.5 px-2 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {filteredMenuItems.map((item) => {
                         const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
                         return (
                             <Link
                                 key={item.name}
                                 href={item.href}
-                                className={`sidebar-icon ${isActive ? 'active' : ''}`}
+                                className={`sidebar-icon shrink-0 ${isActive ? 'active' : ''}`}
                                 title={item.name}
                             >
                                 {item.icon}
@@ -259,11 +261,11 @@ export function Sidebar({ children }: SidebarProps) {
                 </nav>
 
                 {/* Bottom Actions */}
-                <div className="flex flex-col gap-2 pt-4 border-t border-gray-100">
+                <div className="shrink-0 mt-auto flex flex-col items-center gap-2 pt-3 border-t border-gray-100 w-full px-2">
                     {/* User Avatar */}
                     {session?.user && (
                         <div
-                            className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold text-sm cursor-pointer"
+                            className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs"
                             title={`${session.user.name} (${session.user.role})`}
                         >
                             {session.user.name?.charAt(0) || 'U'}
@@ -271,8 +273,9 @@ export function Sidebar({ children }: SidebarProps) {
                     )}
                     <button
                         onClick={handleLogout}
-                        className="sidebar-icon text-red-500 hover:bg-red-50 hover:text-red-600"
-                        title="Keluar"
+                        className="sidebar-icon shrink-0 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        title="Keluar (Logout)"
+                        aria-label="Logout"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

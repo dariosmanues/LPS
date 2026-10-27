@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import { WelcomeBanner } from '@/components/dashboard/WelcomeBanner';
 import { StatPanel } from '@/components/dashboard/StatPanel';
 import { GlassCard, StatCard } from '@/components/ui';
@@ -30,6 +31,8 @@ interface WasteStats {
 }
 
 export default function DashboardPage() {
+    const { data: session } = useSession();
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [period, setPeriod] = useState<'today' | 'month'>('today');
     const [todayStats, setTodayStats] = useState<WasteStats | null>(null);
     const [monthStats, setMonthStats] = useState<WasteStats | null>(null);
@@ -142,23 +145,62 @@ export default function DashboardPage() {
                             </svg>
                             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                         </button>
-                        <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-                            <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                                A
-                            </div>
-                            <div className="hidden sm:block">
-                                <p className="text-sm font-medium text-gray-700">Admin</p>
-                                <svg className="w-4 h-4 text-gray-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="relative pl-4 border-l border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                                className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer text-left focus:outline-none"
+                                aria-expanded={userMenuOpen}
+                                title="Menu Pengguna"
+                            >
+                                <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-semibold shadow-xs">
+                                    {session?.user?.name?.charAt(0) || 'A'}
+                                </div>
+                                <div className="hidden sm:block">
+                                    <p className="text-sm font-medium text-gray-700 leading-tight">
+                                        {session?.user?.name || 'Admin'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {session?.user?.role || 'Administrator'}
+                                    </p>
+                                </div>
+                                <svg className={`w-4 h-4 text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
-                            </div>
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {userMenuOpen && (
+                                <>
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setUserMenuOpen(false)}
+                                    />
+                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                                        <div className="px-4 py-2 border-b border-gray-100">
+                                            <p className="text-sm font-semibold text-gray-800">{session?.user?.name || 'Admin'}</p>
+                                            <p className="text-xs text-gray-500">{session?.user?.email || session?.user?.role || 'Administrator'}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => signOut({ callbackUrl: '/' })}
+                                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left font-medium cursor-pointer"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                            Keluar (Logout)
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* Welcome Banner */}
                 <WelcomeBanner
-                    userName="Admin"
+                    userName={session?.user?.name || "Admin"}
                     message="Selamat datang! Kualitas udara baik dan cuaca cerah, cocok untuk operasi pengumpulan sampah."
                     stats={{
                         temperature: "+32°C",
