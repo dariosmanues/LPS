@@ -191,10 +191,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const metadata = JSON.stringify({
+      source: 'TimbangQR',
+      ticketNumber: input.ticketNumber,
+      grossKg: input.grossKg,
+      tareKg: input.tareKg,
+      rafaksiKg: input.rafaksiKg,
+      driverName: input.driverName || null,
+      vehicleType: input.vehicleType || null,
+      wasteType: input.wasteType || null,
+      indicatorRaw: input.indicatorRaw || null,
+    });
+
     const saved = await prisma.$transaction(async (tx) => {
       const duplicate = await tx.timbangQrSync.findUnique({ where: { ticketNumber: input.ticketNumber } });
       if (duplicate) {
-        // Tetap pastikan QR hangus jika transaksi duplikat/retry
+        // Pembaruan data jika transaksi diedit/diperbarui di TimbangQR
+        if (duplicate.wasteLogId) {
+          await tx.wasteLog.update({
+            where: { id: duplicate.wasteLogId },
+            data: {
+              beratKg: input.nettoKg,
+              recordedAt: new Date(input.weighedAt),
+              metadata,
+            },
+          });
+        }
+        await tx.timbangQrSync.update({
+          where: { id: duplicate.id },
+          data: {
+            plateNumber: input.plateNumber,
+            lpsName: input.lpsName,
+            transdepo: input.transdepo,
+            grossKg: input.grossKg,
+            tareKg: input.tareKg,
+            rafaksiKg: input.rafaksiKg,
+            nettoKg: input.nettoKg,
+            weighedAt: new Date(input.weighedAt),
+            payload: JSON.stringify(input),
+          },
+        });
         await tx.armada.updateMany({
           where: { id: { in: matchingArmadas.map((a) => a.id) } },
           data: {
@@ -203,7 +239,7 @@ export async function POST(request: NextRequest) {
             lastTicketNumber: input.ticketNumber,
           },
         });
-        return { duplicate: true, syncId: duplicate.id, wasteLogId: duplicate.wasteLogId };
+        return { duplicate: true, updated: true, syncId: duplicate.id, wasteLogId: duplicate.wasteLogId };
       }
 
       const integrationUser = await tx.user.upsert({
@@ -217,18 +253,6 @@ export async function POST(request: NextRequest) {
           transdepo: input.transdepo,
         },
         select: { id: true },
-      });
-
-      const metadata = JSON.stringify({
-        source: 'TimbangQR',
-        ticketNumber: input.ticketNumber,
-        grossKg: input.grossKg,
-        tareKg: input.tareKg,
-        rafaksiKg: input.rafaksiKg,
-        driverName: input.driverName || null,
-        vehicleType: input.vehicleType || null,
-        wasteType: input.wasteType || null,
-        indicatorRaw: input.indicatorRaw || null,
       });
 
       const wasteLog = await tx.wasteLog.create({
@@ -262,8 +286,6 @@ export async function POST(request: NextRequest) {
       });
 
       // Burn QR code so it cannot be reused (hangus)
-      // PENTING: Update SEMUA record armada dengan nomor plat ini (updateMany)
-      // agar QR yang ada pada https://lps-app-iota.vercel.app/lps/qr-generator langsung berstatus HANGUS
       await tx.armada.updateMany({
         where: { id: { in: matchingArmadas.map((a) => a.id) } },
         data: {
@@ -280,5 +302,40 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[TimbangQR Integration]', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Gagal menerima transaksi.' }, { status: 400 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!authorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const ticketNumber = searchParams.get('ticketNumber')?.trim();
+    if (!ticketNumber) {
+      return NextResponse.json({ error: 'ticketNumber wajib disertakan.' }, { status: 400 });
+    }
+
+    const sync = await prisma.timbangQrSync.findUnique({
+      where: { ticketNumber },
+      select: { id: true, wasteLogId: true },
+    });
+
+    if (!sync) {
+      return NextResponse.json({ ok: true, notFound: true, message: 'Transaksi tidak ditemukan di sistem LPS.' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.timbangQrSync.delete({ where: { id: sync.id } });
+      if (sync.wasteLogId) {
+        await tx.wasteLog.delete({ where: { id: sync.wasteLogId } });
+      }
+    });
+
+    return NextResponse.json({ ok: true, deleted: true, ticketNumber });
+  } catch (error) {
+    console.error('[TimbangQR Integration Delete]', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Gagal menghapus transaksi.' }, { status: 500 });
   }
 }

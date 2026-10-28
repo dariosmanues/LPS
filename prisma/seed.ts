@@ -67,7 +67,7 @@ const wilayahData = [
   {
     kode: "14.71.01",
     nama: "Sukajadi",
-    kelurahan: ["Harjosari", "Jadirejo", "Kampung Melayu", "Kampung Tengah", "Kedung Sari", "Pulau Karam", "Sukajadi"]
+    kelurahan: ["Harjosari", "Jadirejo", "Kampung Melayu", "Kampung Tengah", "Kedung Sari", "Pulau Karomah", "Sukajadi"]
   },
   {
     kode: "14.71.13",

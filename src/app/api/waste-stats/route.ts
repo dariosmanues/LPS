@@ -21,10 +21,10 @@ export async function GET(request: Request) {
         const startOfDayWib = new Date(Date.UTC(y, m, d, -7, 0, 0, 0));
         const endOfDayWib = new Date(Date.UTC(y, m, d + 1, -7, 0, 0, 0));
 
-        // Tanggal mulai operasional resmi: 12 Oktober 2026 (abaikan data sebelum 12 Okt)
-        const systemStartDateWib = new Date(Date.UTC(2026, 9, 12, -7, 0, 0, 0));
+        // Tanggal mulai operasional sinkronisasi TimbangQR: 1 Oktober 2026 (sama persis dengan DATA_START_DATE TimbangQR)
+        const systemStartDateWib = new Date(Date.UTC(2026, 9, 1, -7, 0, 0, 0));
 
-        // Bulan Ini WIB: Mulai 12 Okt 2026 - Akhir Bulan 24:00:00 WIB
+        // Bulan Ini WIB: Mulai awal bulan (1 Okt 2026) - Akhir Bulan 24:00:00 WIB
         const startOfMonthWib = new Date(Math.max(Date.UTC(y, m, 1, -7, 0, 0, 0), systemStartDateWib.getTime()));
         const endOfMonthWib = new Date(Date.UTC(y, m + 1, 1, -7, 0, 0, 0));
 
