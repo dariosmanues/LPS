@@ -45,7 +45,7 @@ export async function GET(request: Request) {
                     select: { id: true, namaLps: true, platNomor: true, lokasiTransdepo: true },
                 },
                 timbangQrSync: {
-                    select: { ticketNumber: true, lpsName: true }
+                    select: { ticketNumber: true, lpsName: true, transdepo: true }
                 }
             },
             orderBy: { recordedAt: 'desc' }
@@ -99,16 +99,19 @@ export async function GET(request: Request) {
                 .sort((a, b) => b.totalKg - a.totalKg);
         };
 
-        // Separate logs by transdepo
-        const harapanJayaLogs = periodLogs.filter(log =>
-            log.user?.transdepo === 'HARAPAN_JAYA' ||
-            log.armada?.lokasiTransdepo?.toUpperCase().includes('HARAPAN') ||
-            log.timbangQrSync !== null
-        );
-        const airHitamLogs = periodLogs.filter(log =>
-            log.user?.transdepo === 'AIR_HITAM' ||
-            log.armada?.lokasiTransdepo?.toUpperCase().includes('AIR')
-        );
+        // Separate logs by transdepo accurately
+        const isAirHitam = (log: typeof periodLogs[0]) => {
+            const syncTransdepo = (log.timbangQrSync?.transdepo || '').toUpperCase();
+            if (syncTransdepo === 'AIR_HITAM' || syncTransdepo === 'AIRHITAM') return true;
+            const userTransdepo = (log.user?.transdepo || '').toUpperCase();
+            if (userTransdepo === 'AIR_HITAM' || userTransdepo === 'AIRHITAM') return true;
+            const armadaTransdepo = (log.armada?.lokasiTransdepo || '').toUpperCase();
+            if (armadaTransdepo.includes('AIR')) return true;
+            return false;
+        };
+
+        const airHitamLogs = periodLogs.filter(isAirHitam);
+        const harapanJayaLogs = periodLogs.filter(log => !isAirHitam(log));
 
         const harapanJayaKg = harapanJayaLogs.reduce((sum, log) => sum + Number(log.beratKg), 0);
         const harapanJayaTrips = harapanJayaLogs.length;

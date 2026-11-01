@@ -85,13 +85,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const input = parsePayload(await request.json());
-    const existing = await prisma.timbangQrSync.findUnique({
-      where: { ticketNumber: input.ticketNumber },
-      select: { id: true, wasteLogId: true },
-    });
-    if (existing) {
-      return NextResponse.json({ ok: true, duplicate: true, syncId: existing.id, wasteLogId: existing.wasteLogId });
-    }
 
     const cleanPlate = normalizePlate(input.plateNumber);
     let armadas = await prisma.armada.findMany({
@@ -204,6 +197,21 @@ export async function POST(request: NextRequest) {
     });
 
     const saved = await prisma.$transaction(async (tx) => {
+      // Integration user per transdepo
+      const integrationEmail = `integration.${input.transdepo.toLowerCase()}@timbangqr.local`;
+      const integrationUser = await tx.user.upsert({
+        where: { email: integrationEmail },
+        update: { transdepo: input.transdepo, name: `Integrasi TimbangQR (${input.transdepo})` },
+        create: {
+          email: integrationEmail,
+          passwordHash: 'INTEGRATION_ONLY_NO_LOGIN',
+          name: `Integrasi TimbangQR (${input.transdepo})`,
+          role: 'SYSTEM_INTEGRATION',
+          transdepo: input.transdepo,
+        },
+        select: { id: true },
+      });
+
       const duplicate = await tx.timbangQrSync.findUnique({ where: { ticketNumber: input.ticketNumber } });
       if (duplicate) {
         // Pembaruan data jika transaksi diedit/diperbarui di TimbangQR
@@ -211,6 +219,9 @@ export async function POST(request: NextRequest) {
           await tx.wasteLog.update({
             where: { id: duplicate.wasteLogId },
             data: {
+              armadaId: armada.id,
+              kelurahanId: armada.kelurahanId,
+              recordedBy: integrationUser.id,
               beratKg: input.nettoKg,
               recordedAt: new Date(input.weighedAt),
               metadata,
@@ -241,19 +252,6 @@ export async function POST(request: NextRequest) {
         });
         return { duplicate: true, updated: true, syncId: duplicate.id, wasteLogId: duplicate.wasteLogId };
       }
-
-      const integrationUser = await tx.user.upsert({
-        where: { email: 'integration@timbangqr.local' },
-        update: { transdepo: input.transdepo, name: 'Integrasi TimbangQR' },
-        create: {
-          email: 'integration@timbangqr.local',
-          passwordHash: 'INTEGRATION_ONLY_NO_LOGIN',
-          name: 'Integrasi TimbangQR',
-          role: 'SYSTEM_INTEGRATION',
-          transdepo: input.transdepo,
-        },
-        select: { id: true },
-      });
 
       const wasteLog = await tx.wasteLog.create({
         data: {
