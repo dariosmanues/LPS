@@ -133,8 +133,8 @@ export async function GET(request: Request) {
             totalArmadaTerdaftar: harapanJayaArmadaCount || 81,
             totalLpsTerdata: totalLpsCount || 53,
             date: startOfDayWib.toISOString().split('T')[0],
-            dateLabel: now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-            monthLabel: now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }),
+            dateLabel: now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+            monthLabel: now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', month: 'long', year: 'numeric' }),
 
             harapanJaya: {
                 totalKg: harapanJayaKg,

@@ -58,7 +58,7 @@ export async function GET(request: Request) {
         const startOfMonthWib = new Date(Math.max(Date.UTC(y, m, 1, -7, 0, 0, 0), systemStartDateWib.getTime()));
         const endOfMonthWib = new Date(Date.UTC(y, m + 1, 1, -7, 0, 0, 0));
 
-        const monthLabel = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        const monthLabel = now.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', month: 'long', year: 'numeric' });
 
         const logs = await prisma.wasteLog.findMany({
             where: {

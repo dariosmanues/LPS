@@ -98,6 +98,11 @@ export default function DashboardPage() {
         return num.toLocaleString('id-ID');
     };
 
+    const now = new Date();
+    const fallbackMonthLabel = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(now);
+    const fallbackDateLabel = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
+    const fallbackShortDateLabel = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(now);
+
     const activeStats: WasteStats = (period === 'month' ? monthStats : todayStats) || {
         period,
         totalKg: 0,
@@ -105,11 +110,14 @@ export default function DashboardPage() {
         uniqueArmada: 0,
         totalArmadaTerdaftar: 81,
         totalLpsTerdata: 53,
-        dateLabel: 'Senin, 12 Oktober 2026',
-        monthLabel: 'Oktober 2026',
+        dateLabel: fallbackDateLabel,
+        monthLabel: fallbackMonthLabel,
         harapanJaya: { totalKg: 0, tripCount: 0, lpsStats: [] },
         airHitam: { totalKg: 0, tripCount: 0, lpsStats: [] },
     };
+
+    const displayMonthLabel = monthStats?.monthLabel || activeStats.monthLabel || fallbackMonthLabel;
+    const displayDateLabel = todayStats?.dateLabel || activeStats.dateLabel || fallbackDateLabel;
 
     // Calculate dial percentage (target: 750,000 kg)
     const TARGET_KG = 750000;
@@ -236,7 +244,7 @@ export default function DashboardPage() {
                                         : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                <span>📊 Bulan Ini (Oktober 2026)</span>
+                                <span>📊 Bulan Ini ({displayMonthLabel})</span>
                                 {monthStats && (
                                     <span className={`text-xs ${period === 'month' ? 'text-purple-100' : 'text-gray-500'} font-normal`}>
                                         ({formatNumber(monthStats.totalKg)} kg)
@@ -249,7 +257,7 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2 self-start md:self-auto text-xs text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span>
-                            <b>Sinkron TimbangQR:</b> {monthStats?.tripCount || 103} ritasi / {formatNumber(monthStats?.totalKg || 143340)} kg
+                            <b>Sinkron TimbangQR:</b> {monthStats?.tripCount ?? 0} ritasi / {formatNumber(monthStats?.totalKg ?? 0)} kg
                         </span>
                     </div>
                 </div>
@@ -263,7 +271,7 @@ export default function DashboardPage() {
                                 Transdepo Harapan Jaya
                             </h2>
                             <p className="text-xs text-gray-500 mt-0.5">
-                                Menampilkan data {period === 'month' ? 'Bulan Ini (Oktober 2026)' : 'Hari Ini (12 Okt 2026)'}
+                                Menampilkan data {period === 'month' ? `Bulan Ini (${displayMonthLabel})` : `Hari Ini (${fallbackShortDateLabel})`}
                             </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
@@ -317,7 +325,7 @@ export default function DashboardPage() {
                                 Transdepo Air Hitam
                             </h2>
                             <p className="text-xs text-gray-500 mt-0.5">
-                                Menampilkan data {period === 'month' ? 'Bulan Ini (Oktober 2026)' : 'Hari Ini (12 Okt 2026)'}
+                                Menampilkan data {period === 'month' ? `Bulan Ini (${displayMonthLabel})` : `Hari Ini (${fallbackShortDateLabel})`}
                             </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
@@ -370,10 +378,10 @@ export default function DashboardPage() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-gray-800">
-                                    {period === 'month' ? 'Total Sampah Bulan Ini (Oktober 2026)' : 'Total Sampah Hari Ini'}
+                                    {period === 'month' ? `Total Sampah Bulan Ini (${displayMonthLabel})` : 'Total Sampah Hari Ini'}
                                 </h3>
                                 <p className="text-xs text-gray-500">
-                                    {period === 'month' ? 'Akumulasi Oktober 2026 • Sinkron dengan TimbangQR' : (activeStats.dateLabel || '12 Oktober 2026')}
+                                    {period === 'month' ? `Akumulasi ${displayMonthLabel} • Sinkron dengan TimbangQR` : (activeStats.dateLabel || displayDateLabel)}
                                 </p>
                             </div>
                         </div>
