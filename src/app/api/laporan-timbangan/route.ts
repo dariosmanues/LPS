@@ -27,15 +27,23 @@ export async function GET(request: NextRequest) {
             ? {
                 OR: [
                     { timbangQrSync: { transdepo: { contains: 'AIR', mode: 'insensitive' } } },
-                    { user: { transdepo: { contains: 'AIR', mode: 'insensitive' } } },
-                    { armada: { lokasiTransdepo: { contains: 'AIR', mode: 'insensitive' } } },
+                    {
+                        AND: [
+                            { timbangQrSync: null },
+                            { armada: { lokasiTransdepo: { contains: 'AIR', mode: 'insensitive' } } }
+                        ]
+                    }
                 ]
             }
             : {
                 OR: [
                     { timbangQrSync: { transdepo: { contains: 'HARAPAN', mode: 'insensitive' } } },
-                    { user: { transdepo: { contains: 'HARAPAN', mode: 'insensitive' } } },
-                    { armada: { lokasiTransdepo: { contains: 'HARAPAN', mode: 'insensitive' } } },
+                    {
+                        AND: [
+                            { timbangQrSync: null },
+                            { armada: { lokasiTransdepo: { contains: 'HARAPAN', mode: 'insensitive' } } }
+                        ]
+                    }
                 ]
             };
 
