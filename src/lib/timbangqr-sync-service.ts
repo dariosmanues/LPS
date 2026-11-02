@@ -6,7 +6,7 @@ export interface SyncResult {
   data?: any;
 }
 
-const DEFAULT_TIMBANGQR_URL = 'https://timbangqr-ocr-led.vercel.app';
+const DEFAULT_TIMBANGQR_URL = 'https://timbangqr-ocr-led-rose.vercel.app';
 const DEFAULT_SECRET = 'a8f9c4e2b7d013589ef671234abcd567890ef123456789abcdef0123456789ab';
 
 function getTargetUrl(): string {

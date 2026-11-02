@@ -264,15 +264,26 @@ export default function ArmadaPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            if (isEditing && !editId) {
+                alert('ID armada tidak valid. Silakan pilih armada kembali.');
+                return;
+            }
+
             const url = isEditing ? `/api/armada/${editId}` : '/api/armada';
             const method = isEditing ? 'PATCH' : 'POST';
 
-            // Convert date strings to Date objects or null
+            // Safe date parser
+            const safeDateOrNull = (val: string | null | undefined) => {
+                if (!val || !val.trim()) return null;
+                const d = new Date(val);
+                return isNaN(d.getTime()) ? null : d.toISOString();
+            };
+
             const payload = {
                 ...formData,
-                kelurahanId: formData.kelurahanId || null,
-                tanggalSkLps: formData.tanggalSkLps ? new Date(formData.tanggalSkLps) : null,
-                tanggalTerbitIzin: formData.tanggalTerbitIzin ? new Date(formData.tanggalTerbitIzin) : null,
+                kelurahanId: formData.kelurahanId?.trim() || null,
+                tanggalSkLps: safeDateOrNull(formData.tanggalSkLps),
+                tanggalTerbitIzin: safeDateOrNull(formData.tanggalTerbitIzin),
             };
 
             const res = await fetch(url, {
@@ -286,14 +297,16 @@ export default function ArmadaPage() {
                 fetchArmada();
                 if (resultData.timbangQrSync?.success) {
                     alert(`✅ Data armada berhasil disimpan dan otomatis disinkronkan ke sistem TimbangQR (Harapan Jaya).`);
+                } else {
+                    alert(`✅ Data armada berhasil disimpan.`);
                 }
             } else {
-                const errorData = await res.json();
-                alert(`Gagal menyimpan: ${errorData.error}`);
+                const errorData = await res.json().catch(() => ({}));
+                alert(`Gagal menyimpan: ${errorData.error || errorData.details || 'Terjadi kesalahan pada server'}`);
             }
         } catch (error) {
             console.error('Error saving armada:', error);
-            alert('Terjadi kesalahan saat menyimpan data');
+            alert('Terjadi kesalahan jaringan saat menyimpan data');
         }
     };
 

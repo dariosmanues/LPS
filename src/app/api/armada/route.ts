@@ -1,5 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { syncArmadaToTimbangQr, isHarapanJaya } from '@/lib/timbangqr-sync-service';
+
+function parseSafeDate(val: any): Date | null {
+    if (!val || val === '' || val === 'null' || val === 'undefined') return null;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function parseSafeString(val: any): string | null {
+    if (val === null || val === undefined) return null;
+    const str = String(val).trim();
+    if (str === '' || str === 'null' || str === 'undefined') return null;
+    return str;
+}
 
 export async function GET(request: Request) {
     try {
@@ -58,8 +72,6 @@ export async function GET(request: Request) {
     }
 }
 
-import { syncArmadaToTimbangQr, isHarapanJaya } from '@/lib/timbangqr-sync-service';
-
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -70,28 +82,43 @@ export async function POST(request: Request) {
             lokasiTransdepo, jenisArmada
         } = body;
 
-        if (!namaLps || !platNomor) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        const cleanNamaLps = parseSafeString(namaLps);
+        const cleanPlatNomor = parseSafeString(platNomor);
+
+        if (!cleanNamaLps || !cleanPlatNomor) {
+            return NextResponse.json({ error: 'Nama LPS dan Nomor Plat wajib diisi.' }, { status: 400 });
         }
 
-        const qrCode = `LPS-${platNomor.replace(/\s/g, '')}-${Date.now()}`;
+        let safeKelurahanId: string | null = null;
+        if (kelurahanId) {
+            const rawId = parseSafeString(kelurahanId);
+            if (rawId) {
+                const kelExists = await prisma.kelurahan.findUnique({
+                    where: { id: rawId },
+                    select: { id: true },
+                });
+                if (kelExists) safeKelurahanId = rawId;
+            }
+        }
+
+        const qrCode = `LPS-${cleanPlatNomor.replace(/\s/g, '')}-${Date.now()}`;
 
         const armada = await prisma.armada.create({
             data: {
-                namaLps,
-                kelurahanId: kelurahanId || null,
-                platNomor,
-                noIzinOperasi: noIzinOperasi || null,
-                namaSupir: namaSupir || null,
-                namaKetuaLps: namaKetuaLps || null,
-                noTlpKetuaLps: noTlpKetuaLps || null,
-                alamatLps: alamatLps || null,
-                wilayahKerja: wilayahKerja || null,
-                nomorSkLps: nomorSkLps || null,
-                tanggalSkLps: tanggalSkLps ? new Date(tanggalSkLps) : null,
-                tanggalTerbitIzin: tanggalTerbitIzin ? new Date(tanggalTerbitIzin) : null,
-                lokasiTransdepo: lokasiTransdepo || null,
-                jenisArmada: jenisArmada || null,
+                namaLps: cleanNamaLps,
+                kelurahanId: safeKelurahanId,
+                platNomor: cleanPlatNomor,
+                noIzinOperasi: parseSafeString(noIzinOperasi),
+                namaSupir: parseSafeString(namaSupir),
+                namaKetuaLps: parseSafeString(namaKetuaLps),
+                noTlpKetuaLps: parseSafeString(noTlpKetuaLps),
+                alamatLps: parseSafeString(alamatLps),
+                wilayahKerja: parseSafeString(wilayahKerja),
+                nomorSkLps: parseSafeString(nomorSkLps),
+                tanggalSkLps: parseSafeDate(tanggalSkLps),
+                tanggalTerbitIzin: parseSafeDate(tanggalTerbitIzin),
+                lokasiTransdepo: parseSafeString(lokasiTransdepo),
+                jenisArmada: parseSafeString(jenisArmada),
                 qrCode,
             },
             include: {
@@ -115,8 +142,11 @@ export async function POST(request: Request) {
             ...armada,
             timbangQrSync
         }, { status: 201 });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error creating armada:', error);
-        return NextResponse.json({ error: 'Failed to create armada' }, { status: 500 });
+        return NextResponse.json({
+            error: error instanceof Error ? error.message : (error?.message || 'Failed to create armada'),
+            code: error?.code,
+        }, { status: 500 });
     }
 }
