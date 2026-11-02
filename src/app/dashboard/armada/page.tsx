@@ -264,13 +264,9 @@ export default function ArmadaPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            if (isEditing && !editId) {
-                alert('ID armada tidak valid. Silakan pilih armada kembali.');
-                return;
-            }
-
-            const url = isEditing ? `/api/armada/${editId}` : '/api/armada';
-            const method = isEditing ? 'PATCH' : 'POST';
+            const hasValidEditId = Boolean(isEditing && editId && editId !== 'null' && editId !== 'undefined');
+            const url = hasValidEditId ? `/api/armada/${editId}` : '/api/armada';
+            const method = hasValidEditId ? 'PATCH' : 'POST';
 
             // Safe date parser
             const safeDateOrNull = (val: string | null | undefined) => {
@@ -294,7 +290,7 @@ export default function ArmadaPage() {
             if (res.ok) {
                 const resultData = await res.json().catch(() => ({}));
                 resetForm();
-                fetchArmada();
+                await fetchArmada();
                 if (resultData.timbangQrSync?.success) {
                     alert(`✅ Data armada berhasil disimpan dan otomatis disinkronkan ke sistem TimbangQR (Harapan Jaya).`);
                 } else {
@@ -302,6 +298,9 @@ export default function ArmadaPage() {
                 }
             } else {
                 const errorData = await res.json().catch(() => ({}));
+                if (res.status === 404 || errorData.notFound) {
+                    await fetchArmada();
+                }
                 alert(`Gagal menyimpan: ${errorData.error || errorData.details || 'Terjadi kesalahan pada server'}`);
             }
         } catch (error) {

@@ -22,7 +22,8 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
+        const { id: rawId } = await params;
+        const id = decodeURIComponent(rawId || '').trim();
         const body = await request.json();
         const {
             namaLps, kelurahanId, platNomor, noIzinOperasi,
@@ -33,15 +34,15 @@ export async function PATCH(
 
         let safeKelurahanId: string | null | undefined = undefined;
         if (kelurahanId !== undefined) {
-            const rawId = parseSafeString(kelurahanId);
-            if (!rawId) {
+            const rawKelId = parseSafeString(kelurahanId);
+            if (!rawKelId) {
                 safeKelurahanId = null;
             } else {
                 const kelExists = await prisma.kelurahan.findUnique({
-                    where: { id: rawId },
+                    where: { id: rawKelId },
                     select: { id: true },
                 });
-                safeKelurahanId = kelExists ? rawId : null;
+                safeKelurahanId = kelExists ? rawKelId : null;
             }
         }
 
@@ -62,15 +63,67 @@ export async function PATCH(
         if (jenisArmada !== undefined) updateData.jenisArmada = parseSafeString(jenisArmada);
         if (isActive !== undefined) updateData.isActive = Boolean(isActive);
 
-        const armada = await prisma.armada.update({
+        // 1. Cari armada berdasarkan ID terlebih dahulu
+        let targetArmada = await prisma.armada.findUnique({
             where: { id },
-            data: updateData,
-            include: {
-                kelurahan: {
-                    include: { kecamatan: true }
-                }
-            }
         });
+
+        // 2. Jika tidak ditemukan dengan ID, cari fallback berdasarkan plat nomor atau QR code
+        if (!targetArmada) {
+            const cleanPlat = parseSafeString(platNomor) || (id.length <= 15 ? id : undefined);
+            targetArmada = await prisma.armada.findFirst({
+                where: {
+                    OR: [
+                        { platNomor: id },
+                        { qrCode: id },
+                        ...(cleanPlat ? [
+                            { platNomor: cleanPlat },
+                            { platNomor: cleanPlat.replace(/\s+/g, '') }
+                        ] : [])
+                    ]
+                }
+            });
+        }
+
+        let armada;
+        if (targetArmada) {
+            // Update armada yang ditemukan
+            armada = await prisma.armada.update({
+                where: { id: targetArmada.id },
+                data: updateData,
+                include: {
+                    kelurahan: {
+                        include: { kecamatan: true }
+                    }
+                }
+            });
+        } else {
+            // 3. Jika armada sama sekali belum ada di database, buat baru (upsert fallback) jika data pokok tersedia
+            const cleanNamaLps = parseSafeString(namaLps);
+            const cleanPlatNomor = parseSafeString(platNomor) || (id.length <= 15 ? id : null);
+
+            if (cleanNamaLps && cleanPlatNomor) {
+                const qrCode = `LPS-${cleanPlatNomor.replace(/\s/g, '')}-${Date.now()}`;
+                armada = await prisma.armada.create({
+                    data: {
+                        ...updateData,
+                        namaLps: cleanNamaLps,
+                        platNomor: cleanPlatNomor,
+                        qrCode,
+                    },
+                    include: {
+                        kelurahan: {
+                            include: { kecamatan: true }
+                        }
+                    }
+                });
+            } else {
+                return NextResponse.json({
+                    error: `Data armada dengan ID atau Nomor Plat "${id}" tidak ditemukan di database. Halaman akan diperbarui otomatis.`,
+                    notFound: true
+                }, { status: 404 });
+            }
+        }
 
         // Otomatis sinkronkan ke TimbangQR jembatan timbang Harapan Jaya
         let timbangQrSync = null;
