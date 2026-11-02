@@ -35,6 +35,7 @@ interface Summary {
     avgKgPerTrip: number;
     uniqueArmadaCount: number;
     activeLpsCount: number;
+    activeKelurahanCount?: number;
 }
 
 interface Pagination {
@@ -52,7 +53,7 @@ export default function LaporanTimbanganTransdepoPage() {
     const currentSlug = isAirHitam ? 'air-hitam' : 'harapan-jaya';
 
     // Filters
-    const [selectedLps, setSelectedLps] = useState<string>('');
+    const [selectedKelurahan, setSelectedKelurahan] = useState<string>('');
     const [selectedRange, setSelectedRange] = useState<string>('all');
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
@@ -71,6 +72,7 @@ export default function LaporanTimbanganTransdepoPage() {
         avgKgPerTrip: 0,
         uniqueArmadaCount: 0,
         activeLpsCount: 0,
+        activeKelurahanCount: 0,
     });
     const [pagination, setPagination] = useState<Pagination>({
         page: 1,
@@ -78,14 +80,14 @@ export default function LaporanTimbanganTransdepoPage() {
         totalCount: 0,
         totalPages: 1,
     });
-    const [lpsOptions, setLpsOptions] = useState<string[]>([]);
+    const [kelurahanOptions, setKelurahanOptions] = useState<string[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [exporting, setExporting] = useState<boolean>(false);
     const [showCustomDate, setShowCustomDate] = useState<boolean>(false);
 
-    // Reset page and selected LPS when switching transdepo
+    // Reset page and selected Kelurahan when switching transdepo
     useEffect(() => {
-        setSelectedLps('');
+        setSelectedKelurahan('');
         setCurrentPage(1);
     }, [currentSlug]);
 
@@ -95,8 +97,8 @@ export default function LaporanTimbanganTransdepoPage() {
         try {
             const query = new URLSearchParams();
             query.set('transdepo', currentSlug);
-            if (selectedLps && selectedLps !== 'ALL') {
-                query.set('lps', selectedLps);
+            if (selectedKelurahan && selectedKelurahan !== 'ALL') {
+                query.set('kelurahan', selectedKelurahan);
             }
             query.set('range', selectedRange);
             if (selectedRange === 'custom') {
@@ -124,6 +126,7 @@ export default function LaporanTimbanganTransdepoPage() {
                     avgKgPerTrip: 0,
                     uniqueArmadaCount: 0,
                     activeLpsCount: 0,
+                    activeKelurahanCount: 0,
                 });
                 setPagination(data.pagination || {
                     page: 1,
@@ -131,9 +134,12 @@ export default function LaporanTimbanganTransdepoPage() {
                     totalCount: 0,
                     totalPages: 1,
                 });
-                if (Array.isArray(data.lpsOptions)) {
-                    setLpsOptions(data.lpsOptions);
-                }
+                const options = Array.isArray(data.kelurahanOptions)
+                    ? data.kelurahanOptions
+                    : Array.isArray(data.lpsOptions)
+                        ? data.lpsOptions
+                        : [];
+                setKelurahanOptions(options);
             } else {
                 console.error('API returned error:', data.error);
                 setItems([]);
@@ -148,7 +154,7 @@ export default function LaporanTimbanganTransdepoPage() {
 
     useEffect(() => {
         fetchData();
-    }, [currentSlug, selectedLps, selectedRange, startDate, endDate, currentPage]);
+    }, [currentSlug, selectedKelurahan, selectedRange, startDate, endDate, currentPage]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -157,7 +163,7 @@ export default function LaporanTimbanganTransdepoPage() {
     };
 
     const handleResetFilter = () => {
-        setSelectedLps('');
+        setSelectedKelurahan('');
         setSelectedRange('all');
         setStartDate('');
         setEndDate('');
@@ -171,8 +177,8 @@ export default function LaporanTimbanganTransdepoPage() {
         try {
             const query = new URLSearchParams();
             query.set('transdepo', currentSlug);
-            if (selectedLps && selectedLps !== 'ALL') {
-                query.set('lps', selectedLps);
+            if (selectedKelurahan && selectedKelurahan !== 'ALL') {
+                query.set('kelurahan', selectedKelurahan);
             }
             query.set('range', selectedRange);
             if (selectedRange === 'custom') {
@@ -247,8 +253,8 @@ export default function LaporanTimbanganTransdepoPage() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            const lpsSlug = selectedLps ? selectedLps.replace(/[^a-zA-Z0-9]/g, '_') : 'SEMUA_LPS';
-            a.download = `Laporan_Timbangan_${currentSlug.toUpperCase()}_${lpsSlug}_${new Date().toISOString().slice(0, 10)}.csv`;
+            const kelSlug = selectedKelurahan ? selectedKelurahan.replace(/[^a-zA-Z0-9]/g, '_') : 'SEMUA_KELURAHAN';
+            a.download = `Laporan_Timbangan_${currentSlug.toUpperCase()}_${kelSlug}_${new Date().toISOString().slice(0, 10)}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -296,7 +302,7 @@ export default function LaporanTimbanganTransdepoPage() {
                         <span>{isAirHitam ? 'Laporan Timbangan Air Hitam' : 'Laporan Timbangan Harapan Jaya'}</span>
                     </h1>
                     <p className="text-sm text-gray-500 mt-1">
-                        Monitoring data timbangan jembatan dan rekapitulasi tonase per LPS di {isAirHitam ? 'Transdepo Air Hitam' : 'Transdepo Harapan Jaya'}
+                        Monitoring data timbangan jembatan dan rekapitulasi tonase per Kelurahan di {isAirHitam ? 'Transdepo Air Hitam' : 'Transdepo Harapan Jaya'}
                     </p>
                 </div>
 
@@ -332,7 +338,7 @@ export default function LaporanTimbanganTransdepoPage() {
                     LAPORAN PENIMBANGAN SAMPAH - {isAirHitam ? 'TRANSDEPO AIR HITAM' : 'TRANSDEPO HARAPAN JAYA'}
                 </h1>
                 <p className="text-xs text-gray-600">
-                    Filter LPS: {selectedLps || 'SEMUA LPS'} | Periode: {selectedRange.toUpperCase()} | Dicetak pada: {new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB
+                    Filter Kelurahan: {selectedKelurahan || 'SEMUA KELURAHAN'} | Periode: {selectedRange.toUpperCase()} | Dicetak pada: {new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB
                 </p>
             </div>
 
@@ -388,14 +394,14 @@ export default function LaporanTimbanganTransdepoPage() {
 
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-xs hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">LPS & Armada</span>
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Kelurahan & Armada</span>
                         <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
                             🏢
                         </div>
                     </div>
                     <p className="text-2xl font-black text-gray-900">
-                        {summary.activeLpsCount}
-                        <span className="text-xs font-normal text-gray-500 ml-1">LPS</span>
+                        {summary.activeKelurahanCount || summary.activeLpsCount}
+                        <span className="text-xs font-normal text-gray-500 ml-1">Kelurahan</span>
                     </p>
                     <p className="text-xs text-emerald-600 font-medium mt-1">
                         dari {summary.uniqueArmadaCount} armada aktif
@@ -406,17 +412,17 @@ export default function LaporanTimbanganTransdepoPage() {
             {/* Filter Section */}
             <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-xs space-y-4 print:hidden">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                    {/* PRIMARY REQUIREMENT: Filter Per LPS */}
+                    {/* PRIMARY REQUIREMENT: Filter Per Kelurahan */}
                     <div className="md:col-span-4">
                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                             <span className="flex items-center gap-1.5">
                                 <span className="w-2 h-2 rounded-full bg-purple-600" />
-                                Filter Per LPS:
+                                Filter Per Kelurahan:
                             </span>
-                            {selectedLps && (
+                            {selectedKelurahan && (
                                 <button
-                                    onClick={() => { setSelectedLps(''); setCurrentPage(1); }}
-                                    className="text-purple-600 hover:text-purple-800 text-[11px] font-normal underline"
+                                    onClick={() => { setSelectedKelurahan(''); setCurrentPage(1); }}
+                                    className="text-purple-600 hover:text-purple-800 text-[11px] font-normal underline cursor-pointer"
                                 >
                                     Tampilkan Semua
                                 </button>
@@ -424,21 +430,21 @@ export default function LaporanTimbanganTransdepoPage() {
                         </label>
                         <div className="relative">
                             <select
-                                value={selectedLps}
+                                value={selectedKelurahan}
                                 onChange={(e) => {
-                                    setSelectedLps(e.target.value);
+                                    setSelectedKelurahan(e.target.value);
                                     setCurrentPage(1);
                                 }}
                                 className={`w-full px-3.5 py-2.5 bg-gray-50 border rounded-xl text-sm font-medium focus:outline-hidden focus:ring-2 transition-all appearance-none pr-10 cursor-pointer ${
-                                    selectedLps
+                                    selectedKelurahan
                                         ? 'border-purple-500 bg-purple-50/40 text-purple-900 font-semibold focus:ring-purple-200'
                                         : 'border-gray-200 text-gray-700 focus:ring-purple-200'
                                 }`}
                             >
-                                <option value="">Semua LPS ({lpsOptions.length} Terdaftar)</option>
-                                {lpsOptions.map((lps) => (
-                                    <option key={lps} value={lps}>
-                                        {lps}
+                                <option value="">Semua Kelurahan ({kelurahanOptions.length} Terdaftar)</option>
+                                {kelurahanOptions.map((kel) => (
+                                    <option key={kel} value={kel}>
+                                        {kel}
                                     </option>
                                 ))}
                             </select>
@@ -533,10 +539,7 @@ export default function LaporanTimbanganTransdepoPage() {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setSelectedRange('custom');
-                                    setShowCustomDate(!showCustomDate);
-                                }}
+                                onClick={() => setShowCustomDate(!showCustomDate)}
                                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
                                     selectedRange === 'custom'
                                         ? 'bg-purple-600 text-white shadow-xs'
@@ -635,12 +638,12 @@ export default function LaporanTimbanganTransdepoPage() {
                     <div className="flex items-center gap-2 text-xs text-gray-600">
                         <span className="font-semibold">Filter aktif:</span>
                         <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium border border-purple-200/60">
-                            {selectedLps ? `LPS: ${selectedLps}` : 'Semua LPS'}
+                            {selectedKelurahan ? `Kelurahan: ${selectedKelurahan}` : 'Semua Kelurahan'}
                         </span>
                         <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium border border-blue-200/60">
                             Periode: {selectedRange === 'all' ? 'Semua Waktu' : selectedRange === 'month' ? 'Nov 2026' : selectedRange === 'last-month' ? 'Okt 2026' : selectedRange}
                         </span>
-                        {(selectedLps || selectedRange !== 'all' || searchQuery) && (
+                        {(selectedKelurahan || selectedRange !== 'all' || searchQuery) && (
                             <button
                                 onClick={handleResetFilter}
                                 className="text-xs text-gray-500 hover:text-gray-800 underline ml-2 cursor-pointer"
@@ -733,11 +736,11 @@ export default function LaporanTimbanganTransdepoPage() {
                                             </div>
                                             <p className="font-semibold text-gray-700">Tidak ada data penimbangan</p>
                                             <p className="text-xs text-gray-400">
-                                                {selectedLps
-                                                    ? `Tidak ditemukan transaksi untuk LPS "${selectedLps}" pada periode ini.`
+                                                {selectedKelurahan
+                                                    ? `Tidak ditemukan transaksi untuk Kelurahan "${selectedKelurahan}" pada periode ini.`
                                                     : 'Coba ubah filter periode atau kata kunci pencarian.'}
                                             </p>
-                                            {(selectedLps || selectedRange !== 'all') && (
+                                            {(selectedKelurahan || selectedRange !== 'all') && (
                                                 <button
                                                     onClick={handleResetFilter}
                                                     className="mt-2 text-xs font-semibold text-purple-600 hover:text-purple-700"
@@ -850,4 +853,3 @@ export default function LaporanTimbanganTransdepoPage() {
         </div>
     );
 }
-

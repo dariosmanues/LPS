@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
         const transdepoParam = (searchParams.get('transdepo') || 'air-hitam').toLowerCase();
-        const lpsFilter = searchParams.get('lps')?.trim() || '';
+        const kelurahanFilter = (searchParams.get('kelurahan') || searchParams.get('lps') || '').trim();
         const range = searchParams.get('range') || 'all';
         const customStart = searchParams.get('startDate');
         const customEnd = searchParams.get('endDate');
@@ -92,12 +92,13 @@ export async function GET(request: NextRequest) {
             conditions.push({ recordedAt: dateFilter });
         }
 
-        if (lpsFilter && lpsFilter !== 'ALL') {
+        if (kelurahanFilter && kelurahanFilter !== 'ALL') {
             conditions.push({
                 OR: [
-                    { timbangQrSync: { lpsName: { equals: lpsFilter, mode: 'insensitive' } } },
-                    { armada: { namaLps: { equals: lpsFilter, mode: 'insensitive' } } },
-                    { kelurahan: { nama: { equals: lpsFilter, mode: 'insensitive' } } },
+                    { kelurahan: { nama: { equals: kelurahanFilter, mode: 'insensitive' } } },
+                    { armada: { kelurahan: { nama: { equals: kelurahanFilter, mode: 'insensitive' } } } },
+                    { timbangQrSync: { lpsName: { contains: kelurahanFilter, mode: 'insensitive' } } },
+                    { armada: { namaLps: { contains: kelurahanFilter, mode: 'insensitive' } } },
                 ]
             });
         }
@@ -120,33 +121,43 @@ export async function GET(request: NextRequest) {
             ? conditions[0]
             : { AND: conditions };
 
-        // 1. Fetch Distinct LPS for dropdown filter
-        const allTransdepoSyncs = await prisma.timbangQrSync.findMany({
-            where: {
-                transdepo: {
-                    contains: isAirHitam ? 'AIR' : 'HARAPAN',
-                    mode: 'insensitive'
-                }
-            },
-            select: { lpsName: true },
-            distinct: ['lpsName']
-        });
-
-        const allTransdepoArmadas = await prisma.armada.findMany({
+        // 1. Fetch Distinct Kelurahan for dropdown filter
+        const transdepoArmadas = await prisma.armada.findMany({
             where: {
                 lokasiTransdepo: {
                     contains: isAirHitam ? 'AIR' : 'HARAPAN',
                     mode: 'insensitive'
-                }
+                },
+                kelurahanId: { not: null }
             },
-            select: { namaLps: true },
-            distinct: ['namaLps']
+            select: {
+                kelurahan: { select: { nama: true } }
+            }
         });
 
-        const lpsOptionsSet = new Set<string>();
-        allTransdepoSyncs.forEach(s => { if (s.lpsName?.trim()) lpsOptionsSet.add(s.lpsName.trim()); });
-        allTransdepoArmadas.forEach(a => { if (a.namaLps?.trim()) lpsOptionsSet.add(a.namaLps.trim()); });
-        const lpsOptions = Array.from(lpsOptionsSet).sort((a, b) => a.localeCompare(b, 'id'));
+        const transdepoLogs = await prisma.wasteLog.findMany({
+            where: transdepoWhere,
+            select: {
+                kelurahan: { select: { nama: true } },
+                armada: { select: { kelurahan: { select: { nama: true } } } }
+            }
+        });
+
+        const kelurahanOptionsSet = new Set<string>();
+        transdepoArmadas.forEach(a => {
+            if (a.kelurahan?.nama?.trim()) kelurahanOptionsSet.add(a.kelurahan.nama.trim());
+        });
+        transdepoLogs.forEach(l => {
+            if (l.kelurahan?.nama?.trim()) kelurahanOptionsSet.add(l.kelurahan.nama.trim());
+            if (l.armada?.kelurahan?.nama?.trim()) kelurahanOptionsSet.add(l.armada.kelurahan.nama.trim());
+        });
+
+        if (kelurahanOptionsSet.size === 0) {
+            const allKels = await prisma.kelurahan.findMany({ select: { nama: true } });
+            allKels.forEach(k => { if (k.nama?.trim()) kelurahanOptionsSet.add(k.nama.trim()); });
+        }
+
+        const kelurahanOptions = Array.from(kelurahanOptionsSet).sort((a, b) => a.localeCompare(b, 'id'));
 
         // 2. Aggregate KPI summary for the current filtered query
         const allFilteredLogs = await prisma.wasteLog.findMany({
@@ -154,6 +165,13 @@ export async function GET(request: NextRequest) {
             select: {
                 beratKg: true,
                 armadaId: true,
+                kelurahan: { select: { nama: true } },
+                armada: {
+                    select: {
+                        namaLps: true,
+                        kelurahan: { select: { nama: true } }
+                    }
+                },
                 timbangQrSync: {
                     select: {
                         grossKg: true,
@@ -161,11 +179,6 @@ export async function GET(request: NextRequest) {
                         nettoKg: true,
                         rafaksiKg: true,
                         lpsName: true
-                    }
-                },
-                armada: {
-                    select: {
-                        namaLps: true
                     }
                 }
             }
@@ -188,11 +201,15 @@ export async function GET(request: NextRequest) {
 
         const uniqueArmadaCount = new Set(allFilteredLogs.map(l => l.armadaId).filter(Boolean)).size;
         const activeLpsSet = new Set<string>();
+        const activeKelurahanSet = new Set<string>();
         allFilteredLogs.forEach(l => {
             const name = l.timbangQrSync?.lpsName || l.armada?.namaLps;
             if (name) activeLpsSet.add(name);
+            const kName = l.armada?.kelurahan?.nama || l.kelurahan?.nama;
+            if (kName) activeKelurahanSet.add(kName);
         });
         const activeLpsCount = activeLpsSet.size;
+        const activeKelurahanCount = activeKelurahanSet.size;
         const avgKgPerTrip = totalTrips > 0 ? Math.round(totalNettoKg / totalTrips) : 0;
 
         // 3. Fetch Paginated Records
@@ -292,9 +309,11 @@ export async function GET(request: NextRequest) {
                 totalTrips,
                 avgKgPerTrip,
                 uniqueArmadaCount,
-                activeLpsCount
+                activeLpsCount,
+                activeKelurahanCount
             },
-            lpsOptions,
+            kelurahanOptions,
+            lpsOptions: kelurahanOptions, // backwards compatibility
             items
         });
 
