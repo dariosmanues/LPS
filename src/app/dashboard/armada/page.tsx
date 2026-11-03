@@ -29,6 +29,9 @@ interface Armada {
     jenisArmada: string | null; // DUMPTRUCK, PICKUP, or BENTOR
     qrCode: string;
     isActive: boolean;
+    isQrUsed?: boolean;
+    lastTicketNumber?: string | null;
+    qrUsedAt?: string | null;
     isMultiLpsVerified?: boolean;
     verifiedAt?: string | null;
     verifiedBy?: string | null;
@@ -48,6 +51,30 @@ export default function ArmadaPage() {
     const [syncingTimbangQr, setSyncingTimbangQr] = useState(false);
     const [verifyingPlate, setVerifyingPlate] = useState<string | null>(null);
     const [filterMultiLpsOnly, setFilterMultiLpsOnly] = useState(false);
+    const [regeneratingQr, setRegeneratingQr] = useState(false);
+
+    const handleRegenerateQr = async (armada: Armada) => {
+        setRegeneratingQr(true);
+        try {
+            const res = await fetch(`/api/armada/${armada.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ regenerateQr: true }),
+            });
+            const data = await res.json();
+            if (res.ok && data.id) {
+                setShowQRModal(data);
+                setArmadaList(prev => prev.map(a => a.id === data.id ? { ...a, ...data } : a));
+                alert(`QR Code baru untuk armada ${armada.platNomor} berhasil diterbitkan!\n\nKode QR baru aktif dan siap discan untuk penimbangan berikutnya.`);
+            } else {
+                alert(data.error || 'Gagal menerbitkan QR Code baru.');
+            }
+        } catch (err: any) {
+            alert('Terjadi kesalahan: ' + err.message);
+        } finally {
+            setRegeneratingQr(false);
+        }
+    };
 
     // Identifikasi armada yang nomor platnya terdaftar di lebih dari 1 LPS (Multi-LPS)
     const multiLpsPlates = useMemo(() => {
@@ -983,7 +1010,40 @@ export default function ArmadaPage() {
                         <div className="bg-gray-50 p-4 rounded-xl inline-block mb-4 border border-gray-100">
                             <QRCodeSVG value={showQRModal.qrCode} size={200} />
                         </div>
-                        <p className="text-gray-400 text-xs mb-4 font-mono break-all">{showQRModal.qrCode}</p>
+                        <p className="text-gray-400 text-xs mb-3 font-mono break-all">{showQRModal.qrCode}</p>
+
+                        {/* Status QR Temporer / Sekali Pakai */}
+                        {showQRModal.isQrUsed ? (
+                            <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-left">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700 mb-1">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                                    Status: QR SUDAH HANGUS (Tiket #{showQRModal.lastTicketNumber || '-'})
+                                </div>
+                                <p className="text-[11px] text-rose-600 leading-tight">
+                                    QR ini bersifat temporer dan telah selesai digunakan menimbang. Klik tombol di bawah untuk menerbitkan QR baru bagi perjalanan berikutnya.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                    Status: QR AKTIF (Siap Dipakai 1x)
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Tombol Terbitkan QR Baru */}
+                        <button
+                            type="button"
+                            disabled={regeneratingQr}
+                            onClick={() => handleRegenerateQr(showQRModal)}
+                            className="w-full mb-3 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                        >
+                            <svg className={`w-4 h-4 ${regeneratingQr ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            {regeneratingQr ? 'Sedang Menerbitkan...' : (showQRModal.isQrUsed ? 'Terbitkan QR Baru (Perjalanan Berikutnya)' : 'Generate Ulang QR Code')}
+                        </button>
 
                         {multiLpsPlates.has((showQRModal.platNomor || '').replace(/\s+/g, '').toUpperCase()) && (
                             <div className="mb-3">

@@ -287,8 +287,9 @@ export async function handleTimbangQrGet(request: NextRequest) {
             // Check if QR code is already burned / used!
             // QR Code LPS yang diterbitkan dari qr-generator selalu hangus jika armada.isQrUsed = true
             const isLpsQrCode = Boolean(code && (/^LPS-/i.test(code) || code === armada.qrCode));
-            // QR Code armada terdaftar bersifat permanen untuk operasional penimbangan rutin harian
-            const shouldBurn = false;
+            // Check if QR code is already burned / used!
+            // QR Code LPS bersifat temporer / sekali pakai per perjalanan.
+            const shouldBurn = Boolean(armada.isQrUsed && isLpsQrCode);
             if (shouldBurn) {
                 return NextResponse.json(
                     {

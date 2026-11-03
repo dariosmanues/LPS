@@ -62,6 +62,13 @@ export async function PATCH(
         if (lokasiTransdepo !== undefined) updateData.lokasiTransdepo = parseSafeString(lokasiTransdepo);
         if (jenisArmada !== undefined) updateData.jenisArmada = parseSafeString(jenisArmada);
         if (isActive !== undefined) updateData.isActive = Boolean(isActive);
+        if (body.isQrUsed !== undefined) updateData.isQrUsed = Boolean(body.isQrUsed);
+        if (body.regenerateQr || body.action === 'regenerate') {
+            const cleanPlat = (platNomor || id).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            updateData.qrCode = `LPS-${cleanPlat}-${Date.now()}`;
+            updateData.isQrUsed = false;
+            updateData.qrUsedAt = null;
+        }
 
         // 1. Cari armada berdasarkan ID terlebih dahulu
         let targetArmada = await prisma.armada.findUnique({
