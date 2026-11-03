@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { syncAllHarapanJayaToTimbangQr, syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
+import { syncAllToTimbangQr, syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
             return NextResponse.json(result, { status: result.success ? 200 : 502 });
         }
 
-        const result = await syncAllHarapanJayaToTimbangQr();
+        const result = await syncAllToTimbangQr();
         return NextResponse.json(result, { status: result.success ? 200 : 502 });
     } catch (error: any) {
         console.error('[POST /api/armada/sync-timbangqr Error]:', error);

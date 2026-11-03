@@ -155,6 +155,16 @@ export async function DELETE(
         const { searchParams } = new URL(request.url);
         const force = searchParams.get('force') === 'true';
 
+        // Ambil data armada sebelum dihapus untuk sinkronisasi penonaktifan ke TimbangQR
+        const existingArmada = await prisma.armada.findUnique({
+            where: { id },
+            include: {
+                kelurahan: {
+                    include: { kecamatan: true },
+                },
+            },
+        });
+
         if (force) {
             // Force delete: Hapus timbangqr_syncs terkait, lalu log sampah, baru armadanya
             const wasteLogs = await prisma.wasteLog.findMany({
@@ -198,6 +208,15 @@ export async function DELETE(
             await prisma.armada.delete({
                 where: { id },
             });
+        }
+
+        // Sinkronisasi penonaktifan ke TimbangQR sesuai wilayah transdepo
+        if (existingArmada) {
+            try {
+                await syncArmadaToTimbangQr({ ...existingArmada, isActive: false });
+            } catch (syncErr) {
+                console.warn('[DELETE /api/armada/[id]] TimbangQR deactivation sync warning:', syncErr);
+            }
         }
 
         return NextResponse.json({ success: true });

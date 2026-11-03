@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { syncArmadaToTimbangQr, isHarapanJaya } from '@/lib/timbangqr-sync-service';
+import { syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
 
 function parseSafeDate(val: any): Date | null {
     if (!val || val === '' || val === 'null' || val === 'undefined') return null;
@@ -72,6 +72,7 @@ export async function GET(request: Request) {
     }
 }
 
+
 export async function POST(request: Request) {
     try {
         const body = await request.json();
@@ -128,14 +129,12 @@ export async function POST(request: Request) {
             }
         });
 
-        // Sinkronisasi ke TimbangQR jika lokasi atau wilayah kerja adalah Harapan Jaya
+        // Sinkronisasi otomatis ke TimbangQR sesuai wilayah transdepo masing-masing (Air Hitam / Harapan Jaya)
         let timbangQrSync = null;
-        if (isHarapanJaya(armada.lokasiTransdepo, armada.wilayahKerja)) {
-            try {
-                timbangQrSync = await syncArmadaToTimbangQr(armada);
-            } catch (syncErr) {
-                console.warn('[POST /api/armada] TimbangQR sync warning:', syncErr);
-            }
+        try {
+            timbangQrSync = await syncArmadaToTimbangQr(armada);
+        } catch (syncErr) {
+            console.warn('[POST /api/armada] TimbangQR sync warning:', syncErr);
         }
 
         return NextResponse.json({
