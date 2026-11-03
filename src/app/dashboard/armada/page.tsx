@@ -413,7 +413,7 @@ export default function ArmadaPage() {
     };
 
     const handleSyncTimbangQr = async () => {
-        if (!confirm('Sinkronkan seluruh armada Harapan Jaya ke jembatan timbang (https://timbangqr-ocr-led.vercel.app/armada) sekarang?')) return;
+        if (!confirm('Sinkronkan seluruh data armada ke sistem Jembatan Timbang (Air Hitam & Harapan Jaya) sesuai wilayah kerja masing-masing sekarang?')) return;
         setSyncingTimbangQr(true);
         try {
             const res = await fetch('/api/armada/sync-timbangqr', {
@@ -488,7 +488,7 @@ export default function ArmadaPage() {
                         onClick={handleSyncTimbangQr}
                         disabled={syncingTimbangQr}
                         className="px-5 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl flex items-center gap-2 hover:bg-blue-100 transition-all font-medium disabled:opacity-50"
-                        title="Sinkronkan seluruh armada Harapan Jaya ke TimbangQR"
+                        title="Sinkronkan seluruh data armada ke TimbangQR Air Hitam & Harapan Jaya"
                     >
                         {syncingTimbangQr ? (
                             <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
