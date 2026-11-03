@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
             jenisArmada: input.vehicleType || 'PICKUP',
             namaSupir: input.driverName || '-',
             qrCode: `LPS-${cleanPlate}-${Date.now()}`,
-            isQrUsed: true,
+            isQrUsed: false,
             qrUsedAt: new Date(input.weighedAt),
             lastTicketNumber: input.ticketNumber,
             isActive: true,
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
         await tx.armada.updateMany({
           where: { id: { in: matchingArmadas.map((a) => a.id) } },
           data: {
-            isQrUsed: true,
+            isQrUsed: false,
             qrUsedAt: new Date(input.weighedAt),
             lastTicketNumber: input.ticketNumber,
           },
@@ -287,7 +287,7 @@ export async function POST(request: NextRequest) {
       await tx.armada.updateMany({
         where: { id: { in: matchingArmadas.map((a) => a.id) } },
         data: {
-          isQrUsed: true,
+          isQrUsed: false,
           qrUsedAt: new Date(input.weighedAt),
           lastTicketNumber: input.ticketNumber,
         },
