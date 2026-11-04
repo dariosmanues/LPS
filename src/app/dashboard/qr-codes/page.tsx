@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { GlassCard } from '@/components/ui';
 import { QRCodeSVG } from 'qrcode.react';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 type TabType = 'armada' | 'kelurahan';
 
@@ -134,6 +135,8 @@ export default function QRCodesPage() {
 
     return (
         <div className="space-y-6">
+            <ReadOnlyBanner />
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>

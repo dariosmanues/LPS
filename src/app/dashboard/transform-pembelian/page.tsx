@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { GlassCard } from '@/components/ui';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 export default function TransformPembelianPage() {
     const [file, setFile] = useState<File | null>(null);
@@ -126,6 +127,8 @@ export default function TransformPembelianPage() {
 
     return (
         <div className="space-y-6">
+            <ReadOnlyBanner />
+
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-800 mb-1">Transform Laporan Pembelian</h1>

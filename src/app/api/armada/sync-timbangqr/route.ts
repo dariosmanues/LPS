@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { syncAllToTimbangQr, syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const body = await request.json().catch(() => ({}));
         

@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 // POST: Save meeting summary to archive
 export async function POST(request: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { content } = await request.json();
 

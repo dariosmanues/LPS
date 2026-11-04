@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 // GET all users
 export async function GET() {
@@ -25,6 +26,9 @@ export async function GET() {
 
 // POST create new user
 export async function POST(request: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const body = await request.json();
         const { email, password, name, role } = body;

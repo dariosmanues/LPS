@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 interface Kelurahan {
     id: string;
@@ -42,6 +43,8 @@ export default function WilayahPage() {
 
     return (
         <div className="space-y-6">
+            <ReadOnlyBanner />
+
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-800 mb-1">Master Data Wilayah</h1>

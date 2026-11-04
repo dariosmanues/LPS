@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 export async function GET() {
     try {
@@ -14,6 +15,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { text, date, category } = await req.json();
         const todo = await prisma.toDo.create({
@@ -30,6 +34,9 @@ export async function POST(req: Request) {
 }
 
 export async function PUT(req: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { id, isDone, text, category } = await req.json();
         const data: any = {};
@@ -48,6 +55,9 @@ export async function PUT(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get('id');

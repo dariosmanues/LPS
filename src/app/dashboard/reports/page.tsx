@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GlassCard, StatCard } from '@/components/ui';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 import {
     BarChart,
     Bar,
@@ -109,6 +110,8 @@ export default function ReportsPage() {
 
     return (
         <div className="space-y-6">
+            <ReadOnlyBanner />
+
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>

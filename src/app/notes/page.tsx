@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { usePermissions } from '@/lib/permissions';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 interface Note {
     id: string;
@@ -38,6 +40,7 @@ const CATEGORIES = [
 ];
 
 export default function NotesPage() {
+    const { isSuperAdmin, isReadOnly } = usePermissions();
     // --- States ---
     const [notes, setNotes] = useState<Note[]>([]);
     const [todos, setTodos] = useState<ToDo[]>([]);
@@ -279,6 +282,7 @@ export default function NotesPage() {
     return (
         <div className="min-h-screen bg-gray-50 p-6 md:p-8">
             <div className="max-w-7xl mx-auto space-y-6">
+                <ReadOnlyBanner featureName="Catatan Rapat & Jadwal" />
 
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -394,33 +398,36 @@ export default function NotesPage() {
                                                         }`}>
                                                         {CATEGORIES.find(c => c.id === todo.category)?.label || todo.category}
                                                     </span>
-                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={() => startEditing(todo)}
-                                                            className="p-1 hover:bg-white rounded text-gray-400 hover:text-blue-500"
-                                                            title="Edit"
-                                                        >
-                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => deleteTodo(todo.id)}
-                                                            className="p-1 hover:bg-white rounded text-gray-400 hover:text-red-500"
-                                                            title="Hapus"
-                                                        >
-                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
+                                                    {isSuperAdmin && (
+                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => startEditing(todo)}
+                                                                className="p-1 hover:bg-white rounded text-gray-400 hover:text-blue-500"
+                                                                title="Edit"
+                                                            >
+                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteTodo(todo.id)}
+                                                                className="p-1 hover:bg-white rounded text-gray-400 hover:text-red-500"
+                                                                title="Hapus"
+                                                            >
+                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="flex items-start gap-3">
                                                     <input
                                                         type="checkbox"
                                                         checked={todo.isDone}
                                                         onChange={(e) => toggleTodo(todo.id, e.target.checked)}
-                                                        className="mt-1 w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer"
+                                                        disabled={!isSuperAdmin}
+                                                        className="mt-1 w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                                                     />
                                                     <p className={`text-sm flex-1 ${todo.isDone ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
                                                         {todo.text}
@@ -432,35 +439,37 @@ export default function NotesPage() {
                                 ))}
                             </div>
 
-                            <form onSubmit={handleAddTodo} className="mt-4 pt-4 border-t border-gray-100 space-y-3">
-                                <div>
-                                    <label className="text-xs text-gray-500 font-medium ml-1">Kategori Kegiatan</label>
-                                    <div className="grid grid-cols-1 gap-2 mt-1">
-                                        <select
-                                            value={newCategory}
-                                            onChange={(e) => setNewCategory(e.target.value)}
-                                            className="w-full text-sm bg-gray-50 border-none rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500"
-                                        >
-                                            {CATEGORIES.map(c => (
-                                                <option key={c.id} value={c.id}>{c.label}</option>
-                                            ))}
-                                        </select>
+                            {isSuperAdmin && (
+                                <form onSubmit={handleAddTodo} className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                                    <div>
+                                        <label className="text-xs text-gray-500 font-medium ml-1">Kategori Kegiatan</label>
+                                        <div className="grid grid-cols-1 gap-2 mt-1">
+                                            <select
+                                                value={newCategory}
+                                                onChange={(e) => setNewCategory(e.target.value)}
+                                                className="w-full text-sm bg-gray-50 border-none rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500"
+                                            >
+                                                {CATEGORIES.map(c => (
+                                                    <option key={c.id} value={c.id}>{c.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
-                                </div>
-                                <input
-                                    type="text"
-                                    value={newTodo}
-                                    onChange={e => setNewTodo(e.target.value)}
-                                    placeholder="Keterangan / Detail..."
-                                    className="w-full bg-gray-50 border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500"
-                                />
-                                <button
-                                    type="submit"
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                                >
-                                    + Tambah Jadwal
-                                </button>
-                            </form>
+                                    <input
+                                        type="text"
+                                        value={newTodo}
+                                        onChange={e => setNewTodo(e.target.value)}
+                                        placeholder="Keterangan / Detail..."
+                                        className="w-full bg-gray-50 border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                                    >
+                                        + Tambah Jadwal
+                                    </button>
+                                </form>
+                            )}
                         </div>
                     </div>
 
@@ -473,19 +482,26 @@ export default function NotesPage() {
                                 </svg>
                                 Meeting Summary
                             </h3>
-                            <button
-                                onClick={saveSummary}
-                                disabled={savingSummary}
-                                className="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 font-medium transition-colors"
-                            >
-                                {savingSummary ? 'Menyimpan...' : 'Simpan'}
-                            </button>
+                            {isSuperAdmin && (
+                                <button
+                                    onClick={saveSummary}
+                                    disabled={savingSummary}
+                                    className="text-xs bg-green-50 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-100 font-medium transition-colors"
+                                >
+                                    {savingSummary ? 'Menyimpan...' : 'Simpan'}
+                                </button>
+                            )}
                         </div>
                         <textarea
                             value={summary}
-                            onChange={(e) => setSummary(e.target.value)}
-                            placeholder="Tulis ringkasan rapat disini..."
-                            className="flex-1 w-full p-4 bg-yellow-50/30 rounded-xl border border-yellow-100 text-gray-700 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-yellow-200 focus:border-transparent min-h-[400px]"
+                            onChange={(e) => isSuperAdmin && setSummary(e.target.value)}
+                            readOnly={!isSuperAdmin}
+                            placeholder={isSuperAdmin ? "Tulis ringkasan rapat disini..." : "Mode read-only (hanya dapat melihat ringkasan)"}
+                            className={`flex-1 w-full p-4 rounded-xl border leading-relaxed resize-none focus:outline-none min-h-[400px] ${
+                                isSuperAdmin 
+                                    ? 'bg-yellow-50/30 border-yellow-100 text-gray-700 focus:ring-2 focus:ring-yellow-200 focus:border-transparent' 
+                                    : 'bg-gray-50 border-gray-200 text-gray-600 cursor-not-allowed'
+                            }`}
                         />
                         <p className="text-xs text-gray-400 mt-2 text-right">Terakhir disimpan: {currentTime || '--:--:--'}</p>
                     </div>
@@ -494,20 +510,24 @@ export default function NotesPage() {
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-[600px]">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="font-semibold text-gray-800">Arsip File</h3>
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={uploading}
-                                className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-100 text-xs font-medium transition-colors flex items-center gap-1"
-                            >
-                                {uploading ? '...' : '+ Upload'}
-                            </button>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleUpload}
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                className="hidden"
-                            />
+                            {isSuperAdmin && (
+                                <>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploading}
+                                        className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-100 text-xs font-medium transition-colors flex items-center gap-1"
+                                    >
+                                        {uploading ? '...' : '+ Upload'}
+                                    </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleUpload}
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        className="hidden"
+                                    />
+                                </>
+                            )}
                         </div>
 
                         <div className="mb-4">

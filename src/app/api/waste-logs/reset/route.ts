@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 // DELETE - Reset/delete all waste logs
 export async function DELETE(request: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { searchParams } = new URL(request.url);
         const resetType = searchParams.get('type') || 'today';

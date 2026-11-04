@@ -17,12 +17,13 @@ const guideSections = [
                     Aplikasi Dashboard LPS adalah sistem informasi yang digunakan untuk mengelola data operasional Lembaga Pengelola Sampah (LPS).
                 </p>
                 <p>
-                    Sistem ini terbagi dalam beberapa tingkatan peran (role) akses:
+                    Sistem ini terbagi dalam tingkatan peran (role) akses:
                 </p>
                 <ul className="list-disc pl-5 space-y-2">
-                    <li><strong>ADMIN:</strong> Memiliki akses penuh terhadap seluruh fitur dan data di semua wilayah.</li>
-                    <li><strong>OPERATOR:</strong> Bertanggung jawab mencatat operasional harian seperti penimbangan sampah, scanner QR, dan membalas aduan warga.</li>
-                    <li><strong>LPS KETUA, SEKRETARIS, BENDAHARA:</strong> Akses khusus bagi pengurus LPS untuk melihat laporan, statistik, dan pencatatan notulen rapat.</li>
+                    <li><strong>SUPERADMIN (Akses Penuh):</strong> Memiliki hak akses khusus penuh untuk seluruh menu, mutasi data armada, kelola user, sinkronisasi TimbangQR, reset data, notulen, serta pengaturan sistem.</li>
+                    <li><strong>VIEWER / User Lain (Mode Read-Only):</strong> Memiliki hak akses melihat seluruh menu dashboard, monitoring timbangan, armada, wilayah, dan laporan secara lengkap tanpa izin mengubah/menghapus data.</li>
+                    <li><strong>OPERATOR / PETUGAS:</strong> Mencatat operasional penimbangan sampah, validasi QR armada di lapangan, dan pemantauan data.</li>
+                    <li><strong>LPS KELURAHAN (Ketua, Sekretaris, Bendahara):</strong> Akses bagi pengurus LPS untuk melihat data wilayah, armada, dan pelaporan berkala.</li>
                 </ul>
             </div>
         )

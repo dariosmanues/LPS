@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 interface LogEntry {
     id: string;
@@ -53,6 +54,8 @@ export default function LogsPage() {
 
     return (
         <div className="space-y-6">
+            <ReadOnlyBanner />
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>

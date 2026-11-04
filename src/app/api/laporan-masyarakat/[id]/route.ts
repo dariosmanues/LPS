@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendAdminReply } from '@/lib/wa-client';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 /**
  * GET — Get single report detail
@@ -34,6 +35,9 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     const { id } = await params;
 
     try {
@@ -80,6 +84,9 @@ export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     const { id } = await params;
 
     try {

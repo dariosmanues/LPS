@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 function parseSafeDate(val: any): Date | null {
     if (!val || val === '' || val === 'null' || val === 'undefined') return null;
@@ -74,6 +75,9 @@ export async function GET(request: Request) {
 
 
 export async function POST(request: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const body = await request.json();
         const {

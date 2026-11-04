@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 interface LaporanItem {
     id: string;
@@ -294,6 +295,10 @@ export default function LaporanTimbanganTransdepoPage() {
 
     return (
         <div className="space-y-6 pb-12 print:p-0 print:space-y-4">
+            <div className="print:hidden">
+                <ReadOnlyBanner />
+            </div>
+
             {/* Top Navigation Switcher between Air Hitam and Harapan Jaya */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-4 print:hidden">
                 <div>

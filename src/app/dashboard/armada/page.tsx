@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { GlassCard } from '@/components/ui';
 import { QRCodeSVG } from 'qrcode.react';
+import { usePermissions } from '@/lib/permissions';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 interface Kelurahan {
     id: string;
@@ -38,6 +40,7 @@ interface Armada {
 }
 
 export default function ArmadaPage() {
+    const { isSuperAdmin, isReadOnly } = usePermissions();
     const [armadaList, setArmadaList] = useState<Armada[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [kelurahanList, setKelurahanList] = useState<Kelurahan[]>([]);
@@ -463,81 +466,88 @@ export default function ArmadaPage() {
 
     return (
         <div className="space-y-6">
+            {/* Read-Only Notice for non-superadmin users */}
+            <ReadOnlyBanner featureName="Armada" />
+
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 mb-1">Master Data Armada LPS</h1>
                     <p className="text-gray-500 text-sm">Kelola data armada LPS Kota Pekanbaru</p>
                 </div>
-                <div className="flex gap-3">
-                    <input
-                        type="file"
-                        accept=".xlsx, .xls"
-                        className="hidden"
-                        ref={fileInputRef}
-                        onChange={handleImport}
-                    />
-                    <button
-                        onClick={triggerImport}
-                        disabled={importing}
-                        className="px-5 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-xl flex items-center gap-2 hover:bg-green-100 transition-all font-medium disabled:opacity-50"
-                    >
-                        {importing ? (
-                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
-                        )}
-                        Import Excel
-                    </button>
-                    <button
-                        onClick={checkAnomalies}
-                        disabled={checkingAnomalies}
-                        className="px-5 py-2.5 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-xl flex items-center gap-2 hover:bg-yellow-100 transition-all font-medium disabled:opacity-50"
-                    >
-                        {checkingAnomalies ? (
-                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                        )}
-                        Cek Anomali Data
-                    </button>
-                    <button
-                        onClick={handleSyncTimbangQr}
-                        disabled={syncingTimbangQr}
-                        className="px-5 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl flex items-center gap-2 hover:bg-blue-100 transition-all font-medium disabled:opacity-50"
-                        title="Sinkronkan seluruh data armada ke TimbangQR Air Hitam & Harapan Jaya"
-                    >
-                        {syncingTimbangQr ? (
-                            <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        )}
-                        Sync TimbangQR
-                    </button>
-                    <button
-                        onClick={() => { resetForm(); setShowModal(true); }}
-                        className="px-5 py-2.5 bg-linear-to-r from-purple-600 to-purple-700 text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-all font-medium"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Tambah Armada
-                    </button>
+                <div className="flex flex-wrap gap-2.5">
+                    {isSuperAdmin && (
+                        <>
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls"
+                                className="hidden"
+                                ref={fileInputRef}
+                                onChange={handleImport}
+                            />
+                            <button
+                                onClick={triggerImport}
+                                disabled={importing}
+                                className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 rounded-xl flex items-center gap-2 hover:bg-green-100 transition-all font-medium text-sm disabled:opacity-50"
+                            >
+                                {importing ? (
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                )}
+                                Import Excel
+                            </button>
+                            <button
+                                onClick={checkAnomalies}
+                                disabled={checkingAnomalies}
+                                className="px-4 py-2 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-xl flex items-center gap-2 hover:bg-yellow-100 transition-all font-medium text-sm disabled:opacity-50"
+                            >
+                                {checkingAnomalies ? (
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                )}
+                                Cek Anomali
+                            </button>
+                            <button
+                                onClick={handleSyncTimbangQr}
+                                disabled={syncingTimbangQr}
+                                className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl flex items-center gap-2 hover:bg-blue-100 transition-all font-medium text-sm disabled:opacity-50"
+                                title="Sinkronkan seluruh data armada ke TimbangQR Air Hitam & Harapan Jaya"
+                            >
+                                {syncingTimbangQr ? (
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                )}
+                                Sync TimbangQR
+                            </button>
+                            <button
+                                onClick={() => { resetForm(); setShowModal(true); }}
+                                className="px-4 py-2 bg-linear-to-r from-purple-600 to-purple-700 text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-all font-medium text-sm"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Tambah Armada
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -793,56 +803,62 @@ export default function ArmadaPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    {multiLpsPlates.has((armada.platNomor || '').replace(/\s+/g, '').toUpperCase()) && (
-                                                        <button
-                                                            onClick={() => handleVerifyMultiLps(armada)}
-                                                            disabled={verifyingPlate === armada.platNomor}
-                                                            className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all shadow-xs ${
-                                                                armada.isMultiLpsVerified
-                                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100'
-                                                                    : 'bg-linear-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 ring-2 ring-amber-300/60 animate-pulse'
-                                                            }`}
-                                                            title={armada.isMultiLpsVerified ? 'Status: Terverifikasi Operator. Klik untuk membatalkan verifikasi.' : 'Klik untuk memverifikasi armada Multi-LPS agar akses QR di TimbangQR (/scan) dibuka'}
-                                                        >
-                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                            {armada.isMultiLpsVerified ? 'Terverifikasi' : 'Verifikasi Operator'}
-                                                        </button>
+                                                    {isSuperAdmin ? (
+                                                        <>
+                                                            {multiLpsPlates.has((armada.platNomor || '').replace(/\s+/g, '').toUpperCase()) && (
+                                                                <button
+                                                                    onClick={() => handleVerifyMultiLps(armada)}
+                                                                    disabled={verifyingPlate === armada.platNomor}
+                                                                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 transition-all shadow-xs ${
+                                                                        armada.isMultiLpsVerified
+                                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100'
+                                                                            : 'bg-linear-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 ring-2 ring-amber-300/60 animate-pulse'
+                                                                    }`}
+                                                                    title={armada.isMultiLpsVerified ? 'Status: Terverifikasi Operator. Klik untuk membatalkan verifikasi.' : 'Klik untuk memverifikasi armada Multi-LPS agar akses QR di TimbangQR (/scan) dibuka'}
+                                                                >
+                                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                    {armada.isMultiLpsVerified ? 'Terverifikasi' : 'Verifikasi Operator'}
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleEdit(armada)}
+                                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                title="Edit"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(armada.id)}
+                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                title="Hapus"
+                                                            >
+                                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => toggleActive(armada.id, armada.isActive)}
+                                                                className={`p-2 rounded-lg transition-colors ${armada.isActive ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`}
+                                                                title={armada.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                                                            >
+                                                                {armada.isActive ? (
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                                    </svg>
+                                                                ) : (
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                )}
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400 italic">Lihat Saja</span>
                                                     )}
-                                                    <button
-                                                        onClick={() => handleEdit(armada)}
-                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                        </svg>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(armada.id)}
-                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                        title="Hapus"
-                                                    >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                        </svg>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => toggleActive(armada.id, armada.isActive)}
-                                                        className={`p-2 rounded-lg transition-colors ${armada.isActive ? 'text-orange-600 hover:bg-orange-50' : 'text-green-600 hover:bg-green-50'}`}
-                                                        title={armada.isActive ? 'Nonaktifkan' : 'Aktifkan'}
-                                                    >
-                                                        {armada.isActive ? (
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                                            </svg>
-                                                        ) : (
-                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
-                                                        )}
-                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>

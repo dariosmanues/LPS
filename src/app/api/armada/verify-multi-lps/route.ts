@@ -10,7 +10,8 @@ export async function POST(request: Request) {
     try {
         const session = await getServerSession(authOptions);
         const userRole = (session?.user?.role || '').toUpperCase();
-        const isOperatorOrAdmin = ['ADMIN', 'OPERATOR'].includes(userRole);
+        const isSuperAdmin = userRole === 'SUPERADMIN' || session?.user?.email?.toLowerCase() === 'superadmin@lps.pekanbaru.go.id';
+        const isOperatorOrAdmin = isSuperAdmin;
 
         // Validasi secret jika dipanggil secara programmatic / server-to-server
         const secret = process.env.TIMBANGQR_INTEGRATION_SECRET || process.env.LPS_INTEGRATION_SECRET;

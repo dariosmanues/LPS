@@ -19,8 +19,15 @@ export const authOptions: NextAuthOptions = {
                     return null;
                 }
 
+                let lookupEmail = credentials.email.toLowerCase().trim();
+                if (!lookupEmail.includes('@')) {
+                    if (lookupEmail === 'superadmin') lookupEmail = 'superadmin@lps.pekanbaru.go.id';
+                    else if (lookupEmail === 'viewer') lookupEmail = 'viewer@lps.pekanbaru.go.id';
+                    else if (lookupEmail === 'admin') lookupEmail = 'admin@lps.pekanbaru.go.id';
+                }
+
                 let user = await prisma.user.findUnique({
-                    where: { email: credentials.email.toLowerCase().trim() },
+                    where: { email: lookupEmail },
                 });
 
                 if (!user) {

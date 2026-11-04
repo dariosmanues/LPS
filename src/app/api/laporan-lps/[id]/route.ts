@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireSuperAdmin } from '@/lib/permissions'
 
 // GET - Ambil laporan by ID
 export async function GET(
@@ -45,6 +46,9 @@ export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const auth = await requireSuperAdmin()
+    if (!auth.authorized) return auth.response
+
     try {
         const { id } = await params
         const body = await request.json()
@@ -205,6 +209,9 @@ export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const auth = await requireSuperAdmin()
+    if (!auth.authorized) return auth.response
+
     try {
         const { id } = await params
 

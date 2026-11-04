@@ -75,25 +75,22 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(loginUrl);
     }
 
-    const userRole = token.role as string;
+    const userRole = (token.role as string)?.toUpperCase() || '';
+    const userEmail = (token.email as string)?.toLowerCase() || '';
+    const isSuperAdmin = userRole === 'SUPERADMIN' || userEmail === 'superadmin@lps.pekanbaru.go.id';
 
-    // Dashboard routes - Admin only
-    if (pathname.startsWith('/dashboard')) {
-        if (userRole !== 'ADMIN') {
-            if (isLpsRole(userRole)) {
-                return NextResponse.redirect(new URL('/lps', req.url));
-            }
-            return NextResponse.redirect(new URL('/scan', req.url));
-        }
+    // Dashboard & Notes routes:
+    // Super Admin has full write access.
+    // All other users can view all dashboard menus in Read-Only mode.
+    if (pathname.startsWith('/dashboard') || pathname === '/notes') {
+        // Authenticated users are allowed into dashboard (handled with read-only badges/restrictions in UI & API)
+        return NextResponse.next();
     }
 
-    // LPS routes - LPS roles only
+    // LPS routes - LPS roles, Admin, and Super Admin can access
     if (pathname.startsWith('/lps')) {
-        if (!isLpsRole(userRole)) {
-            if (userRole === 'ADMIN') {
-                return NextResponse.redirect(new URL('/dashboard', req.url));
-            }
-            return NextResponse.redirect(new URL('/scan', req.url));
+        if (!isLpsRole(userRole) && !isSuperAdmin && userRole !== 'ADMIN') {
+            return NextResponse.redirect(new URL('/dashboard', req.url));
         }
     }
 

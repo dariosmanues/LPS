@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { ReactNode, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Logo } from '@/components/ui/Logo';
+import { isSuperAdminUser } from '@/lib/permissions';
 
 const menuItems = [
     {
@@ -139,16 +140,9 @@ export function Sidebar({ children }: SidebarProps) {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const { data: session } = useSession();
 
-    const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === 'Armada') {
-            const blockedRoles = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'];
-            const userRole = session?.user?.role?.toUpperCase();
-            if (userRole && blockedRoles.includes(userRole)) {
-                return false;
-            }
-        }
-        return true;
-    });
+    const isSuperAdmin = isSuperAdminUser(session?.user);
+    // Seluruh menu dapat diakses oleh semua user (Super Admin full akses, user lain Read-Only)
+    const filteredMenuItems = menuItems;
 
     const handleLogout = () => {
         signOut({ callbackUrl: '/' });
@@ -203,9 +197,15 @@ export function Sidebar({ children }: SidebarProps) {
                             </div>
                             <div>
                                 <p className="font-medium text-gray-800">{session.user.name}</p>
-                                <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
-                                    {session.user.role}
-                                </span>
+                                {isSuperAdmin ? (
+                                    <span className="text-[11px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-bold">
+                                        Super Admin (Full Akses)
+                                    </span>
+                                ) : (
+                                    <span className="text-[11px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold flex items-center gap-1 w-fit mt-0.5">
+                                        <span>👁️</span> Read-Only
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -274,8 +274,12 @@ export function Sidebar({ children }: SidebarProps) {
                     {/* User Avatar */}
                     {session?.user && (
                         <div
-                            className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs"
-                            title={`${session.user.name} (${session.user.role})`}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs ${
+                                isSuperAdmin
+                                    ? 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-300'
+                                    : 'bg-linear-to-br from-amber-500 to-amber-600 ring-2 ring-amber-200'
+                            }`}
+                            title={`${session.user.name} - ${isSuperAdmin ? 'Super Admin (Akses Penuh)' : 'Mode Read-Only (Hanya Lihat)'}`}
                         >
                             {session.user.name?.charAt(0) || 'U'}
                         </div>

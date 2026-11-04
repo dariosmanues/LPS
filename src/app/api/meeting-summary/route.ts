@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 export async function GET() {
     try {
@@ -15,6 +16,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { content } = await req.json();
 

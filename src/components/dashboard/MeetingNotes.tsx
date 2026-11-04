@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { usePermissions } from '@/lib/permissions';
 
 interface Note {
     id: string;
@@ -12,6 +13,7 @@ interface Note {
 }
 
 export function MeetingNotes() {
+    const { isSuperAdmin } = usePermissions();
     const [notes, setNotes] = useState<Note[]>([]);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,29 +78,33 @@ export function MeetingNotes() {
         <div className="card p-5 bg-white rounded-xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-800">Catatan Rapat</h3>
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium"
-                >
-                    {uploading ? (
-                        <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                        <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
-                            Upload
-                        </>
-                    )}
-                </button>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleUpload}
-                    accept=".pdf,.jpg,.jpeg"
-                    className="hidden"
-                />
+                {isSuperAdmin && (
+                    <>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="p-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors flex items-center gap-2 text-xs font-medium"
+                        >
+                            {uploading ? (
+                                <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                    Upload
+                                </>
+                            )}
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleUpload}
+                            accept=".pdf,.jpg,.jpeg"
+                            className="hidden"
+                        />
+                    </>
+                )}
             </div>
 
             {notes.length === 0 ? (

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireSuperAdmin } from '@/lib/permissions'
 
 // GET - Ambil semua laporan
 export async function GET() {
@@ -31,6 +32,9 @@ export async function GET() {
 
 // POST - Buat laporan baru
 export async function POST(request: NextRequest) {
+    const auth = await requireSuperAdmin()
+    if (!auth.authorized) return auth.response
+
     try {
         const body = await request.json()
 

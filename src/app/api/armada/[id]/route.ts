@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
+import { requireSuperAdmin } from '@/lib/permissions';
 
 function parseSafeDate(val: any): Date | null | undefined {
     if (val === undefined) return undefined;
@@ -21,6 +22,9 @@ export async function PATCH(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { id: rawId } = await params;
         const id = decodeURIComponent(rawId || '').trim();
@@ -157,6 +161,9 @@ export async function DELETE(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const auth = await requireSuperAdmin();
+    if (!auth.authorized) return auth.response;
+
     try {
         const { id } = await params;
         const { searchParams } = new URL(request.url);

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui';
+import { usePermissions } from '@/lib/permissions';
+import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 
 interface User {
     id: string;
@@ -11,9 +13,10 @@ interface User {
     createdAt: string;
 }
 
-const ROLES = ['ADMIN', 'OPERATOR', 'GATEKEEPER'];
+const ROLES = ['SUPERADMIN', 'ADMIN', 'OPERATOR', 'VIEWER', 'GATEKEEPER'];
 
 export default function UsersPage() {
+    const { isSuperAdmin, isReadOnly } = usePermissions();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -117,8 +120,10 @@ export default function UsersPage() {
     };
 
     const getRoleBadgeColor = (role: string) => {
-        switch (role) {
-            case 'ADMIN': return 'bg-purple-100 text-purple-700';
+        switch (role?.toUpperCase()) {
+            case 'SUPERADMIN': return 'bg-purple-100 text-purple-800 font-bold border border-purple-300';
+            case 'ADMIN': return 'bg-purple-50 text-purple-700 font-medium';
+            case 'VIEWER': return 'bg-amber-100 text-amber-800 font-medium';
             case 'OPERATOR': return 'bg-blue-100 text-blue-700';
             case 'GATEKEEPER': return 'bg-green-100 text-green-700';
             default: return 'bg-gray-100 text-gray-700';
@@ -127,21 +132,26 @@ export default function UsersPage() {
 
     return (
         <div className="space-y-6">
+            {/* Read-Only Notice for non-superadmin users */}
+            <ReadOnlyBanner featureName="Users" />
+
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800">Manajemen User</h1>
                     <p className="text-gray-500 text-sm mt-1">Kelola user dan hak akses sistem</p>
                 </div>
-                <button
-                    onClick={openCreateModal}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    Tambah User
-                </button>
+                {isSuperAdmin && (
+                    <button
+                        onClick={openCreateModal}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors flex items-center gap-2 font-medium shadow-xs"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Tambah User
+                    </button>
+                )}
             </div>
 
             {/* Users Table */}
@@ -171,9 +181,9 @@ export default function UsersPage() {
                                                 <span className="font-medium text-gray-800">{user.name}</span>
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4 text-gray-600">{user.email}</td>
+                                        <td className="py-3 px-4 text-gray-600 font-mono text-xs">{user.email}</td>
                                         <td className="py-3 px-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleBadgeColor(user.role)}`}>
+                                            <span className={`px-2.5 py-1 rounded-full text-xs ${getRoleBadgeColor(user.role)}`}>
                                                 {user.role}
                                             </span>
                                         </td>
@@ -182,24 +192,30 @@ export default function UsersPage() {
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => openEditModal(user)}
-                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(user)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="Hapus"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
+                                                {isSuperAdmin ? (
+                                                    <>
+                                                        <button
+                                                            onClick={() => openEditModal(user)}
+                                                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                            title="Edit"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                            </svg>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(user)}
+                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                            title="Hapus"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                            </svg>
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400 italic">Lihat Saja</span>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

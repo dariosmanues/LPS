@@ -87,6 +87,20 @@ async function main() {
   // 1. Seed Users safely using upsert (will not delete existing data or duplicate)
   const defaultUsers = [
     {
+      email: 'superadmin@lps.pekanbaru.go.id',
+      password: 'superadmin123',
+      name: 'Super Administrator',
+      role: 'SUPERADMIN',
+      transdepo: null,
+    },
+    {
+      email: 'viewer@lps.pekanbaru.go.id',
+      password: 'viewer123',
+      name: 'Petugas Monitoring (Read-Only)',
+      role: 'VIEWER',
+      transdepo: null,
+    },
+    {
       email: 'admin@lps.pekanbaru.go.id',
       password: 'admin123',
       name: 'Administrator',
