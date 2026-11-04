@@ -83,6 +83,10 @@ export async function middleware(req: NextRequest) {
     // Super Admin has full write access.
     // All other users can view all dashboard menus in Read-Only mode.
     if (pathname.startsWith('/dashboard') || pathname === '/notes') {
+        // Akun pengurus LPS Kelurahan selalu diarahkan ke Dashboard Kelurahan (/lps)
+        if (pathname.startsWith('/dashboard') && isLpsRole(userRole)) {
+            return NextResponse.redirect(new URL('/lps', req.url));
+        }
         // Authenticated users are allowed into dashboard (handled with read-only badges/restrictions in UI & API)
         return NextResponse.next();
     }

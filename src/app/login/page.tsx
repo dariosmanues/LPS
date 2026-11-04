@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { AnimatedBackground, GlassCard } from '@/components/ui';
 import { Logo } from '@/components/ui/Logo';
@@ -29,8 +29,12 @@ export default function LoginPage() {
                 setError('Email atau password salah');
                 setLoading(false);
             } else {
+                // Arahkan sesuai role: pengurus LPS Kelurahan ke /lps, lainnya ke /dashboard
+                const session = await getSession();
+                const role = ((session?.user as { role?: string } | undefined)?.role || '').toUpperCase();
+                const isLps = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(role);
                 // Full page navigation so middleware reads updated auth cookie
-                window.location.href = '/dashboard';
+                window.location.href = isLps ? '/lps' : '/dashboard';
             }
         } catch {
             setError('Terjadi kesalahan, silakan coba lagi');
