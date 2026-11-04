@@ -62,7 +62,7 @@ export async function requireSuperAdmin() {
             authorized: false,
             response: NextResponse.json(
                 {
-                    error: 'Akses ditolak: Akun Anda hanya bersifat Read-Only. Tindakan penambahan, perubahan, atau penghapusan data hanya diizinkan untuk User Khusus (Super Admin).',
+                    error: 'Akses ditolak: Akun Anda hanya bersifat Read-Only. Tindakan penambahan, perubahan, atau penghapusan data hanya diizinkan untuk User Khusus (Nisa).',
                 },
                 { status: 403 }
             ),

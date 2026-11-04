@@ -17,7 +17,7 @@ export function ReadOnlyBanner({ featureName }: { featureName?: string }) {
                     <span className="font-bold">Mode Read-Only Aktif: </span>
                     <span className="text-amber-800">
                         {featureName ? `Menu ${featureName} ini bersifat lihat saja (read-only). ` : 'Menu ini bersifat lihat saja (read-only). '}
-                        Hanya <strong>User Khusus (Super Admin)</strong> yang memiliki akses penuh untuk menambah, mengubah, atau menghapus data.
+                        Hanya <strong>User Khusus (Nisa)</strong> yang memiliki akses penuh untuk menambah, mengubah, atau menghapus data.
                     </span>
                 </div>
             </div>
