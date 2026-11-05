@@ -5,7 +5,7 @@ console.log('[*] Starting build process...');
 try {
   // Generate Prisma Client and build Next.js application
   // Seeding is removed from production build to prevent data loss/reset
-  execSync('npx prisma generate && npx next build', {
+  execSync('npx --yes prisma@^6.0.0 generate && npx next build', {
     stdio: 'inherit',
     env: process.env
   });

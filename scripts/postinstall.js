@@ -3,7 +3,7 @@ const { execSync } = require('child_process');
 console.log('[*] Running postinstall (prisma generate)...');
 
 try {
-  execSync('npx prisma generate', {
+  execSync('npx --yes prisma@^6.0.0 generate', {
     stdio: 'inherit',
     env: process.env
   });

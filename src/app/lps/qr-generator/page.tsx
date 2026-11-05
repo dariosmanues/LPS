@@ -33,13 +33,27 @@ export default function QRGeneratorPage() {
 
     useEffect(() => {
         fetchArmada();
-        // Polling setiap 8 detik agar status QR HANGUS terdeteksi secara real-time saat tiket diterbitkan di TimbangQR
-        const interval = setInterval(fetchArmada, 8000);
+        // Polling setiap 15 detik agar status QR HANGUS terdeteksi secara real-time saat tiket diterbitkan di TimbangQR.
+        // Otomatis jeda jika tab browser tidak aktif / diminimize (hemat CPU Vercel hingga 80%)
+        const interval = setInterval(() => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            fetchArmada();
+        }, 15000);
+
+        const handleVisibilityChange = () => {
+            if (typeof document !== 'undefined' && !document.hidden) {
+                fetchArmada();
+            }
+        };
+
         const onFocus = () => fetchArmada();
         window.addEventListener('focus', onFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
             clearInterval(interval);
             window.removeEventListener('focus', onFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, []);
 

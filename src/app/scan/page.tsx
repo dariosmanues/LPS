@@ -104,6 +104,7 @@ export default function ScanPage() {
         if (pollingRef.current) clearInterval(pollingRef.current);
 
         pollingRef.current = setInterval(async () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
             try {
                 const res = await fetch('/api/serial?action=consume');
                 const result = await res.json();
@@ -129,7 +130,7 @@ export default function ScanPage() {
             } catch {
                 // Ignore polling errors silently
             }
-        }, 500);
+        }, 2000);
     }, [autoFillWeight]);
 
     const stopPolling = useCallback(() => {
