@@ -79,16 +79,23 @@ export default function ArmadaPage() {
         }
     };
 
-    // Identifikasi armada yang nomor platnya terdaftar di lebih dari 1 LPS (Multi-LPS)
+    // Identifikasi armada yang nomor platnya terdaftar di lebih dari 1 LPS berbeda (Multi-LPS)
     const multiLpsPlates = useMemo(() => {
-        const countMap = new Map<string, number>();
+        const lpsByPlate = new Map<string, Set<string>>();
         armadaList.forEach(a => {
-            const norm = (a.platNomor || '').replace(/\s+/g, '').toUpperCase();
-            if (norm) countMap.set(norm, (countMap.get(norm) || 0) + 1);
+            const normPlate = (a.platNomor || '').replace(/\s+/g, '').toUpperCase();
+            const normLps = (a.namaLps || '')
+                .toUpperCase()
+                .replace(/^LPS[\s\-_]+/i, '')
+                .replace(/[^A-Z0-9]/g, '');
+            if (normPlate) {
+                if (!lpsByPlate.has(normPlate)) lpsByPlate.set(normPlate, new Set());
+                lpsByPlate.get(normPlate)!.add(normLps || a.id);
+            }
         });
         const set = new Set<string>();
-        countMap.forEach((count, norm) => {
-            if (count > 1) set.add(norm);
+        lpsByPlate.forEach((lpsSet, normPlate) => {
+            if (lpsSet.size > 1) set.add(normPlate);
         });
         return set;
     }, [armadaList]);

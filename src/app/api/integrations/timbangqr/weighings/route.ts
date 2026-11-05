@@ -44,6 +44,13 @@ function normalizePlate(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+function normalizeLpsName(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/^LPS[\s\-_]+/i, '')
+    .replace(/[^A-Z0-9]/g, '');
+}
+
 function normalizeTransdepo(value: string) {
   const normalized = value.toUpperCase().replace(/[^A-Z]/g, '');
   if (normalized === 'HARAPANJAYA' || normalized === 'HJ') return 'HARAPAN_JAYA';
@@ -121,13 +128,23 @@ export async function POST(request: NextRequest) {
     // Fallback 2: Jika armada dari master data belum tercatat di LPS, auto-register ke LPS agar sinkron dan QR-nya langsung hangus
     if (matchingArmadas.length === 0) {
       let targetKelurahan = null;
+      let canonicalLpsName = input.lpsName || 'LPS Transdepo';
       if (input.lpsName) {
-        const cleanLps = input.lpsName.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const allKelurahan = await prisma.kelurahan.findMany({ select: { id: true, nama: true } });
-        targetKelurahan = allKelurahan.find((k) => {
-          const cleanK = k.nama.toUpperCase().replace(/[^A-Z0-9]/g, '');
-          return cleanLps.includes(cleanK) || cleanK.includes(cleanLps);
-        });
+        const cleanLps = normalizeLpsName(input.lpsName);
+        // Utamakan mencari kelurahan dari armada lain dengan nama LPS yang sama (misal "LPS SEHATI" === "Sehati")
+        const sameLpsArmada = armadas.find(
+          (a) => a.kelurahanId && normalizeLpsName(a.namaLps || '') === cleanLps
+        );
+        if (sameLpsArmada && sameLpsArmada.kelurahanId) {
+          targetKelurahan = { id: sameLpsArmada.kelurahanId, nama: sameLpsArmada.kelurahan?.nama || '' };
+          canonicalLpsName = sameLpsArmada.namaLps || canonicalLpsName;
+        } else {
+          const allKelurahan = await prisma.kelurahan.findMany({ select: { id: true, nama: true } });
+          targetKelurahan = allKelurahan.find((k) => {
+            const cleanK = k.nama.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            return cleanLps.includes(cleanK) || cleanK.includes(cleanLps);
+          });
+        }
       }
       if (!targetKelurahan) {
         targetKelurahan = await prisma.kelurahan.findFirst({ select: { id: true, nama: true } });
@@ -137,7 +154,7 @@ export async function POST(request: NextRequest) {
         const newArmada = await prisma.armada.create({
           data: {
             platNomor: input.plateNumber.toUpperCase().trim(),
-            namaLps: input.lpsName || 'LPS Transdepo',
+            namaLps: canonicalLpsName,
             kelurahanId: targetKelurahan.id,
             lokasiTransdepo: input.transdepo,
             jenisArmada: input.vehicleType || 'PICKUP',
@@ -170,9 +187,9 @@ export async function POST(request: NextRequest) {
     // cocokkan armada berdasarkan nama LPS atau kelurahan dari tiket timbangan.
     let armada = matchingArmadas[0];
     if (matchingArmadas.length > 1 && input.lpsName) {
-      const cleanLpsInput = input.lpsName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const cleanLpsInput = normalizeLpsName(input.lpsName);
       const specific = matchingArmadas.find((item) => {
-        const cleanNamaLps = (item.namaLps || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const cleanNamaLps = normalizeLpsName(item.namaLps || '');
         const cleanKelurahan = (item.kelurahan?.nama || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
         return (
           (cleanNamaLps && (cleanLpsInput.includes(cleanNamaLps) || cleanNamaLps.includes(cleanLpsInput))) ||

@@ -269,14 +269,22 @@ export async function handleTimbangQrGet(request: NextRequest) {
                 );
             }
 
-            // Cek apakah nomor polisi ini melayani > 1 LPS dan sudah diverifikasi operator
+            // Cek apakah nomor polisi ini melayani > 1 LPS berbeda dan sudah diverifikasi operator
             const normCheck = normalizePlate(armada.platNomor);
             const plateSiblings = await prisma.armada.findMany({
                 where: { isActive: true },
                 select: { id: true, platNomor: true, isMultiLpsVerified: true, namaLps: true },
             });
             const matchesForPlate = plateSiblings.filter((a) => normalizePlate(a.platNomor) === normCheck);
-            const isMultiLps = matchesForPlate.length > 1;
+            const distinctLpsNames = new Set(
+                matchesForPlate.map((a) =>
+                    (a.namaLps || '')
+                        .toUpperCase()
+                        .replace(/^LPS[\s\-_]+/i, '')
+                        .replace(/[^A-Z0-9]/g, '') || a.id
+                )
+            );
+            const isMultiLps = distinctLpsNames.size > 1;
             const isMultiLpsVerified = matchesForPlate.some((a) => Boolean(a.isMultiLpsVerified));
 
             const formatted = formatArmadaForTimbangQr(armada, origin);

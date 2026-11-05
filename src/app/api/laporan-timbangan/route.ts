@@ -203,8 +203,11 @@ export async function GET(request: NextRequest) {
         const activeLpsSet = new Set<string>();
         const activeKelurahanSet = new Set<string>();
         allFilteredLogs.forEach(l => {
-            const name = l.timbangQrSync?.lpsName || l.armada?.namaLps;
-            if (name) activeLpsSet.add(name);
+            const name = l.armada?.namaLps || l.timbangQrSync?.lpsName;
+            if (name) {
+                const normLps = name.toUpperCase().replace(/^LPS[\s\-_]+/i, '').replace(/[^A-Z0-9]/g, '');
+                if (normLps) activeLpsSet.add(normLps);
+            }
             const kName = l.armada?.kelurahan?.nama || l.kelurahan?.nama;
             if (kName) activeKelurahanSet.add(kName);
         });
@@ -256,7 +259,7 @@ export async function GET(request: NextRequest) {
 
             const ticketNumber = sync?.ticketNumber || log.metadata ? JSON.parse(log.metadata || '{}').ticketNumber || '-' : '-';
             const plateNumber = sync?.plateNumber || armada?.platNomor || '-';
-            const lpsName = sync?.lpsName || armada?.namaLps || kel?.nama || 'LPS Belum Terdata';
+            const lpsName = armada?.namaLps || sync?.lpsName || kel?.nama || 'LPS Belum Terdata';
             const driverName = payloadObj.driverName || armada?.namaSupir || '-';
             const vehicleType = payloadObj.vehicleType || armada?.jenisArmada || 'PICKUP';
             const wasteType = payloadObj.wasteType || 'SAMPAH RUMAH TANGGA';
