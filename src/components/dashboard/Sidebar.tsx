@@ -6,10 +6,12 @@ import { ReactNode, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Logo } from '@/components/ui/Logo';
 import { isSuperAdminUser } from '@/lib/permissions';
+import { useViewMode, ViewModeToggle } from '@/components/ViewModeProvider';
 
 const menuItems = [
     {
         name: 'Dashboard',
+        shortName: 'Beranda',
         href: '/dashboard',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -19,6 +21,7 @@ const menuItems = [
     },
     {
         name: 'Armada',
+        shortName: 'Armada',
         href: '/dashboard/armada',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,6 +31,7 @@ const menuItems = [
     },
     {
         name: 'Wilayah',
+        shortName: 'Wilayah',
         href: '/dashboard/wilayah',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,6 +42,7 @@ const menuItems = [
     },
     {
         name: 'QR Codes',
+        shortName: 'QR Code',
         href: '/dashboard/qr-codes',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,6 +52,7 @@ const menuItems = [
     },
     {
         name: 'Laporan WA',
+        shortName: 'Laporan WA',
         href: '/dashboard/reports',
         icon: (
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
@@ -59,6 +65,7 @@ const menuItems = [
     },
     {
         name: 'Riwayat',
+        shortName: 'Riwayat',
         href: '/dashboard/logs',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -68,6 +75,7 @@ const menuItems = [
     },
     {
         name: 'Users',
+        shortName: 'Users',
         href: '/dashboard/users',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,6 +85,7 @@ const menuItems = [
     },
     {
         name: 'Timbangan Air Hitam',
+        shortName: 'Air Hitam',
         href: '/dashboard/laporan-timbangan/air-hitam',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,6 +95,7 @@ const menuItems = [
     },
     {
         name: 'Timbangan Harapan Jaya',
+        shortName: 'Hrp. Jaya',
         href: '/dashboard/laporan-timbangan/harapan-jaya',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,6 +105,7 @@ const menuItems = [
     },
     {
         name: 'Catatan Rapat',
+        shortName: 'Catatan',
         href: '/notes',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,6 +115,7 @@ const menuItems = [
     },
     {
         name: 'Transform',
+        shortName: 'Transform',
         href: '/dashboard/transform-pembelian',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,6 +125,7 @@ const menuItems = [
     },
     {
         name: 'Aduan Warga',
+        shortName: 'Aduan',
         href: '/dashboard/laporan-masyarakat',
         icon: (
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
@@ -122,6 +135,7 @@ const menuItems = [
     },
     {
         name: 'Panduan',
+        shortName: 'Panduan',
         href: '/dashboard/guide',
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,6 +143,14 @@ const menuItems = [
             </svg>
         )
     },
+];
+
+// Bottom navigation items for Mobile Mode (4 main tabs + More Menu)
+const mobileBottomNavItems = [
+    menuItems[0], // Dashboard
+    menuItems[1], // Armada
+    menuItems[7], // Timbangan Air Hitam
+    menuItems[8], // Timbangan Harapan Jaya
 ];
 
 interface SidebarProps {
@@ -139,169 +161,273 @@ export function Sidebar({ children }: SidebarProps) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const { data: session } = useSession();
+    const { isMobileMode } = useViewMode();
 
     const isSuperAdmin = isSuperAdminUser(session?.user);
-    // Seluruh menu dapat diakses oleh semua user (Super Admin full akses, user lain Read-Only)
     const filteredMenuItems = menuItems;
 
     const handleLogout = () => {
         signOut({ callbackUrl: '/' });
     };
 
-    return (
-        <div className="min-h-screen bg-[#F5F6FA]">
-            {/* Mobile Header */}
-            <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 flex items-center justify-between px-4">
-                <Link href="/" className="flex items-center gap-3">
-                    <Logo size="sm" showText />
-                </Link>
-                <div className="flex items-center gap-2">
-                    {session?.user && (
-                        <span className="text-sm text-gray-600 hidden sm:block">
-                            {session.user.name}
-                        </span>
+    // =========================================================================
+    // MODEL 2: MOBILE MODE (Aplikasi HP / Mobile View)
+    // =========================================================================
+    if (isMobileMode) {
+        return (
+            <div className="min-h-screen bg-slate-900/95 flex flex-col items-center justify-start">
+                {/* Mobile Frame Wrapper (Full width on phone, Smartphone frame on PC) */}
+                <div className="w-full max-w-[480px] min-h-screen bg-[#F5F6FA] relative shadow-2xl flex flex-col border-x border-slate-200/20">
+                    {/* Sticky Top Mobile App Bar */}
+                    <header className="sticky top-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-b border-gray-100 z-40 flex items-center justify-between px-3.5 shadow-2xs">
+                        <Link href="/" className="flex items-center gap-2 shrink-0">
+                            <Logo size="sm" showText />
+                        </Link>
+                        <div className="flex items-center gap-2">
+                            <ViewModeToggle variant="compact" theme="purple" />
+                            <button
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                className="p-2 rounded-xl bg-gray-100 hover:bg-purple-50 text-gray-700 hover:text-purple-700 transition-colors"
+                                aria-label="Buka Menu"
+                            >
+                                {mobileMenuOpen ? (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Mobile Menu Overlay */}
+                    {mobileMenuOpen && (
+                        <div
+                            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs"
+                            onClick={() => setMobileMenuOpen(false)}
+                        />
                     )}
-                    <button
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        className="p-2 rounded-lg hover:bg-gray-100"
+
+                    {/* Slide-out Mobile Drawer */}
+                    <aside
+                        className={`fixed top-0 left-0 bottom-0 w-72 bg-white z-50 transform transition-transform duration-300 flex flex-col justify-between shadow-2xl ${
+                            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+                        }`}
                     >
-                        {mobileMenuOpen ? (
-                            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        ) : (
-                            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        )}
-                    </button>
+                        {/* Drawer Header + User Info */}
+                        <div className="p-4 border-b border-gray-100 shrink-0 bg-linear-to-br from-purple-50/80 to-white">
+                            <div className="flex items-center justify-between mb-3">
+                                <Logo size="sm" showText />
+                                <button
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            {session?.user && (
+                                <div className="flex items-center gap-3 pt-2 border-t border-purple-100/60">
+                                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold shrink-0">
+                                        {session.user.name?.charAt(0) || 'U'}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="font-semibold text-gray-800 text-sm truncate">{session.user.name}</p>
+                                        {isSuperAdmin ? (
+                                            <span className="inline-block text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-bold">
+                                                Super Admin (Full Akses)
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">
+                                                <span>👁️</span> Read-Only
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* All Menu Items */}
+                        <nav className="p-3 space-y-1 flex-1 overflow-y-auto min-h-0">
+                            {filteredMenuItems.map((item) => {
+                                const isActive =
+                                    pathname === item.href ||
+                                    (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                                return (
+                                    <Link
+                                        key={item.name}
+                                        href={item.href}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
+                                            isActive
+                                                ? 'bg-linear-to-r from-purple-600 to-purple-700 text-white shadow-sm font-semibold'
+                                                : 'text-gray-600 hover:bg-gray-100 font-medium'
+                                        }`}
+                                    >
+                                        {item.icon}
+                                        <span>{item.name}</span>
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+
+                        {/* Drawer Footer: Mode Switcher + Logout */}
+                        <div className="p-3 border-t border-gray-100 shrink-0 bg-gray-50/60 space-y-2">
+                            <div className="flex items-center justify-between px-2 py-1">
+                                <span className="text-xs font-semibold text-gray-500">Mode Tampilan</span>
+                                <ViewModeToggle variant="compact" theme="purple" />
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl transition-all text-red-600 bg-red-50 hover:bg-red-100 w-full font-semibold text-sm"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                                <span>Keluar (Logout)</span>
+                            </button>
+                        </div>
+                    </aside>
+
+                    {/* Mobile Main Content Area */}
+                    <main className="mobile-content-area flex-1 px-3.5 pt-3 pb-24 overflow-x-hidden">
+                        {children}
+                    </main>
+
+                    {/* Fixed Bottom Navigation Bar (Mobile App Style) */}
+                    <nav className="sticky bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-t border-gray-200 z-40 grid grid-cols-5 items-center px-1 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+                        {mobileBottomNavItems.map((item) => {
+                            const isActive =
+                                pathname === item.href ||
+                                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                            return (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
+                                        isActive
+                                            ? 'text-purple-600 font-bold'
+                                            : 'text-gray-400 hover:text-gray-700 font-medium'
+                                    }`}
+                                >
+                                    <div className={`p-1 rounded-lg ${isActive ? 'bg-purple-50' : ''}`}>
+                                        {item.icon}
+                                    </div>
+                                    <span className="text-[10px] leading-tight mt-0.5 truncate max-w-[64px]">
+                                        {item.shortName}
+                                    </span>
+                                </Link>
+                            );
+                        })}
+                        <button
+                            type="button"
+                            onClick={() => setMobileMenuOpen(true)}
+                            className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
+                                mobileMenuOpen
+                                    ? 'text-purple-600 font-bold'
+                                    : 'text-gray-400 hover:text-gray-700 font-medium'
+                            }`}
+                        >
+                            <div className="p-1 rounded-lg">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </div>
+                            <span className="text-[10px] leading-tight mt-0.5">Menu Lain</span>
+                        </button>
+                    </nav>
                 </div>
-            </header>
+            </div>
+        );
+    }
 
-            {/* Mobile Menu Overlay */}
-            {mobileMenuOpen && (
-                <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
-            )}
+    // =========================================================================
+    // MODEL 1: DESKTOP MODE (Layar Lebar Penuh / Full Widescreen View)
+    // =========================================================================
+    return (
+        <div className="min-h-screen bg-[#F5F6FA] overflow-x-auto">
+            <div className="min-w-[1120px] min-h-screen relative">
+                {/* Desktop Floating Left Sidebar */}
+                <aside className="fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex flex-col items-center py-5 z-40">
+                    {/* Logo */}
+                    <Link href="/" className="mb-3 shrink-0" title="Beranda">
+                        <Logo size="md" />
+                    </Link>
 
-            {/* Mobile Drawer */}
-            <aside className={`
-                lg:hidden fixed top-16 left-0 bottom-0 w-64 bg-white z-50 transform transition-transform duration-300 flex flex-col justify-between
-                ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-            `}>
-                {/* User Info */}
-                {session?.user && (
-                    <div className="p-4 border-b border-gray-100 shrink-0">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold">
+                    {/* Navigation */}
+                    <nav className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-1.5 px-2 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                        {filteredMenuItems.map((item) => {
+                            const isActive =
+                                pathname === item.href ||
+                                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                            return (
+                                <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    className={`sidebar-icon shrink-0 ${isActive ? 'active' : ''}`}
+                                    title={item.name}
+                                >
+                                    {item.icon}
+                                </Link>
+                            );
+                        })}
+                    </nav>
+
+                    {/* Bottom Actions */}
+                    <div className="shrink-0 mt-auto flex flex-col items-center gap-2 pt-3 border-t border-gray-100 w-full px-2">
+                        {/* Quick Switch to Mobile Mode */}
+                        <ViewModeToggle variant="sidebar" theme="purple" />
+
+                        {/* User Avatar */}
+                        {session?.user && (
+                            <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs ${
+                                    isSuperAdmin
+                                        ? 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-300'
+                                        : 'bg-linear-to-br from-amber-500 to-amber-600 ring-2 ring-amber-200'
+                                }`}
+                                title={`${session.user.name} - ${
+                                    isSuperAdmin ? 'Super Admin (Akses Penuh)' : 'Mode Read-Only (Hanya Lihat)'
+                                }`}
+                            >
                                 {session.user.name?.charAt(0) || 'U'}
                             </div>
-                            <div>
-                                <p className="font-medium text-gray-800">{session.user.name}</p>
-                                {isSuperAdmin ? (
-                                    <span className="text-[11px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-bold">
-                                        Super Admin (Full Akses)
-                                    </span>
-                                ) : (
-                                    <span className="text-[11px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold flex items-center gap-1 w-fit mt-0.5">
-                                        <span>👁️</span> Read-Only
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <nav className="p-4 space-y-1 flex-1 overflow-y-auto min-h-0">
-                    {filteredMenuItems.map((item) => {
-                        const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                onClick={() => setMobileMenuOpen(false)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive
-                                    ? 'bg-linear-to-r from-purple-600 to-purple-700 text-white'
-                                    : 'text-gray-600 hover:bg-gray-100'
-                                    }`}
-                            >
-                                {item.icon}
-                                <span className="font-medium">{item.name}</span>
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                {/* Logout Button Mobile - Pinned at bottom */}
-                <div className="p-4 border-t border-gray-100 shrink-0 bg-white">
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-red-600 hover:bg-red-50 w-full font-medium"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        <span>Keluar</span>
-                    </button>
-                </div>
-            </aside>
-
-            {/* Desktop Sidebar */}
-            <aside className="hidden lg:flex fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex-col items-center py-5 z-40">
-                {/* Logo */}
-                <Link href="/" className="mb-3 shrink-0" title="Beranda">
-                    <Logo size="md" />
-                </Link>
-
-                {/* Navigation */}
-                <nav className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-1.5 px-2 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                    {filteredMenuItems.map((item) => {
-                        const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                        return (
-                            <Link
-                                key={item.name}
-                                href={item.href}
-                                className={`sidebar-icon shrink-0 ${isActive ? 'active' : ''}`}
-                                title={item.name}
-                            >
-                                {item.icon}
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                {/* Bottom Actions */}
-                <div className="shrink-0 mt-auto flex flex-col items-center gap-2 pt-3 border-t border-gray-100 w-full px-2">
-                    {/* User Avatar */}
-                    {session?.user && (
-                        <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs ${
-                                isSuperAdmin
-                                    ? 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-300'
-                                    : 'bg-linear-to-br from-amber-500 to-amber-600 ring-2 ring-amber-200'
-                            }`}
-                            title={`${session.user.name} - ${isSuperAdmin ? 'Super Admin (Akses Penuh)' : 'Mode Read-Only (Hanya Lihat)'}`}
+                        )}
+                        <button
+                            onClick={handleLogout}
+                            className="sidebar-icon shrink-0 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            title="Keluar (Logout)"
+                            aria-label="Logout"
                         >
-                            {session.user.name?.charAt(0) || 'U'}
-                        </div>
-                    )}
-                    <button
-                        onClick={handleLogout}
-                        className="sidebar-icon shrink-0 text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                        title="Keluar (Logout)"
-                        aria-label="Logout"
-                    >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                    </button>
-                </div>
-            </aside>
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                    </div>
+                </aside>
 
-            {/* Main Content */}
-            <main className="lg:ml-28 pt-20 lg:pt-4 px-4 lg:px-6 pb-6 min-h-screen">
-                {children}
-            </main>
+                {/* Desktop Top Mode Bar */}
+                <div className="ml-28 pt-4 px-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-gray-200 font-medium text-gray-700 shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            Tampilan Layar Lebar (Desktop Mode)
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <ViewModeToggle variant="pill" theme="purple" />
+                    </div>
+                </div>
+
+                {/* Desktop Main Content */}
+                <main className="ml-28 pt-3 px-6 pb-6 min-h-screen">
+                    {children}
+                </main>
+            </div>
         </div>
     );
 }
-

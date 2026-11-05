@@ -402,3 +402,82 @@ body {
   width: 100%;
   position: relative;
 }
+
+/* ============================================================================
+ * 2-MODEL VIEW SYSTEM: DESKTOP MODE & MOBILE MODE
+ * ============================================================================ */
+
+/* MODEL 2: MOBILE MODE OVERRIDES (Aktif baik di HP maupun di PC saat Mobile Mode dipilih) */
+html[data-view-mode="mobile"] .mobile-content-area .lg\:grid-cols-12,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:grid-cols-4,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:grid-cols-3,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:grid-cols-2,
+html[data-view-mode="mobile"] .mobile-content-area .md\:grid-cols-4,
+html[data-view-mode="mobile"] .mobile-content-area .md\:grid-cols-3,
+html[data-view-mode="mobile"] .mobile-content-area .md\:grid-cols-2,
+html[data-view-mode="mobile"] .mobile-content-area .sm\:grid-cols-3 {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+html[data-view-mode="mobile"] .mobile-content-area .grid-cols-2.md\:grid-cols-4,
+html[data-view-mode="mobile"] .mobile-content-area .grid-cols-2.lg\:grid-cols-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+html[data-view-mode="mobile"] .mobile-content-area .lg\:col-span-8,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:col-span-7,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:col-span-6,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:col-span-5,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:col-span-4,
+html[data-view-mode="mobile"] .mobile-content-area .md\:col-span-2,
+html[data-view-mode="mobile"] .mobile-content-area .md\:col-span-3 {
+  grid-column: span 1 / span 1 !important;
+}
+
+html[data-view-mode="mobile"] .mobile-content-area .md\:flex-row,
+html[data-view-mode="mobile"] .mobile-content-area .lg\:flex-row {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+html[data-view-mode="mobile"] .mobile-content-area .search-input {
+  width: 100% !important;
+}
+
+html[data-view-mode="mobile"] .mobile-content-area .welcome-banner {
+  padding: 18px 20px !important;
+  border-radius: 18px !important;
+}
+
+html[data-view-mode="mobile"] .mobile-content-area .card {
+  border-radius: 16px !important;
+}
+
+/* MODEL 1: DESKTOP MODE OVERRIDES (Mempertahankan layout layar lebar saat dibuka di HP) */
+@media (max-width: 1023px) {
+  html[data-view-mode="desktop"] .lg\:grid-cols-12 {
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+  }
+  html[data-view-mode="desktop"] .lg\:col-span-8 {
+    grid-column: span 8 / span 8 !important;
+  }
+  html[data-view-mode="desktop"] .lg\:col-span-4 {
+    grid-column: span 4 / span 4 !important;
+  }
+  html[data-view-mode="desktop"] .md\:grid-cols-4,
+  html[data-view-mode="desktop"] .lg\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  html[data-view-mode="desktop"] .md\:grid-cols-3,
+  html[data-view-mode="desktop"] .lg\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  html[data-view-mode="desktop"] .md\:grid-cols-2,
+  html[data-view-mode="desktop"] .lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  html[data-view-mode="desktop"] .md\:flex-row,
+  html[data-view-mode="desktop"] .lg\:flex-row {
+    flex-direction: row !important;
+  }
+}

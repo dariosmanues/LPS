@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AnimatedBackground, Logo } from '@/components/ui';
 import ScanLinkCard from '@/components/ScanLinkCard';
+import { ViewModeToggle } from '@/components/ViewModeProvider';
 
 export default function Home() {
   return (
@@ -40,8 +41,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Login Button - Top Right */}
-        <div className="absolute top-6 right-6">
+        {/* Mode Switcher & Login Button - Top Right */}
+        <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
+          <ViewModeToggle variant="compact" theme="purple" />
           <Link
             href="/login"
             className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-md hover:shadow-lg transition-all text-gray-700 hover:text-purple-600 font-medium"
