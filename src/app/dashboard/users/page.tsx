@@ -389,7 +389,7 @@ export default function UsersPage() {
                                                     <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg w-fit font-medium">
                                                         <span>📍</span>
                                                         <span>
-                                                            Kel. {user.kelurahan.nama}
+                                                            {user.kelurahan.nama.toLowerCase().startsWith('pasar') ? user.kelurahan.nama : `Kel. ${user.kelurahan.nama}`}
                                                             {user.kelurahan.kecamatan?.nama && (
                                                                 <span className="text-gray-500 text-[11px] font-normal"> (Kec. {user.kelurahan.kecamatan.nama})</span>
                                                             )}
@@ -586,7 +586,7 @@ export default function UsersPage() {
                                             <optgroup key={kec.id} label={`Kecamatan ${kec.nama}`}>
                                                 {kec.kelurahan.map((kel) => (
                                                     <option key={kel.id} value={kel.id}>
-                                                        Kel. {kel.nama}
+                                                        {kel.nama.toLowerCase().startsWith('pasar') ? kel.nama : `Kel. ${kel.nama}`}
                                                     </option>
                                                 ))}
                                             </optgroup>

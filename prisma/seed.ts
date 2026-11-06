@@ -32,7 +32,7 @@ const wilayahData = [
   {
     kode: "14.71.11",
     nama: "Payung Sekaki",
-    kelurahan: ["Air Hitam", "Bandar Raya", "Labuh Baru Barat", "Labuh Baru Timur", "Tampan", "Tirta Siak"]
+    kelurahan: ["Air Hitam", "Bandar Raya", "Labuh Baru Barat", "Labuh Baru Timur", "Tampan", "Tirta Siak", "Pasar AKAP"]
   },
   {
     kode: "14.71.02",
