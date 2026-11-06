@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { getClientInfo, logScanAudit } from '@/lib/audit-logger';
 
 
@@ -10,34 +11,44 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '50');
     const page = parseInt(searchParams.get('page') || '1');
+    const search = searchParams.get('search')?.trim() || '';
 
     try {
         const systemStartDate = new Date('2026-10-12T00:00:00+07:00');
-        const logs = await prisma.wasteLog.findMany({
-            where: {
-                recordedAt: {
-                    gte: systemStartDate
-                }
-            },
-            take: limit,
-            skip: (page - 1) * limit,
-            orderBy: { recordedAt: 'desc' },
-            include: {
-                armada: { select: { platNomor: true, namaSupir: true } },
-                kelurahan: {
-                    select: { nama: true, kecamatan: { select: { nama: true } } },
-                },
-                user: { select: { name: true } },
-            },
-        });
 
-        const total = await prisma.wasteLog.count({
-            where: {
-                recordedAt: {
-                    gte: systemStartDate
-                }
-            }
-        });
+        const where: Prisma.WasteLogWhereInput = {
+            recordedAt: {
+                gte: systemStartDate,
+            },
+        };
+
+        if (search) {
+            where.OR = [
+                { armada: { platNomor: { contains: search, mode: 'insensitive' } } },
+                { armada: { namaLps: { contains: search, mode: 'insensitive' } } },
+                { armada: { namaSupir: { contains: search, mode: 'insensitive' } } },
+                { kelurahan: { nama: { contains: search, mode: 'insensitive' } } },
+                { kelurahan: { kecamatan: { nama: { contains: search, mode: 'insensitive' } } } },
+                { metadata: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [logs, total] = await Promise.all([
+            prisma.wasteLog.findMany({
+                where,
+                take: limit,
+                skip: (page - 1) * limit,
+                orderBy: { recordedAt: 'desc' },
+                include: {
+                    armada: { select: { platNomor: true, namaSupir: true, namaLps: true } },
+                    kelurahan: {
+                        select: { nama: true, kecamatan: { select: { nama: true } } },
+                    },
+                    user: { select: { name: true } },
+                },
+            }),
+            prisma.wasteLog.count({ where }),
+        ]);
 
         return NextResponse.json({ logs, total, page, limit });
     } catch (error) {

@@ -71,3 +71,4 @@ export function logScanAudit({
             console.error('[Audit Logger Error]', err);
         });
 }
+
