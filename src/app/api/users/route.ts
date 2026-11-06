@@ -13,6 +13,16 @@ export async function GET() {
                 email: true,
                 name: true,
                 role: true,
+                kelurahanId: true,
+                kelurahan: {
+                    select: {
+                        id: true,
+                        nama: true,
+                        kecamatan: {
+                            select: { nama: true }
+                        }
+                    }
+                },
                 createdAt: true,
                 updatedAt: true,
             },
@@ -31,35 +41,51 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { email, password, name, role } = body;
+        const { email, password, name, role, kelurahanId } = body;
 
         if (!email || !password || !name || !role) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+            return NextResponse.json({ error: 'Semua kolom wajib diisi' }, { status: 400 });
+        }
+
+        const isLpsRole = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(role);
+        if (isLpsRole && !kelurahanId) {
+            return NextResponse.json({ error: 'Kelurahan wajib dipilih untuk role LPS Kelurahan' }, { status: 400 });
         }
 
         // Check if email already exists
         const existingUser = await prisma.user.findUnique({
-            where: { email },
+            where: { email: email.toLowerCase().trim() },
         });
 
         if (existingUser) {
-            return NextResponse.json({ error: 'Email already exists' }, { status: 400 });
+            return NextResponse.json({ error: 'Email sudah terdaftar di sistem' }, { status: 400 });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const user = await prisma.user.create({
             data: {
-                email,
+                email: email.toLowerCase().trim(),
                 passwordHash: hashedPassword,
-                name,
+                name: name.trim(),
                 role,
+                kelurahanId: isLpsRole && kelurahanId ? kelurahanId : null,
             },
             select: {
                 id: true,
                 email: true,
                 name: true,
                 role: true,
+                kelurahanId: true,
+                kelurahan: {
+                    select: {
+                        id: true,
+                        nama: true,
+                        kecamatan: {
+                            select: { nama: true }
+                        }
+                    }
+                },
                 createdAt: true,
             },
         });

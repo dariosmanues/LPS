@@ -17,6 +17,16 @@ export async function GET(
                 email: true,
                 name: true,
                 role: true,
+                kelurahanId: true,
+                kelurahan: {
+                    select: {
+                        id: true,
+                        nama: true,
+                        kecamatan: {
+                            select: { nama: true }
+                        }
+                    }
+                },
                 createdAt: true,
                 updatedAt: true,
             },
@@ -44,7 +54,7 @@ export async function PUT(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { email, password, name, role } = body;
+        const { email, password, name, role, kelurahanId } = body;
 
         // Check if user exists
         const existingUser = await prisma.user.findUnique({
@@ -52,18 +62,23 @@ export async function PUT(
         });
 
         if (!existingUser) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            return NextResponse.json({ error: 'User tidak ditemukan' }, { status: 404 });
         }
 
+        const normalizedEmail = email ? email.toLowerCase().trim() : undefined;
+
         // Check if email is taken by another user
-        if (email && email !== existingUser.email) {
+        if (normalizedEmail && normalizedEmail !== existingUser.email) {
             const emailTaken = await prisma.user.findUnique({
-                where: { email },
+                where: { email: normalizedEmail },
             });
             if (emailTaken) {
-                return NextResponse.json({ error: 'Email already exists' }, { status: 400 });
+                return NextResponse.json({ error: 'Email sudah digunakan oleh user lain' }, { status: 400 });
             }
         }
+
+        const targetRole = role !== undefined ? role : existingUser.role;
+        const isLpsRole = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(targetRole);
 
         // Build update data
         const updateData: {
@@ -71,11 +86,22 @@ export async function PUT(
             name?: string;
             role?: string;
             passwordHash?: string;
+            kelurahanId?: string | null;
         } = {};
 
-        if (email) updateData.email = email;
-        if (name) updateData.name = name;
-        if (role) updateData.role = role;
+        if (normalizedEmail) updateData.email = normalizedEmail;
+        if (name !== undefined) updateData.name = name.trim();
+        if (role !== undefined) updateData.role = role;
+
+        if (isLpsRole) {
+            if (kelurahanId !== undefined) {
+                updateData.kelurahanId = kelurahanId || null;
+            }
+        } else if (role !== undefined) {
+            // Jika role diubah menjadi non-LPS (misal ADMIN/OPERATOR), lepaskan relasi kelurahanId
+            updateData.kelurahanId = null;
+        }
+
         if (password) {
             updateData.passwordHash = await bcrypt.hash(password, 10);
         }
@@ -88,6 +114,16 @@ export async function PUT(
                 email: true,
                 name: true,
                 role: true,
+                kelurahanId: true,
+                kelurahan: {
+                    select: {
+                        id: true,
+                        nama: true,
+                        kecamatan: {
+                            select: { nama: true }
+                        }
+                    }
+                },
                 updatedAt: true,
             },
         });
