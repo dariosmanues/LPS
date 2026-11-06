@@ -9,6 +9,7 @@ interface LogEntry {
     beratKg: string;
     status: 'MASUK' | 'KELUAR';
     recordedAt: string;
+    metadata?: string;
     armada: { platNomor: string; namaSupir: string };
     kelurahan: { nama: string; kecamatan: { nama: string } } | null;
     user: { name: string };
@@ -52,15 +53,30 @@ export default function LogsPage() {
         }).format(date);
     };
 
+    const parseAuditMeta = (metadataStr?: string) => {
+        if (!metadataStr) return null;
+        try {
+            const parsed = JSON.parse(metadataStr);
+            return {
+                clientIp: parsed.clientIp || null,
+                userAgent: parsed.userAgent || null,
+                source: parsed.source || null,
+                ticketNumber: parsed.ticketNumber || null,
+            };
+        } catch {
+            return null;
+        }
+    };
+
     return (
         <div className="space-y-6">
-            <ReadOnlyBanner />
+            <ReadOnlyBanner featureName="Riwayat" />
 
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 mb-1">Riwayat Masuk/Keluar</h1>
-                    <p className="text-gray-500 text-sm">Log aktivitas armada di TPA</p>
+                    <p className="text-gray-500 text-sm">Log aktivitas armada & audit keamanan pemindaian di TPA</p>
                 </div>
                 <div className="text-right">
                     <p className="text-gray-500 text-sm">Total Transaksi</p>
@@ -85,34 +101,59 @@ export default function LogsPage() {
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Asal Kelurahan</th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Berat (kg)</th>
                                     <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Status</th>
-                                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Petugas</th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Audit IP & Perangkat</th>
+                                    <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Petugas / Sistem</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {logs.map((log) => (
-                                    <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">{formatDate(log.recordedAt)}</td>
-                                        <td className="px-6 py-4 font-medium text-gray-800">{log.armada.platNomor}</td>
-                                        <td className="px-6 py-4 text-gray-600">{log.armada.namaSupir}</td>
-                                        <td className="px-6 py-4">
-                                            {log.kelurahan ? (
-                                                <div>
-                                                    <p className="text-gray-800">{log.kelurahan.nama}</p>
-                                                    <p className="text-gray-400 text-xs">Kec. {log.kelurahan.kecamatan.nama}</p>
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-400">-</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 font-semibold text-gray-800">{parseFloat(log.beratKg).toLocaleString()}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`badge ${log.status === 'MASUK' ? 'badge-success' : 'badge-warning'}`}>
-                                                {log.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-500">{log.user.name}</td>
-                                    </tr>
-                                ))}
+                                {logs.map((log) => {
+                                    const audit = parseAuditMeta(log.metadata);
+                                    return (
+                                        <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">{formatDate(log.recordedAt)}</td>
+                                            <td className="px-6 py-4 font-semibold text-gray-800">{log.armada.platNomor}</td>
+                                            <td className="px-6 py-4 text-gray-600 text-sm">{log.armada.namaSupir}</td>
+                                            <td className="px-6 py-4">
+                                                {log.kelurahan ? (
+                                                    <div>
+                                                        <p className="text-gray-800 font-medium text-sm">{log.kelurahan.nama}</p>
+                                                        <p className="text-gray-400 text-xs">Kec. {log.kelurahan.kecamatan.nama}</p>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 font-semibold text-gray-800">{parseFloat(log.beratKg).toLocaleString()}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`badge ${log.status === 'MASUK' ? 'badge-success' : 'badge-warning'}`}>
+                                                    {log.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {audit?.clientIp ? (
+                                                    <div className="space-y-0.5">
+                                                        <div className="flex items-center gap-1 text-xs font-mono font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded w-fit border border-purple-100">
+                                                            <span>🌐</span>
+                                                            <span>{audit.clientIp}</span>
+                                                        </div>
+                                                        {audit.userAgent && (
+                                                            <div className="text-[10px] text-gray-400 max-w-[180px] truncate" title={audit.userAgent}>
+                                                                📱 {audit.userAgent}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : audit?.source === 'TimbangQR' ? (
+                                                    <div className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded w-fit border border-blue-100">
+                                                        <span>⚖️ TimbangQR ({audit.ticketNumber || 'Pos'})</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-gray-400">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-500 text-sm">{log.user.name}</td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

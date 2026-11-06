@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getClientInfo, logScanAudit } from '@/lib/audit-logger';
 
 export const corsHeaders: Record<string, string> = {
     'Access-Control-Allow-Origin': '*',
@@ -190,6 +191,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
 
         // 2. Lookup single armada by QR code or plate number
         if (code || plate) {
+            const { clientIp, userAgent } = getClientInfo(request);
             let armada = null;
 
             if (code) {
@@ -259,6 +261,13 @@ export async function handleTimbangQrGet(request: NextRequest) {
             }
 
             if (!armada) {
+                logScanAudit({
+                    qrCode: code || plate || 'unknown',
+                    action: 'SCAN_VALIDATE',
+                    clientIp,
+                    userAgent,
+                    status: 'NOT_FOUND',
+                });
                 return NextResponse.json(
                     {
                         success: false,
@@ -299,6 +308,16 @@ export async function handleTimbangQrGet(request: NextRequest) {
             // QR Code LPS bersifat temporer / sekali pakai per perjalanan.
             const shouldBurn = Boolean(armada.isQrUsed && isLpsQrCode);
             if (shouldBurn) {
+                logScanAudit({
+                    qrCode: code || armada.qrCode,
+                    platNomor: armada.platNomor,
+                    namaLps: armada.namaLps,
+                    action: 'SCAN_VALIDATE',
+                    clientIp,
+                    userAgent,
+                    status: 'BURNED',
+                    metadata: { lastTicketNumber: armada.lastTicketNumber },
+                });
                 return NextResponse.json(
                     {
                         success: false,
@@ -310,6 +329,16 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     { status: 400, headers: corsHeaders }
                 );
             }
+
+            logScanAudit({
+                qrCode: code || armada.qrCode,
+                platNomor: armada.platNomor,
+                namaLps: armada.namaLps,
+                action: 'SCAN_VALIDATE',
+                clientIp,
+                userAgent,
+                status: 'SUCCESS',
+            });
 
             return NextResponse.json(
                 {

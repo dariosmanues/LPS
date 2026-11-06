@@ -255,3 +255,21 @@ model TimbangQrSync {
 
   @@map("timbangqr_syncs")
 }
+
+model ScanAuditLog {
+  id         String   @id @default(uuid())
+  qrCode     String   @map("qr_code")
+  platNomor  String?  @map("plat_nomor")
+  namaLps    String?  @map("nama_lps")
+  action     String   @default("SCAN_VALIDATE") // SCAN_VALIDATE, WEIGHING_SYNC, MANUAL_ENTRY
+  clientIp   String?  @map("client_ip")
+  userAgent  String?  @map("user_agent")
+  status     String   @default("SUCCESS") // SUCCESS, INVALID, BURNED, NOT_FOUND
+  metadata   String?  @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([platNomor])
+  @@index([qrCode])
+  @@index([createdAt])
+  @@map("scan_audit_logs")
+}

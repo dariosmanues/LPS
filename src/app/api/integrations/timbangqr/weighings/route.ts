@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getClientInfo, logScanAudit } from '@/lib/audit-logger';
 
 export const runtime = 'nodejs';
 
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
         id: true,
         platNomor: true,
         namaLps: true,
+        qrCode: true,
         kelurahanId: true,
         kelurahan: { select: { nama: true } },
       },
@@ -116,6 +118,7 @@ export async function POST(request: NextRequest) {
           id: true,
           platNomor: true,
           namaLps: true,
+          qrCode: true,
           kelurahanId: true,
           kelurahan: { select: { nama: true } },
         },
@@ -169,6 +172,7 @@ export async function POST(request: NextRequest) {
             id: true,
             platNomor: true,
             namaLps: true,
+            qrCode: true,
             kelurahanId: true,
             kelurahan: { select: { nama: true } },
           },
@@ -201,6 +205,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const { clientIp, userAgent } = getClientInfo(request);
+
     const metadata = JSON.stringify({
       source: 'TimbangQR',
       ticketNumber: input.ticketNumber,
@@ -211,6 +217,9 @@ export async function POST(request: NextRequest) {
       vehicleType: input.vehicleType || null,
       wasteType: input.wasteType || null,
       indicatorRaw: input.indicatorRaw || null,
+      clientIp,
+      userAgent,
+      receivedAt: new Date().toISOString(),
     });
 
     const saved = await prisma.$transaction(async (tx) => {
@@ -295,7 +304,12 @@ export async function POST(request: NextRequest) {
           nettoKg: input.nettoKg,
           weighedAt: new Date(input.weighedAt),
           wasteLogId: wasteLog.id,
-          payload: JSON.stringify(input),
+          payload: JSON.stringify({
+            ...input,
+            clientIp,
+            userAgent,
+            receivedAt: new Date().toISOString(),
+          }),
         },
         select: { id: true },
       });
@@ -311,6 +325,22 @@ export async function POST(request: NextRequest) {
       });
 
       return { duplicate: false, syncId: sync.id, wasteLogId: wasteLog.id };
+    });
+
+    logScanAudit({
+      qrCode: armada.qrCode,
+      platNomor: input.plateNumber,
+      namaLps: input.lpsName,
+      action: 'WEIGHING_SYNC',
+      clientIp,
+      userAgent,
+      status: 'SUCCESS',
+      metadata: {
+        ticketNumber: input.ticketNumber,
+        transdepo: input.transdepo,
+        nettoKg: input.nettoKg,
+        duplicate: saved.duplicate,
+      },
     });
 
     return NextResponse.json({ ok: true, ...saved }, { status: saved.duplicate ? 200 : 201 });

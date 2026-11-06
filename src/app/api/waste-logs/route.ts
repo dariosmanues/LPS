@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getClientInfo, logScanAudit } from '@/lib/audit-logger';
 
 
 // Demo user ID - in production, get from session
@@ -109,6 +110,8 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        const { clientIp, userAgent } = getClientInfo(request);
+
         // Create waste log
         const wasteLog = await prisma.wasteLog.create({
             data: {
@@ -120,6 +123,8 @@ export async function POST(request: NextRequest) {
                 metadata: JSON.stringify({
                     scannedAt: new Date().toISOString(),
                     deviceInfo: 'mobile-web',
+                    clientIp,
+                    userAgent,
                 }),
             },
             include: {
@@ -127,6 +132,21 @@ export async function POST(request: NextRequest) {
                 kelurahan: {
                     select: { nama: true, kecamatan: { select: { nama: true } } },
                 },
+            },
+        });
+
+        logScanAudit({
+            qrCode: armadaQrCode,
+            platNomor: armada.platNomor,
+            namaLps: armada.namaLps,
+            action: 'MANUAL_ENTRY',
+            clientIp,
+            userAgent,
+            status: 'SUCCESS',
+            metadata: {
+                beratKg: parseFloat(beratKg),
+                status,
+                wasteLogId: wasteLog.id,
             },
         });
 
