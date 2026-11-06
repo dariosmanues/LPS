@@ -1,12 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
+import { getClientInfo } from '@/lib/audit-logger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
         // Get authenticated session
         const session = await getServerSession(authOptions);
@@ -55,6 +56,26 @@ export async function GET() {
             }
         }
 
+        // Jika Ketua LPS mengakses, otomatis lengkapi IP pembuat QR untuk armada kelurahannya jika belum ada
+        if (!isAdmin && kelurahanId) {
+            const { clientIp, userAgent } = getClientInfo(request);
+            if (clientIp && clientIp !== 'unknown') {
+                const creatorName = session.user.name || session.user.email || 'Ketua LPS';
+                await prisma.armada.updateMany({
+                    where: {
+                        kelurahanId,
+                        qrGeneratedIp: null,
+                    },
+                    data: {
+                        qrGeneratedIp: clientIp,
+                        qrGeneratedUserAgent: userAgent,
+                        qrGeneratedBy: creatorName,
+                        qrGeneratedAt: new Date(),
+                    }
+                }).catch(() => {});
+            }
+        }
+
         // Fetch armada for this kelurahan (or all if ADMIN)
         const armada = await prisma.armada.findMany({
             where: {
@@ -75,6 +96,9 @@ export async function GET() {
                 isQrUsed: true,
                 qrUsedAt: true,
                 lastTicketNumber: true,
+                qrGeneratedIp: true,
+                qrGeneratedUserAgent: true,
+                qrGeneratedBy: true,
                 kelurahan: {
                     select: {
                         nama: true,

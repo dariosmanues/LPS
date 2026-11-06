@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import { generateArmadaQrCodeString } from '@/lib/timbangqr-qr-service';
+import { getClientInfo } from '@/lib/audit-logger';
 
 export async function PUT(
     request: Request,
@@ -78,17 +79,25 @@ export async function PUT(
             );
         }
 
+        // Ambil info client (IP & perangkat) Ketua LPS yang men-generate QR
+        const { clientIp, userAgent } = getClientInfo(request);
+        const creatorName = session.user.name || session.user.email || 'Ketua LPS';
+
         // Generate new QR code with timestamp to ensure uniqueness
         const newQrCode = generateArmadaQrCodeString(armada.platNomor);
-        console.log('[QR Regenerate] Generated new QR code:', newQrCode);
+        console.log('[QR Regenerate] Generated new QR code:', newQrCode, 'from IP:', clientIp);
 
-        // Update armada with new QR code and reset used status
+        // Update armada with new QR code and reset used status, simpan IP & perangkat Ketua LPS
         const updatedArmada = await prisma.armada.update({
             where: { id: armadaId },
             data: {
                 qrCode: newQrCode,
                 isQrUsed: false,
                 qrUsedAt: null,
+                qrGeneratedIp: clientIp,
+                qrGeneratedUserAgent: userAgent,
+                qrGeneratedBy: creatorName,
+                qrGeneratedAt: new Date(),
             },
             select: {
                 id: true,

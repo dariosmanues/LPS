@@ -1,11 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
+import { getClientInfo } from '@/lib/audit-logger';
 
 export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
@@ -52,6 +53,8 @@ export async function POST() {
             select: { id: true, platNomor: true }
         });
 
+        const { clientIp, userAgent } = getClientInfo(request);
+        const creatorName = session.user.name || session.user.email || 'Ketua LPS';
         const now = Date.now();
         let updatedCount = 0;
 
@@ -65,6 +68,10 @@ export async function POST() {
                     qrCode: newQrCode,
                     isQrUsed: false,
                     qrUsedAt: null,
+                    qrGeneratedIp: clientIp,
+                    qrGeneratedUserAgent: userAgent,
+                    qrGeneratedBy: creatorName,
+                    qrGeneratedAt: new Date(),
                 }
             });
             updatedCount++;

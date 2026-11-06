@@ -10,7 +10,15 @@ interface LogEntry {
     status: 'MASUK' | 'KELUAR';
     recordedAt: string;
     metadata?: string;
-    armada: { platNomor: string; namaSupir: string; namaLps?: string };
+    armada: {
+        platNomor: string;
+        namaSupir: string;
+        namaLps?: string;
+        namaKetuaLps?: string | null;
+        qrGeneratedIp?: string | null;
+        qrGeneratedUserAgent?: string | null;
+        qrGeneratedBy?: string | null;
+    };
     kelurahan: { nama: string; kecamatan: { nama: string } } | null;
     user: { name: string };
 }
@@ -74,6 +82,16 @@ export default function LogsPage() {
         }).format(date);
     };
 
+    const formatDevice = (ua?: string | null) => {
+        if (!ua) return 'Perangkat tidak dikenal';
+        if (ua === 'node') return 'node';
+        if (/android/i.test(ua)) return 'Android Device';
+        if (/iphone|ipad/i.test(ua)) return 'iOS Device';
+        if (/windows/i.test(ua)) return 'Windows PC';
+        if (/macintosh/i.test(ua)) return 'Mac OS';
+        return ua.length > 25 ? ua.slice(0, 25) + '...' : ua;
+    };
+
     const parseAuditMeta = (metadataStr?: string) => {
         if (!metadataStr) return null;
         try {
@@ -83,6 +101,9 @@ export default function LogsPage() {
                 userAgent: parsed.userAgent || null,
                 source: parsed.source || null,
                 ticketNumber: parsed.ticketNumber || null,
+                qrCreatorName: parsed.qrCreatorName || null,
+                qrCreatorIp: parsed.qrCreatorIp || null,
+                qrCreatorDevice: parsed.qrCreatorDevice || null,
             };
         } catch {
             return null;
@@ -137,8 +158,8 @@ export default function LogsPage() {
                 </div>
 
                 {activeSearch && (
-                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-purple-50 px-3 py-2 rounded-xl border border-purple-100">
-                        <span>Menampilkan hasil pencarian: <strong>&ldquo;{activeSearch}&rdquo;</strong></span>
+                    <div className="flex items-center gap-2 text-xs text-gray-600 bg-purple-50 px-3 py-2 rounded-xl border border-purple-100 shrink-0">
+                        <span>Menampilkan hasil: <strong>&ldquo;{activeSearch}&rdquo;</strong></span>
                         <button
                             onClick={handleClearSearch}
                             className="text-purple-700 hover:text-purple-900 font-semibold underline ml-1 cursor-pointer"
@@ -170,7 +191,7 @@ export default function LogsPage() {
                         {activeSearch && (
                             <button
                                 onClick={handleClearSearch}
-                                className="mt-2 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors"
+                                className="mt-2 px-3 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors cursor-pointer"
                             >
                                 Hapus Filter Pencarian
                             </button>
@@ -194,6 +215,11 @@ export default function LogsPage() {
                             <tbody className="divide-y divide-gray-100">
                                 {logs.map((log) => {
                                     const audit = parseAuditMeta(log.metadata);
+                                    // Utamakan IP & perangkat Ketua LPS pembuat barcode armada jika ada
+                                    const clientIp = log.armada?.qrGeneratedIp || audit?.qrCreatorIp || audit?.clientIp;
+                                    const userAgent = log.armada?.qrGeneratedUserAgent || audit?.qrCreatorDevice || audit?.userAgent;
+                                    const creatorName = log.armada?.qrGeneratedBy || log.armada?.namaKetuaLps || audit?.qrCreatorName;
+
                                     return (
                                         <tr key={log.id} className="hover:bg-purple-50/30 transition-colors">
                                             <td className="px-5 py-3.5 whitespace-nowrap text-gray-600 text-xs">
@@ -235,15 +261,20 @@ export default function LogsPage() {
                                                 </span>
                                             </td>
                                             <td className="px-5 py-3.5">
-                                                {audit?.clientIp ? (
+                                                {clientIp ? (
                                                     <div className="space-y-0.5">
                                                         <div className="flex items-center gap-1 text-[11px] font-mono font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded w-fit border border-purple-100">
                                                             <span>🌐</span>
-                                                            <span>{audit.clientIp}</span>
+                                                            <span>{clientIp}</span>
                                                         </div>
-                                                        {audit.userAgent && (
-                                                            <div className="text-[10px] text-gray-400 max-w-[170px] truncate" title={audit.userAgent}>
-                                                                📱 {audit.userAgent}
+                                                        {userAgent && (
+                                                            <div className="text-[10px] text-gray-500 max-w-[200px] truncate" title={userAgent}>
+                                                                📱 {formatDevice(userAgent)}
+                                                            </div>
+                                                        )}
+                                                        {creatorName && (
+                                                            <div className="text-[10px] text-emerald-700 font-medium">
+                                                                👤 {creatorName}
                                                             </div>
                                                         )}
                                                     </div>

@@ -102,6 +102,10 @@ export async function POST(request: NextRequest) {
         platNomor: true,
         namaLps: true,
         qrCode: true,
+        namaKetuaLps: true,
+        qrGeneratedIp: true,
+        qrGeneratedUserAgent: true,
+        qrGeneratedBy: true,
         kelurahanId: true,
         kelurahan: { select: { nama: true } },
       },
@@ -119,6 +123,10 @@ export async function POST(request: NextRequest) {
           platNomor: true,
           namaLps: true,
           qrCode: true,
+          namaKetuaLps: true,
+          qrGeneratedIp: true,
+          qrGeneratedUserAgent: true,
+          qrGeneratedBy: true,
           kelurahanId: true,
           kelurahan: { select: { nama: true } },
         },
@@ -173,6 +181,10 @@ export async function POST(request: NextRequest) {
             platNomor: true,
             namaLps: true,
             qrCode: true,
+            namaKetuaLps: true,
+            qrGeneratedIp: true,
+            qrGeneratedUserAgent: true,
+            qrGeneratedBy: true,
             kelurahanId: true,
             kelurahan: { select: { nama: true } },
           },
@@ -207,6 +219,11 @@ export async function POST(request: NextRequest) {
 
     const { clientIp, userAgent } = getClientInfo(request);
 
+    // Ambil IP & perangkat Ketua LPS yang membuat barcode jika ada, fallback ke client IP request
+    const displayIp = armada.qrGeneratedIp || clientIp;
+    const displayUserAgent = armada.qrGeneratedUserAgent || userAgent;
+    const qrCreatorName = armada.qrGeneratedBy || armada.namaKetuaLps || null;
+
     const metadata = JSON.stringify({
       source: 'TimbangQR',
       ticketNumber: input.ticketNumber,
@@ -217,8 +234,11 @@ export async function POST(request: NextRequest) {
       vehicleType: input.vehicleType || null,
       wasteType: input.wasteType || null,
       indicatorRaw: input.indicatorRaw || null,
-      clientIp,
-      userAgent,
+      clientIp: displayIp,
+      userAgent: displayUserAgent,
+      qrCreatorName,
+      qrCreatorIp: armada.qrGeneratedIp || null,
+      syncServerIp: clientIp,
       receivedAt: new Date().toISOString(),
     });
 
@@ -332,14 +352,17 @@ export async function POST(request: NextRequest) {
       platNomor: input.plateNumber,
       namaLps: input.lpsName,
       action: 'WEIGHING_SYNC',
-      clientIp,
-      userAgent,
+      clientIp: displayIp,
+      userAgent: displayUserAgent,
       status: 'SUCCESS',
       metadata: {
         ticketNumber: input.ticketNumber,
         transdepo: input.transdepo,
         nettoKg: input.nettoKg,
         duplicate: saved.duplicate,
+        qrCreatorName,
+        qrCreatorIp: armada.qrGeneratedIp || null,
+        syncServerIp: clientIp,
       },
     });
 

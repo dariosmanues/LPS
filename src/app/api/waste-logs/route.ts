@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { getClientInfo, logScanAudit } from '@/lib/audit-logger';
 
-
 // Demo user ID - in production, get from session
 const DEMO_USER_ID = 'demo-gatekeeper';
 
@@ -40,7 +39,17 @@ export async function GET(request: NextRequest) {
                 skip: (page - 1) * limit,
                 orderBy: { recordedAt: 'desc' },
                 include: {
-                    armada: { select: { platNomor: true, namaSupir: true, namaLps: true } },
+                    armada: {
+                        select: {
+                            platNomor: true,
+                            namaSupir: true,
+                            namaLps: true,
+                            namaKetuaLps: true,
+                            qrGeneratedIp: true,
+                            qrGeneratedUserAgent: true,
+                            qrGeneratedBy: true,
+                        },
+                    },
                     kelurahan: {
                         select: { nama: true, kecamatan: { select: { nama: true } } },
                     },
@@ -122,6 +131,9 @@ export async function POST(request: NextRequest) {
         }
 
         const { clientIp, userAgent } = getClientInfo(request);
+        const displayIp = armada.qrGeneratedIp || clientIp;
+        const displayUserAgent = armada.qrGeneratedUserAgent || userAgent;
+        const qrCreatorName = armada.qrGeneratedBy || armada.namaKetuaLps || null;
 
         // Create waste log
         const wasteLog = await prisma.wasteLog.create({
@@ -134,12 +146,25 @@ export async function POST(request: NextRequest) {
                 metadata: JSON.stringify({
                     scannedAt: new Date().toISOString(),
                     deviceInfo: 'mobile-web',
-                    clientIp,
-                    userAgent,
+                    clientIp: displayIp,
+                    userAgent: displayUserAgent,
+                    qrCreatorName,
+                    qrCreatorIp: armada.qrGeneratedIp || null,
+                    operatorIp: clientIp,
                 }),
             },
             include: {
-                armada: { select: { platNomor: true, namaSupir: true } },
+                armada: {
+                    select: {
+                        platNomor: true,
+                        namaSupir: true,
+                        namaLps: true,
+                        namaKetuaLps: true,
+                        qrGeneratedIp: true,
+                        qrGeneratedUserAgent: true,
+                        qrGeneratedBy: true,
+                    },
+                },
                 kelurahan: {
                     select: { nama: true, kecamatan: { select: { nama: true } } },
                 },
@@ -151,13 +176,15 @@ export async function POST(request: NextRequest) {
             platNomor: armada.platNomor,
             namaLps: armada.namaLps,
             action: 'MANUAL_ENTRY',
-            clientIp,
-            userAgent,
+            clientIp: displayIp,
+            userAgent: displayUserAgent,
             status: 'SUCCESS',
             metadata: {
                 beratKg: parseFloat(beratKg),
                 status,
                 wasteLogId: wasteLog.id,
+                qrCreatorName,
+                qrCreatorIp: armada.qrGeneratedIp || null,
             },
         });
 
