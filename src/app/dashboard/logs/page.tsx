@@ -10,7 +10,15 @@ interface LogEntry {
     status: 'MASUK' | 'KELUAR';
     recordedAt: string;
     metadata?: string;
-    armada: { platNomor: string; namaSupir: string };
+    armada: {
+        platNomor: string;
+        namaSupir: string;
+        namaLps?: string;
+        namaKetuaLps?: string | null;
+        qrGeneratedIp?: string | null;
+        qrGeneratedUserAgent?: string | null;
+        qrGeneratedBy?: string | null;
+    };
     kelurahan: { nama: string; kecamatan: { nama: string } } | null;
     user: { name: string };
 }
@@ -74,6 +82,7 @@ export default function LogsPage() {
                 ticketNumber: parsed.ticketNumber || null,
                 qrCreatorName: parsed.qrCreatorName || null,
                 qrCreatorIp: parsed.qrCreatorIp || null,
+                qrCreatorDevice: parsed.qrCreatorDevice || null,
             };
         } catch {
             return null;
@@ -120,6 +129,11 @@ export default function LogsPage() {
                             <tbody>
                                 {logs.map((log) => {
                                     const audit = parseAuditMeta(log.metadata);
+                                    // Utamakan IP & perangkat Ketua LPS pembuat barcode armada jika ada
+                                    const clientIp = log.armada?.qrGeneratedIp || audit?.qrCreatorIp || audit?.clientIp;
+                                    const userAgent = log.armada?.qrGeneratedUserAgent || audit?.qrCreatorDevice || audit?.userAgent;
+                                    const creatorName = log.armada?.qrGeneratedBy || log.armada?.namaKetuaLps || audit?.qrCreatorName;
+
                                     return (
                                         <tr key={log.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">{formatDate(log.recordedAt)}</td>
@@ -142,20 +156,20 @@ export default function LogsPage() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                {audit?.clientIp ? (
+                                                {clientIp ? (
                                                     <div className="space-y-0.5">
                                                         <div className="flex items-center gap-1 text-xs font-mono font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded w-fit border border-purple-100">
                                                             <span>🌐</span>
-                                                            <span>{audit.clientIp}</span>
+                                                            <span>{clientIp}</span>
                                                         </div>
-                                                        {audit.userAgent && (
-                                                            <div className="text-[10px] text-gray-500 max-w-[200px] truncate" title={audit.userAgent}>
-                                                                📱 {formatDevice(audit.userAgent)}
+                                                        {userAgent && (
+                                                            <div className="text-[10px] text-gray-500 max-w-[200px] truncate" title={userAgent}>
+                                                                📱 {formatDevice(userAgent)}
                                                             </div>
                                                         )}
-                                                        {audit.qrCreatorName && (
+                                                        {creatorName && (
                                                             <div className="text-[10px] text-emerald-700 font-medium">
-                                                                👤 {audit.qrCreatorName}
+                                                                👤 {creatorName}
                                                             </div>
                                                         )}
                                                     </div>

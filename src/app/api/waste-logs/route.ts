@@ -23,7 +23,17 @@ export async function GET(request: NextRequest) {
             skip: (page - 1) * limit,
             orderBy: { recordedAt: 'desc' },
             include: {
-                armada: { select: { platNomor: true, namaSupir: true } },
+                armada: {
+                    select: {
+                        platNomor: true,
+                        namaSupir: true,
+                        namaLps: true,
+                        namaKetuaLps: true,
+                        qrGeneratedIp: true,
+                        qrGeneratedUserAgent: true,
+                        qrGeneratedBy: true,
+                    }
+                },
                 kelurahan: {
                     select: { nama: true, kecamatan: { select: { nama: true } } },
                 },
@@ -134,7 +144,17 @@ export async function POST(request: NextRequest) {
                 }),
             },
             include: {
-                armada: { select: { platNomor: true, namaSupir: true } },
+                armada: {
+                    select: {
+                        platNomor: true,
+                        namaSupir: true,
+                        namaLps: true,
+                        namaKetuaLps: true,
+                        qrGeneratedIp: true,
+                        qrGeneratedUserAgent: true,
+                        qrGeneratedBy: true,
+                    }
+                },
                 kelurahan: {
                     select: { nama: true, kecamatan: { select: { nama: true } } },
                 },
