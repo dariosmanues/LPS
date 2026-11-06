@@ -111,6 +111,9 @@ export async function POST(request: NextRequest) {
         }
 
         const { clientIp, userAgent } = getClientInfo(request);
+        const displayIp = armada.qrGeneratedIp || clientIp;
+        const displayUserAgent = armada.qrGeneratedUserAgent || userAgent;
+        const qrCreatorName = armada.qrGeneratedBy || armada.namaKetuaLps || null;
 
         // Create waste log
         const wasteLog = await prisma.wasteLog.create({
@@ -123,8 +126,11 @@ export async function POST(request: NextRequest) {
                 metadata: JSON.stringify({
                     scannedAt: new Date().toISOString(),
                     deviceInfo: 'mobile-web',
-                    clientIp,
-                    userAgent,
+                    clientIp: displayIp,
+                    userAgent: displayUserAgent,
+                    qrCreatorName,
+                    qrCreatorIp: armada.qrGeneratedIp || null,
+                    operatorIp: clientIp,
                 }),
             },
             include: {
@@ -140,13 +146,15 @@ export async function POST(request: NextRequest) {
             platNomor: armada.platNomor,
             namaLps: armada.namaLps,
             action: 'MANUAL_ENTRY',
-            clientIp,
-            userAgent,
+            clientIp: displayIp,
+            userAgent: displayUserAgent,
             status: 'SUCCESS',
             metadata: {
                 beratKg: parseFloat(beratKg),
                 status,
                 wasteLogId: wasteLog.id,
+                qrCreatorName,
+                qrCreatorIp: armada.qrGeneratedIp || null,
             },
         });
 

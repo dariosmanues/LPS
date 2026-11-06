@@ -306,6 +306,10 @@ export async function handleTimbangQrGet(request: NextRequest) {
             const isLpsQrCode = Boolean(code && (/^LPS-/i.test(code) || code === armada.qrCode));
             // Check if QR code is already burned / used!
             // QR Code LPS bersifat temporer / sekali pakai per perjalanan.
+            const displayIp = armada.qrGeneratedIp || clientIp;
+            const displayUserAgent = armada.qrGeneratedUserAgent || userAgent;
+            const qrCreatorName = armada.qrGeneratedBy || armada.namaKetuaLps || null;
+
             const shouldBurn = Boolean(armada.isQrUsed && isLpsQrCode);
             if (shouldBurn) {
                 logScanAudit({
@@ -313,10 +317,14 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     platNomor: armada.platNomor,
                     namaLps: armada.namaLps,
                     action: 'SCAN_VALIDATE',
-                    clientIp,
-                    userAgent,
+                    clientIp: displayIp,
+                    userAgent: displayUserAgent,
                     status: 'BURNED',
-                    metadata: { lastTicketNumber: armada.lastTicketNumber },
+                    metadata: {
+                        lastTicketNumber: armada.lastTicketNumber,
+                        qrCreatorName,
+                        scannerIp: clientIp,
+                    },
                 });
                 return NextResponse.json(
                     {
@@ -335,9 +343,13 @@ export async function handleTimbangQrGet(request: NextRequest) {
                 platNomor: armada.platNomor,
                 namaLps: armada.namaLps,
                 action: 'SCAN_VALIDATE',
-                clientIp,
-                userAgent,
+                clientIp: displayIp,
+                userAgent: displayUserAgent,
                 status: 'SUCCESS',
+                metadata: {
+                    qrCreatorName,
+                    scannerIp: clientIp,
+                },
             });
 
             return NextResponse.json(

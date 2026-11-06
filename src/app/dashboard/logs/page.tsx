@@ -53,6 +53,16 @@ export default function LogsPage() {
         }).format(date);
     };
 
+    const formatDevice = (ua?: string | null) => {
+        if (!ua) return 'Perangkat tidak dikenal';
+        if (ua === 'node') return 'node';
+        if (/android/i.test(ua)) return 'Android Device';
+        if (/iphone|ipad/i.test(ua)) return 'iOS Device';
+        if (/windows/i.test(ua)) return 'Windows PC';
+        if (/macintosh/i.test(ua)) return 'Mac OS';
+        return ua.length > 25 ? ua.slice(0, 25) + '...' : ua;
+    };
+
     const parseAuditMeta = (metadataStr?: string) => {
         if (!metadataStr) return null;
         try {
@@ -62,6 +72,8 @@ export default function LogsPage() {
                 userAgent: parsed.userAgent || null,
                 source: parsed.source || null,
                 ticketNumber: parsed.ticketNumber || null,
+                qrCreatorName: parsed.qrCreatorName || null,
+                qrCreatorIp: parsed.qrCreatorIp || null,
             };
         } catch {
             return null;
@@ -137,8 +149,13 @@ export default function LogsPage() {
                                                             <span>{audit.clientIp}</span>
                                                         </div>
                                                         {audit.userAgent && (
-                                                            <div className="text-[10px] text-gray-400 max-w-[180px] truncate" title={audit.userAgent}>
-                                                                📱 {audit.userAgent}
+                                                            <div className="text-[10px] text-gray-500 max-w-[200px] truncate" title={audit.userAgent}>
+                                                                📱 {formatDevice(audit.userAgent)}
+                                                            </div>
+                                                        )}
+                                                        {audit.qrCreatorName && (
+                                                            <div className="text-[10px] text-emerald-700 font-medium">
+                                                                👤 {audit.qrCreatorName}
                                                             </div>
                                                         )}
                                                     </div>
