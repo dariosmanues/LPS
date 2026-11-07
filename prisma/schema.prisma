@@ -277,3 +277,27 @@ model ScanAuditLog {
   @@index([createdAt])
   @@map("scan_audit_logs")
 }
+
+model QrFailureReport {
+  id             String   @id @default(uuid())
+  transdepo      String   @map("transdepo") // AIR_HITAM, HARAPAN_JAYA
+  platNomor      String?  @map("plat_nomor")
+  namaLps        String?  @map("nama_lps")
+  kelurahan      String?  @map("kelurahan")
+  kecamatan      String?  @map("kecamatan")
+  qrCode         String?  @map("qr_code")
+  kategoriAlasan String   @map("kategori_alasan") // HANGUS, USANG, KADALUARSA, TIDAK_TERDAFTAR, PLAT_TIDAK_SESUAI, LAINNYA
+  keterangan     String?  @map("keterangan")
+  tindakan       String?  @default("TIDAK_DITIMBANG") // DIARAHKAN_CETAK_ULANG, DIIZINKAN_MANUAL, DITOLAK
+  operatorName   String?  @map("operator_name")
+  tiketNumberRef String?  @map("tiket_number_ref")
+  fotoKondisiUrl String?  @map("foto_kondisi_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([transdepo])
+  @@index([kategoriAlasan])
+  @@index([platNomor])
+  @@index([createdAt])
+  @@map("qr_failure_reports")
+}
+

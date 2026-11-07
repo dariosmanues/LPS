@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getClientInfo, logScanAudit } from '@/lib/audit-logger';
+import { getClientInfo, logScanAudit, logQrFailure } from '@/lib/audit-logger';
 
 export const corsHeaders: Record<string, string> = {
     'Access-Control-Allow-Origin': '*',
@@ -218,9 +218,38 @@ export async function handleTimbangQrGet(request: NextRequest) {
 
                         if (existingArmada) {
                             const isRegenerated = existingArmada.qrCode !== code;
+                            const failureCategory = isRegenerated ? 'USANG' : 'HANGUS';
                             const msg = isRegenerated
                                 ? `QR Code ini sudah usang / tidak berlaku karena QR Code armada ${existingArmada.platNomor} telah di-generate ulang di Dashboard LPS. Silakan gunakan/cetak QR Code terbaru.`
                                 : `QR Code ini sudah hangus (sudah pernah digunakan untuk transaksi tiket #${existingArmada.lastTicketNumber || '...'}). Silakan Hubungi Ketua Atau Pengurus LPS Anda .`;
+
+                            logScanAudit({
+                                qrCode: code,
+                                platNomor: existingArmada.platNomor,
+                                namaLps: existingArmada.namaLps,
+                                action: 'SCAN_VALIDATE',
+                                clientIp,
+                                userAgent,
+                                status: isRegenerated ? 'INVALID' : 'BURNED',
+                                metadata: {
+                                    reason: isRegenerated ? 'QR Usang / Regenerated' : 'QR Hangus',
+                                    lastTicketNumber: existingArmada.lastTicketNumber,
+                                },
+                            });
+
+                            logQrFailure({
+                                transdepo: transdepoQuery || 'AIR_HITAM',
+                                platNomor: existingArmada.platNomor,
+                                namaLps: existingArmada.namaLps,
+                                kelurahan: existingArmada.kelurahan?.nama,
+                                kecamatan: existingArmada.kelurahan?.kecamatan?.nama,
+                                qrCode: code,
+                                kategoriAlasan: failureCategory,
+                                keterangan: msg,
+                                tindakan: isRegenerated ? 'DIARAHKAN_CETAK_ULANG' : 'DITOLAK',
+                                operatorName: 'Sistem Timbangan (Auto)',
+                                tiketNumberRef: existingArmada.lastTicketNumber,
+                            });
 
                             return NextResponse.json(
                                 {
@@ -325,6 +354,19 @@ export async function handleTimbangQrGet(request: NextRequest) {
                         qrCreatorName,
                         scannerIp: clientIp,
                     },
+                });
+                logQrFailure({
+                    transdepo: transdepoQuery || 'AIR_HITAM',
+                    platNomor: armada.platNomor,
+                    namaLps: armada.namaLps,
+                    kelurahan: armada.kelurahan?.nama,
+                    kecamatan: armada.kelurahan?.kecamatan?.nama,
+                    qrCode: code || armada.qrCode,
+                    kategoriAlasan: 'HANGUS',
+                    keterangan: `QR Code hangus karena sudah pernah digunakan untuk transaksi tiket #${armada.lastTicketNumber || '-'}.`,
+                    tindakan: 'DITOLAK',
+                    operatorName: 'Sistem Timbangan (Auto)',
+                    tiketNumberRef: armada.lastTicketNumber,
                 });
                 return NextResponse.json(
                     {

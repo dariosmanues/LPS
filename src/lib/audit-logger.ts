@@ -72,3 +72,61 @@ export function logScanAudit({
         });
 }
 
+export interface QrFailureParams {
+    transdepo?: string | null;
+    platNomor?: string | null;
+    namaLps?: string | null;
+    kelurahan?: string | null;
+    kecamatan?: string | null;
+    qrCode?: string | null;
+    kategoriAlasan: string; // HANGUS, USANG, KADALUARSA, TIDAK_TERDAFTAR, PLAT_TIDAK_SESUAI, LAINNYA
+    keterangan?: string | null;
+    tindakan?: string | null;
+    operatorName?: string | null;
+    tiketNumberRef?: string | null;
+    fotoKondisiUrl?: string | null;
+}
+
+/**
+ * Mencatat kendala / kegagalan scan QR (Hangus, Usang, Tidak Terdaftar, dll)
+ * secara non-blocking (fire-and-forget).
+ */
+export function logQrFailure({
+    transdepo,
+    platNomor,
+    namaLps,
+    kelurahan,
+    kecamatan,
+    qrCode,
+    kategoriAlasan,
+    keterangan,
+    tindakan = 'DIARAHKAN_CETAK_ULANG',
+    operatorName = 'Sistem Auto-Detect',
+    tiketNumberRef,
+    fotoKondisiUrl,
+}: QrFailureParams): void {
+    const depo = String(transdepo || '').toUpperCase();
+    const cleanDepo = depo.includes('HARAPAN') ? 'HARAPAN_JAYA' : 'AIR_HITAM';
+
+    prisma.qrFailureReport
+        .create({
+            data: {
+                transdepo: cleanDepo,
+                platNomor: platNomor || null,
+                namaLps: namaLps || null,
+                kelurahan: kelurahan || null,
+                kecamatan: kecamatan || null,
+                qrCode: qrCode || null,
+                kategoriAlasan: (kategoriAlasan || 'LAINNYA').toUpperCase(),
+                keterangan: keterangan || null,
+                tindakan: tindakan || 'TIDAK_DITIMBANG',
+                operatorName: operatorName || 'Sistem Auto',
+                tiketNumberRef: tiketNumberRef || null,
+                fotoKondisiUrl: fotoKondisiUrl || null,
+            },
+        })
+        .catch((err) => {
+            console.error('[QR Failure Logger Error]', err);
+        });
+}
+

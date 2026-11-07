@@ -51,6 +51,19 @@ const menuItems = [
         )
     },
     {
+        name: 'Rekap Kendala QR',
+        shortName: 'Kendala QR',
+        href: '/dashboard/rekap-gagal-qr',
+        icon: (
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm0 12h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm7-8h2m-2 4h.01M12 20h4m-4-16v4m4 8h4m0 4h.01M4 12h4" />
+                <circle cx="19" cy="5" r="4.5" fill="#EF4444" />
+                <path d="M19 3.1v2.3" stroke="white" strokeWidth={1.8} strokeLinecap="round" />
+                <circle cx="19" cy="7.3" r="0.9" fill="white" />
+            </svg>
+        )
+    },
+    {
         name: 'Laporan WA',
         shortName: 'Laporan WA',
         href: '/dashboard/reports',
@@ -146,12 +159,14 @@ const menuItems = [
 ];
 
 // Bottom navigation items for Mobile Mode (4 main tabs + More Menu)
-const mobileBottomNavItems = [
-    menuItems[0], // Dashboard
-    menuItems[1], // Armada
-    menuItems[7], // Timbangan Air Hitam
-    menuItems[8], // Timbangan Harapan Jaya
-];
+const mobileBottomNavItems = menuItems.filter((item) =>
+    [
+        '/dashboard',
+        '/dashboard/armada',
+        '/dashboard/laporan-timbangan/air-hitam',
+        '/dashboard/laporan-timbangan/harapan-jaya',
+    ].includes(item.href)
+);
 
 interface SidebarProps {
     children: ReactNode;
