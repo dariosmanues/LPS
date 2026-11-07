@@ -28,6 +28,24 @@ export function generateArmadaQrCodeString(platNomor: string): string {
     return `LPS-${clean}-${Date.now()}${crypto.randomInt(0, 10000).toString().padStart(4, '0')}`;
 }
 
+function resolveFailureTransdepo(
+    request: NextRequest,
+    transdepoQuery?: string | null,
+    lokasiTransdepo?: string | null,
+    lastTicketNumber?: string | null
+): 'AIR_HITAM' | 'HARAPAN_JAYA' {
+    const headerHint = `${transdepoQuery || ''} ${request.headers.get('x-transdepo') || ''} ${request.headers.get('origin') || ''} ${request.headers.get('referer') || ''}`.toUpperCase();
+    if (headerHint.includes('HARAPAN') || headerHint.includes(':3002')) return 'HARAPAN_JAYA';
+    if (headerHint.includes('AIR') || headerHint.includes(':3001')) return 'AIR_HITAM';
+
+    const armadaDepo = (lokasiTransdepo || '').toUpperCase();
+    if (armadaDepo.includes('HARAPAN')) return 'HARAPAN_JAYA';
+    if (armadaDepo.includes('AIR')) return 'AIR_HITAM';
+
+    if (lastTicketNumber && /\/11\d+$/i.test(lastTicketNumber)) return 'HARAPAN_JAYA';
+    return 'AIR_HITAM';
+}
+
 // SVG dibuat dari matriks QR murni tanpa react-dom/server, karena
 // Next.js 16 melarang react-dom/server di dalam App Route handlers.
 export function generateQrSvg(value: string, size = 256): string {
@@ -238,7 +256,12 @@ export async function handleTimbangQrGet(request: NextRequest) {
                             });
 
                             logQrFailure({
-                                transdepo: transdepoQuery || 'AIR_HITAM',
+                                transdepo: resolveFailureTransdepo(
+                                    request,
+                                    transdepoQuery,
+                                    existingArmada.lokasiTransdepo,
+                                    existingArmada.lastTicketNumber
+                                ),
                                 platNomor: existingArmada.platNomor,
                                 namaLps: existingArmada.namaLps,
                                 kelurahan: existingArmada.kelurahan?.nama,
@@ -297,6 +320,17 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     userAgent,
                     status: 'NOT_FOUND',
                 });
+                if (code) {
+                    logQrFailure({
+                        transdepo: resolveFailureTransdepo(request, transdepoQuery),
+                        platNomor: plate || null,
+                        qrCode: code,
+                        kategoriAlasan: 'TIDAK_TERDAFTAR',
+                        keterangan: 'QR Code armada tidak terdaftar di database sistem LPS.',
+                        tindakan: 'DITOLAK',
+                        operatorName: 'Sistem Timbangan (Auto)',
+                    });
+                }
                 return NextResponse.json(
                     {
                         success: false,
@@ -356,7 +390,12 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     },
                 });
                 logQrFailure({
-                    transdepo: transdepoQuery || 'AIR_HITAM',
+                    transdepo: resolveFailureTransdepo(
+                        request,
+                        transdepoQuery,
+                        armada.lokasiTransdepo,
+                        armada.lastTicketNumber
+                    ),
                     platNomor: armada.platNomor,
                     namaLps: armada.namaLps,
                     kelurahan: armada.kelurahan?.nama,

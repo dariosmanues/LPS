@@ -75,7 +75,7 @@ export default function RekapGagalQrPage() {
         qrCode: '',
         kategoriAlasan: 'USANG',
         keterangan: '',
-        tindakan: 'DIIZINKAN_MANUAL',
+        tindakan: 'DIARAHKAN_CETAK_ULANG',
         operatorName: '',
         tiketNumberRef: '',
     });
@@ -222,7 +222,7 @@ export default function RekapGagalQrPage() {
                     qrCode: '',
                     kategoriAlasan: 'USANG',
                     keterangan: '',
-                    tindakan: 'DIIZINKAN_MANUAL',
+                    tindakan: 'DIARAHKAN_CETAK_ULANG',
                     operatorName: '',
                     tiketNumberRef: '',
                 });
@@ -582,17 +582,13 @@ export default function RekapGagalQrPage() {
 
                                         {/* Tindakan Operator */}
                                         <td className="px-4 py-3.5 whitespace-nowrap">
-                                            {item.tindakan === 'DIIZINKAN_MANUAL' ? (
-                                                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-800/40">
-                                                    Diizinkan Manual
-                                                </span>
-                                            ) : item.tindakan === 'DIARAHKAN_CETAK_ULANG' ? (
+                                            {item.tindakan === 'DIARAHKAN_CETAK_ULANG' ? (
                                                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-950/60 text-amber-400 border border-amber-800/40">
                                                     Arahkan Cetak Ulang
                                                 </span>
                                             ) : (
                                                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-950/60 text-rose-400 border border-rose-800/40">
-                                                    Ditolak / Masuk Posko
+                                                    Ditolak Timbang
                                                 </span>
                                             )}
                                         </td>
@@ -741,8 +737,7 @@ export default function RekapGagalQrPage() {
                                         onChange={(e) => setFormData({ ...formData, tindakan: e.target.value })}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-hidden focus:border-rose-500"
                                     >
-                                        <option value="DIIZINKAN_MANUAL">Diizinkan Timbang Manual</option>
-                                        <option value="DIARAHKAN_CETAK_ULANG">Diarahkan Cetak Ulang di LPS</option>
+                                        <option value="DIARAHKAN_CETAK_ULANG">Diarahkan Minta / Cetak QR Baru ke LPS</option>
                                         <option value="DITOLAK">Ditolak Masuk Jembatan Timbang</option>
                                     </select>
                                 </div>
