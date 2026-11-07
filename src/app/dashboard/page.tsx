@@ -122,8 +122,8 @@ export default function DashboardPage() {
     const displayMonthLabel = monthStats?.monthLabel || activeStats.monthLabel || fallbackMonthLabel;
     const displayDateLabel = todayStats?.dateLabel || activeStats.dateLabel || fallbackDateLabel;
 
-    // Calculate dial percentage (target: 750,000 kg)
-    const TARGET_KG = 750000;
+    // Calculate dial percentage (target: 65,000,000 kg)
+    const TARGET_KG = 65000000;
     const dialPercentage = Math.min((activeStats.totalKg / TARGET_KG) * 100, 100);
     const dialDasharray = Math.round((dialPercentage / 100) * 450);
 
