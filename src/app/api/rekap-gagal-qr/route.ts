@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { requireSuperAdmin } from '@/lib/permissions';
+import { isTimbangQrAuthorized } from '@/lib/timbangqr-qr-service';
 import crypto from 'node:crypto';
 
 export const dynamic = 'force-dynamic';
@@ -137,6 +137,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
+        const isSystemAuto =
+            isTimbangQrAuthorized(request) ||
+            body?.operatorName === 'Sistem Timbangan (Auto)';
+
+        if (!isSystemAuto) {
+            const auth = await requireSuperAdmin();
+            if (!auth.authorized) return auth.response;
+        }
+
         const {
             transdepo,
             platNomor,
@@ -175,7 +184,7 @@ export async function POST(request: NextRequest) {
                 kategoriAlasan: String(kategoriAlasan).toUpperCase().trim(),
                 keterangan: keterangan ? String(keterangan).trim() : null,
                 tindakan: tindakan ? String(tindakan).trim() : 'TIDAK_DITIMBANG',
-                operatorName: operatorName ? String(operatorName).trim() : 'Petugas Pos Timbangan',
+                operatorName: operatorName ? String(operatorName).trim() : 'Super Admin',
                 tiketNumberRef: tiketNumberRef ? String(tiketNumberRef).trim() : null,
                 fotoKondisiUrl: fotoKondisiUrl ? String(fotoKondisiUrl).trim() : null,
             },
@@ -190,6 +199,131 @@ export async function POST(request: NextRequest) {
         console.error('Error creating QR failure report:', error);
         return NextResponse.json(
             { error: 'Gagal menyimpan laporan kendala QR.' },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PUT(request: NextRequest) {
+    try {
+        const auth = await requireSuperAdmin();
+        if (!auth.authorized) return auth.response;
+
+        const body = await request.json();
+        const {
+            id,
+            transdepo,
+            platNomor,
+            namaLps,
+            kelurahan,
+            kecamatan,
+            qrCode,
+            kategoriAlasan,
+            keterangan,
+            tindakan,
+            operatorName,
+            tiketNumberRef,
+            fotoKondisiUrl,
+        } = body;
+
+        if (!id) {
+            return NextResponse.json(
+                { error: 'ID laporan kendala QR wajib disertakan.' },
+                { status: 400 }
+            );
+        }
+
+        if (!transdepo || !kategoriAlasan) {
+            return NextResponse.json(
+                { error: 'Lokasi transdepo dan kategori alasan wajib diisi.' },
+                { status: 400 }
+            );
+        }
+
+        const existing = await prisma.qrFailureReport.findUnique({ where: { id: String(id) } });
+        if (!existing) {
+            return NextResponse.json(
+                { error: 'Data laporan kendala QR tidak ditemukan.' },
+                { status: 404 }
+            );
+        }
+
+        const normalizedTransdepo = String(transdepo).toUpperCase().includes('HARAPAN')
+            ? 'HARAPAN_JAYA'
+            : 'AIR_HITAM';
+
+        const updatedReport = await prisma.qrFailureReport.update({
+            where: { id: String(id) },
+            data: {
+                transdepo: normalizedTransdepo,
+                platNomor: platNomor ? String(platNomor).toUpperCase().trim() : null,
+                namaLps: namaLps ? String(namaLps).trim() : null,
+                kelurahan: kelurahan ? String(kelurahan).trim() : null,
+                kecamatan: kecamatan ? String(kecamatan).trim() : null,
+                qrCode: qrCode ? String(qrCode).trim() : null,
+                kategoriAlasan: String(kategoriAlasan).toUpperCase().trim(),
+                keterangan: keterangan ? String(keterangan).trim() : null,
+                tindakan: tindakan ? String(tindakan).trim() : 'TIDAK_DITIMBANG',
+                operatorName: operatorName ? String(operatorName).trim() : existing.operatorName,
+                tiketNumberRef: tiketNumberRef ? String(tiketNumberRef).trim() : null,
+                ...(fotoKondisiUrl !== undefined
+                    ? { fotoKondisiUrl: fotoKondisiUrl ? String(fotoKondisiUrl).trim() : null }
+                    : {}),
+            },
+        });
+
+        return NextResponse.json({
+            success: true,
+            message: 'Laporan kendala QR berhasil diperbarui.',
+            data: updatedReport,
+        });
+    } catch (error) {
+        console.error('Error updating QR failure report:', error);
+        return NextResponse.json(
+            { error: 'Gagal memperbarui laporan kendala QR.' },
+            { status: 500 }
+        );
+    }
+}
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const auth = await requireSuperAdmin();
+        if (!auth.authorized) return auth.response;
+
+        const { searchParams } = new URL(request.url);
+        let id = searchParams.get('id')?.trim();
+
+        if (!id) {
+            const body = await request.json().catch(() => null);
+            id = body?.id ? String(body.id).trim() : undefined;
+        }
+
+        if (!id) {
+            return NextResponse.json(
+                { error: 'ID laporan kendala QR yang akan dihapus wajib disertakan.' },
+                { status: 400 }
+            );
+        }
+
+        const existing = await prisma.qrFailureReport.findUnique({ where: { id } });
+        if (!existing) {
+            return NextResponse.json(
+                { error: 'Data laporan kendala QR tidak ditemukan.' },
+                { status: 404 }
+            );
+        }
+
+        await prisma.qrFailureReport.delete({ where: { id } });
+
+        return NextResponse.json({
+            success: true,
+            message: 'Laporan kendala QR berhasil dihapus.',
+        });
+    } catch (error) {
+        console.error('Error deleting QR failure report:', error);
+        return NextResponse.json(
+            { error: 'Gagal menghapus laporan kendala QR.' },
             { status: 500 }
         );
     }

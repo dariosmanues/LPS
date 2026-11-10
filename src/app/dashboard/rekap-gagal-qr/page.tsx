@@ -63,9 +63,12 @@ export default function RekapGagalQrPage() {
     const [totalPages, setTotalPages] = useState<number>(1);
     const [totalCount, setTotalCount] = useState<number>(0);
 
-    // Modal State
+    // Modal State (Create & Edit)
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<QrFailureItem | null>(null);
+    const [deletingItem, setDeletingItem] = useState<QrFailureItem | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [formData, setFormData] = useState({
         transdepo: 'AIR_HITAM',
         platNomor: '',
@@ -79,6 +82,42 @@ export default function RekapGagalQrPage() {
         operatorName: '',
         tiketNumberRef: '',
     });
+
+    const openCreateModal = () => {
+        setEditingItem(null);
+        setFormData({
+            transdepo: 'AIR_HITAM',
+            platNomor: '',
+            namaLps: '',
+            kelurahan: '',
+            kecamatan: '',
+            qrCode: '',
+            kategoriAlasan: 'USANG',
+            keterangan: '',
+            tindakan: 'DIARAHKAN_CETAK_ULANG',
+            operatorName: '',
+            tiketNumberRef: '',
+        });
+        setIsModalOpen(true);
+    };
+
+    const openEditModal = (item: QrFailureItem) => {
+        setEditingItem(item);
+        setFormData({
+            transdepo: item.transdepo || 'AIR_HITAM',
+            platNomor: item.platNomor || '',
+            namaLps: item.namaLps || '',
+            kelurahan: item.kelurahan || '',
+            kecamatan: item.kecamatan || '',
+            qrCode: item.qrCode || '',
+            kategoriAlasan: item.kategoriAlasan || 'USANG',
+            keterangan: item.keterangan || '',
+            tindakan: item.tindakan || 'DIARAHKAN_CETAK_ULANG',
+            operatorName: item.operatorName || '',
+            tiketNumberRef: item.tiketNumberRef || '',
+        });
+        setIsModalOpen(true);
+    };
 
     // Fetch Data
     const fetchData = useCallback(async () => {
@@ -200,34 +239,23 @@ export default function RekapGagalQrPage() {
         document.body.removeChild(link);
     };
 
-    // Submit New Failure Report
+    // Submit Create or Edit Failure Report (SuperAdmin)
     const handleSubmitNewReport = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
+            const isEdit = Boolean(editingItem?.id);
             const res = await fetch('/api/rekap-gagal-qr', {
-                method: 'POST',
+                method: isEdit ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(isEdit ? { id: editingItem!.id, ...formData } : formData),
             });
             const json = await res.json();
             if (json.success) {
                 setIsModalOpen(false);
-                setFormData({
-                    transdepo: 'AIR_HITAM',
-                    platNomor: '',
-                    namaLps: '',
-                    kelurahan: '',
-                    kecamatan: '',
-                    qrCode: '',
-                    kategoriAlasan: 'USANG',
-                    keterangan: '',
-                    tindakan: 'DIARAHKAN_CETAK_ULANG',
-                    operatorName: '',
-                    tiketNumberRef: '',
-                });
+                setEditingItem(null);
                 fetchData();
-                alert('Laporan kendala QR berhasil dicatat!');
+                alert(isEdit ? 'Laporan kendala QR berhasil diperbarui!' : 'Laporan kendala QR berhasil dicatat!');
             } else {
                 alert(json.error || 'Gagal menyimpan laporan.');
             }
@@ -236,6 +264,29 @@ export default function RekapGagalQrPage() {
             alert('Terjadi kesalahan jaringan.');
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    // Delete Failure Report (SuperAdmin)
+    const handleConfirmDelete = async () => {
+        if (!deletingItem) return;
+        setIsDeleting(true);
+        try {
+            const res = await fetch(`/api/rekap-gagal-qr?id=${encodeURIComponent(deletingItem.id)}`, {
+                method: 'DELETE',
+            });
+            const json = await res.json();
+            if (json.success) {
+                setDeletingItem(null);
+                fetchData();
+            } else {
+                alert(json.error || 'Gagal menghapus laporan.');
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+            alert('Terjadi kesalahan jaringan saat menghapus.');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -289,6 +340,12 @@ export default function RekapGagalQrPage() {
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 font-sans">
+            {isReadOnly && (
+                <div className="max-w-7xl mx-auto mb-4">
+                    <ReadOnlyBanner />
+                </div>
+            )}
+
             {/* Header Title Section */}
             <div className="max-w-7xl mx-auto mb-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
@@ -314,15 +371,17 @@ export default function RekapGagalQrPage() {
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-950/40 transition-all cursor-pointer"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            + Catat Kendala QR
-                        </button>
+                        {isSuperAdmin && (
+                            <button
+                                onClick={openCreateModal}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-lg shadow-rose-950/40 transition-all cursor-pointer"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                + Catat Kendala QR
+                            </button>
+                        )}
                         <button
                             onClick={handleExportCsv}
                             className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/80 transition-all cursor-pointer"
@@ -488,19 +547,22 @@ export default function RekapGagalQrPage() {
                                 <th className="px-4 py-3.5">Keterangan / Alasan</th>
                                 <th className="px-4 py-3.5">Tindakan Petugas</th>
                                 <th className="px-4 py-3.5">Pencatat</th>
+                                {isSuperAdmin && (
+                                    <th className="px-4 py-3.5 text-right">Aksi (SuperAdmin)</th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/60">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={8} className="text-center py-12 text-slate-500">
+                                    <td colSpan={isSuperAdmin ? 9 : 8} className="text-center py-12 text-slate-500">
                                         <div className="inline-block animate-spin rounded-full h-7 w-7 border-2 border-rose-500 border-t-transparent mb-2"></div>
                                         <div>Memuat data rekapitulasi kendala QR...</div>
                                     </td>
                                 </tr>
                             ) : items.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="text-center py-16 text-slate-500">
+                                    <td colSpan={isSuperAdmin ? 9 : 8} className="text-center py-16 text-slate-500">
                                         <svg className="w-12 h-12 mx-auto text-slate-700 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
@@ -560,6 +622,7 @@ export default function RekapGagalQrPage() {
                                             </div>
                                             <div className="text-[11px] text-slate-400">
                                                 {item.kelurahan ? `Kel. ${item.kelurahan}` : '-'}
+                                                {item.kecamatan ? ` • Kec. ${item.kecamatan}` : ''}
                                             </div>
                                         </td>
 
@@ -597,6 +660,36 @@ export default function RekapGagalQrPage() {
                                         <td className="px-4 py-3.5 whitespace-nowrap text-slate-400 text-[11px]">
                                             {item.operatorName || 'Operator'}
                                         </td>
+
+                                        {/* Aksi CRUD Khusus SuperAdmin */}
+                                        {isSuperAdmin && (
+                                            <td className="px-4 py-3.5 whitespace-nowrap text-right">
+                                                <div className="inline-flex items-center justify-end gap-1.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openEditModal(item)}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 transition-colors cursor-pointer"
+                                                        title="Edit Data Kendala QR"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                        </svg>
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeletingItem(item)}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                                                        title="Hapus Data Kendala QR"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))
                             )}
@@ -632,20 +725,20 @@ export default function RekapGagalQrPage() {
                 </div>
             </div>
 
-            {/* Modal Input Kendala QR Baru */}
-            {isModalOpen && (
+            {/* Modal Create & Edit Kendala QR (Khusus SuperAdmin) */}
+            {isSuperAdmin && isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-                    <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
+                    <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                 <svg className="w-5 h-5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
-                                Catat Kendala Scan QR
+                                {editingItem ? 'Edit Data Kendala Scan QR' : 'Catat Kendala Scan QR'}
                             </h3>
                             <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="text-slate-400 hover:text-white p-1 rounded-lg"
+                                onClick={() => { setIsModalOpen(false); setEditingItem(null); }}
+                                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
                             >
                                 ✕
                             </button>
@@ -695,10 +788,10 @@ export default function RekapGagalQrPage() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-slate-300 font-medium mb-1">Nama LPS / Kelurahan</label>
+                                    <label className="block text-slate-300 font-medium mb-1">Nama LPS</label>
                                     <input
                                         type="text"
-                                        placeholder="Contoh: LPS Delima"
+                                        placeholder="Contoh: Muara Fajar Barat"
                                         value={formData.namaLps}
                                         onChange={(e) => setFormData({ ...formData, namaLps: e.target.value })}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-hidden focus:border-rose-500"
@@ -706,15 +799,50 @@ export default function RekapGagalQrPage() {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-slate-300 font-medium mb-1">String / Kode QR yang Terbaca</label>
-                                <input
-                                    type="text"
-                                    placeholder="Contoh: LPS-BM8451QU-17939100223"
-                                    value={formData.qrCode}
-                                    onChange={(e) => setFormData({ ...formData, qrCode: e.target.value })}
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-hidden focus:border-rose-500 font-mono text-[11px]"
-                                />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-slate-300 font-medium mb-1">Kelurahan</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Contoh: Muara Fajar Barat"
+                                        value={formData.kelurahan}
+                                        onChange={(e) => setFormData({ ...formData, kelurahan: e.target.value })}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-hidden focus:border-rose-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-slate-300 font-medium mb-1">Kecamatan</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Contoh: Rumbai Barat"
+                                        value={formData.kecamatan}
+                                        onChange={(e) => setFormData({ ...formData, kecamatan: e.target.value })}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-hidden focus:border-rose-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-slate-300 font-medium mb-1">String / Kode QR yang Terbaca</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Contoh: LPS-BM8451QU-17939100223"
+                                        value={formData.qrCode}
+                                        onChange={(e) => setFormData({ ...formData, qrCode: e.target.value })}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-hidden focus:border-rose-500 font-mono text-[11px]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-slate-300 font-medium mb-1">Ref Nomor Tiket (Jika Hangus)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Contoh: INV/26/51138"
+                                        value={formData.tiketNumberRef}
+                                        onChange={(e) => setFormData({ ...formData, tiketNumberRef: e.target.value })}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-hidden focus:border-rose-500 font-mono text-[11px]"
+                                    />
+                                </div>
                             </div>
 
                             <div>
@@ -742,7 +870,7 @@ export default function RekapGagalQrPage() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-slate-300 font-medium mb-1">Nama Petugas Pos</label>
+                                    <label className="block text-slate-300 font-medium mb-1">Nama Petugas / Pencatat</label>
                                     <input
                                         type="text"
                                         placeholder="Nama operator timbangan"
@@ -756,8 +884,8 @@ export default function RekapGagalQrPage() {
                             <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800 mt-4">
                                 <button
                                     type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+                                    onClick={() => { setIsModalOpen(false); setEditingItem(null); }}
+                                    className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
                                 >
                                     Batal
                                 </button>
@@ -766,10 +894,69 @@ export default function RekapGagalQrPage() {
                                     disabled={isSubmitting}
                                     className="px-5 py-2 rounded-xl font-semibold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-950/40 transition-all disabled:opacity-50 cursor-pointer"
                                 >
-                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Laporan'}
+                                    {isSubmitting ? 'Menyimpan...' : editingItem ? 'Simpan Perubahan' : 'Simpan Laporan'}
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Konfirmasi Hapus (Khusus SuperAdmin) */}
+            {isSuperAdmin && deletingItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+                    <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-white">Hapus Data Kendala QR?</h3>
+                                <p className="text-xs text-slate-400">Tindakan ini akan menghapus data permanen dari rekapitulasi.</p>
+                            </div>
+                        </div>
+
+                        <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-1.5 mb-5">
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Plat Nomor:</span>
+                                <span className="font-bold text-white font-mono">{deletingItem.platNomor || '-'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Nama LPS:</span>
+                                <span className="font-medium text-slate-200">{deletingItem.namaLps || '-'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Kategori:</span>
+                                <span className="font-semibold text-rose-400">{deletingItem.kategoriAlasan}</span>
+                            </div>
+                            {deletingItem.qrCode && (
+                                <div className="flex justify-between gap-2">
+                                    <span className="text-slate-400 shrink-0">Kode QR:</span>
+                                    <span className="font-mono text-[11px] text-slate-300 truncate">{deletingItem.qrCode}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2.5">
+                            <button
+                                type="button"
+                                onClick={() => setDeletingItem(null)}
+                                disabled={isDeleting}
+                                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors cursor-pointer"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmDelete}
+                                disabled={isDeleting}
+                                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-950/40 transition-all disabled:opacity-50 cursor-pointer"
+                            >
+                                {isDeleting ? 'Menghapus...' : 'Ya, Hapus Data'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
