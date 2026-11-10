@@ -23,6 +23,4 @@ jobs:
             echo "🚀 Menjalankan pembaruan otomatis di VPS..."
             /usr/local/bin/update-airhitam
             /usr/local/bin/update-lps
-            echo "=== DAFTAR NGINX SITES ==="
-            cat /etc/nginx/sites-enabled/* || true
 
