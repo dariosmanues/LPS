@@ -116,7 +116,7 @@ export function formatArmadaForTimbangQr(
     baseUrl?: string
 ) {
     const qrCode = armada.qrCode || `LPS-${normalizePlate(armada.platNomor)}-${armada.id.slice(0, 8)}`;
-    const host = baseUrl || process.env.NEXTAUTH_URL || 'https://lps-app-five.vercel.app';
+    const host = baseUrl || process.env.NEXTAUTH_URL || 'https://177-202-246-42.sslip.io';
     const qrUrl = `${host}/api/qr-generator?code=${encodeURIComponent(qrCode)}&format=svg`;
 
     return {
@@ -163,7 +163,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
         const rawText = searchParams.get('text');
         const includeInactive = searchParams.get('includeInactive') === 'true';
 
-        const origin = request.nextUrl.origin || 'https://lps-app-five.vercel.app';
+        const origin = request.nextUrl.origin || 'https://177-202-246-42.sslip.io';
 
         // 1. Direct SVG rendering for arbitrary text or specific QR code
         if (format === 'svg') {
@@ -523,7 +523,7 @@ export async function handleTimbangQrPost(request: NextRequest) {
     try {
         const body = await request.json().catch(() => ({}));
         const { armadaId, platNomor, regenerate, text } = body;
-        const origin = request.nextUrl.origin || 'https://lps-app-five.vercel.app';
+        const origin = request.nextUrl.origin || 'https://177-202-246-42.sslip.io';
 
         // 1. If arbitrary text is provided, just generate the QR SVG & Data URL without modifying database
         if (text && !armadaId && !platNomor) {

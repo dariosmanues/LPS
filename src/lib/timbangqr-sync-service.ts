@@ -6,8 +6,10 @@ export interface SyncResult {
   data?: any;
 }
 
-export const TIMBANGQR_AIRHITAM_URL = 'https://timbangqr-airhitam-brown.vercel.app';
-export const TIMBANGQR_HARAPANJAYA_URL = 'https://timbangqr-ocr-led-rose.vercel.app';
+export const TIMBANGQR_AIRHITAM_URL =
+  process.env.TIMBANGQR_AIRHITAM_URL?.trim() || 'https://airhitam-177-202-246-42.sslip.io';
+export const TIMBANGQR_HARAPANJAYA_URL =
+  process.env.TIMBANGQR_HARAPANJAYA_URL?.trim() || 'https://ocr-177-202-246-42.sslip.io';
 const DEFAULT_SECRET = 'a8f9c4e2b7d013589ef671234abcd567890ef123456789abcdef0123456789ab';
 
 function getSecret(): string {
