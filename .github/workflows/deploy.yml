@@ -20,12 +20,22 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script_stop: true
           script: |
-            echo "=== ISI DARI UPDATE-AIRHITAM ==="
-            cat /usr/local/bin/update-airhitam
-            echo "=== MEMPERBAIKI DAN MENJALANKAN BUILD AIRHITAM ==="
+            echo "=== PERBAIKI SCRIPT UPDATE-AIRHITAM ==="
+            cat << 'EOF' > /usr/local/bin/update-airhitam
+            #!/bin/bash
+            set -e
+            echo '=== [1/3] Mengambil update terbaru dari GitHub (Airhitam)... ==='
             cd /var/www/timbangqr-airhitam
+            git pull
+            echo '=== [2/3] Build Next.js Production... ==='
             npm run build
+            echo '=== [3/3] Reload PM2 (Zero Downtime)... ==='
             pm2 reload airhitam
-            echo "=== STATUS PM2 SETELAH RELOAD ==="
-            pm2 list
+            echo '========================================='
+            echo '  SUCCESS: Airhitam Berhasil Di-update!  '
+            echo '========================================='
+            EOF
+            chmod +x /usr/local/bin/update-airhitam
+            echo "=== CEK DOMAIN NGINX ==="
+            grep -rn "server_name" /etc/nginx/sites-enabled/
 
