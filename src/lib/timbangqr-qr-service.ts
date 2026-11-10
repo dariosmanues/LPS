@@ -373,7 +373,9 @@ export async function handleTimbangQrGet(request: NextRequest) {
             const displayUserAgent = armada.qrGeneratedUserAgent || userAgent;
             const qrCreatorName = armada.qrGeneratedBy || armada.namaKetuaLps || null;
 
-            const shouldBurn = Boolean(armada.isQrUsed && isLpsQrCode);
+            const burnedTicketParam = searchParams.get('burnedTicket')?.trim() || null;
+            const effectiveTicketRef = armada.lastTicketNumber || burnedTicketParam || null;
+            const shouldBurn = Boolean((armada.isQrUsed || burnedTicketParam) && isLpsQrCode);
             if (shouldBurn) {
                 logScanAudit({
                     qrCode: code || armada.qrCode,
@@ -384,7 +386,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     userAgent: displayUserAgent,
                     status: 'BURNED',
                     metadata: {
-                        lastTicketNumber: armada.lastTicketNumber,
+                        lastTicketNumber: effectiveTicketRef,
                         qrCreatorName,
                         scannerIp: clientIp,
                     },
@@ -394,7 +396,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                         request,
                         transdepoQuery,
                         armada.lokasiTransdepo,
-                        armada.lastTicketNumber
+                        effectiveTicketRef
                     ),
                     platNomor: armada.platNomor,
                     namaLps: armada.namaLps,
@@ -402,17 +404,17 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     kecamatan: armada.kelurahan?.kecamatan?.nama,
                     qrCode: code || armada.qrCode,
                     kategoriAlasan: 'HANGUS',
-                    keterangan: `QR Code hangus karena sudah pernah digunakan untuk transaksi tiket #${armada.lastTicketNumber || '-'}.`,
+                    keterangan: `QR Code hangus karena sudah pernah digunakan untuk transaksi tiket #${effectiveTicketRef || '-'}.`,
                     tindakan: 'DITOLAK',
                     operatorName: 'Sistem Timbangan (Auto)',
-                    tiketNumberRef: armada.lastTicketNumber,
+                    tiketNumberRef: effectiveTicketRef,
                 });
                 return NextResponse.json(
                     {
                         success: false,
                         valid: false,
                         burned: true,
-                        message: `QR Code ini sudah hangus (sudah pernah digunakan untuk transaksi tiket #${armada.lastTicketNumber || '...'}). Silakan Hubungi Ketua Atau Pengurus LPS Anda .`,
+                        message: `QR Code ini sudah hangus (sudah pernah digunakan untuk transaksi tiket #${effectiveTicketRef || '...'}). Silakan Hubungi Ketua Atau Pengurus LPS Anda .`,
                         data: formatted,
                     },
                     { status: 400, headers: corsHeaders }

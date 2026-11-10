@@ -25,6 +25,13 @@ jobs:
             set -e
             echo "🚀 Menjalankan pembaruan otomatis di VPS..."
             /usr/local/bin/update-airhitam
+            if [ -d /var/www/timbangqr-ocr-led ]; then
+              cp /var/www/timbangqr-airhitam/src/app/api/qr/\[token\]/route.ts /var/www/timbangqr-ocr-led/src/app/api/qr/\[token\]/route.ts
+              cp /var/www/timbangqr-airhitam/src/lib/lps-qr-integration.ts /var/www/timbangqr-ocr-led/src/lib/lps-qr-integration.ts
+              cp /var/www/timbangqr-airhitam/src/lib/lps-sync.ts /var/www/timbangqr-ocr-led/src/lib/lps-sync.ts
+              cp /var/www/timbangqr-airhitam/src/app/\(app\)/transaksi/\[id\]/page.tsx /var/www/timbangqr-ocr-led/src/app/\(app\)/transaksi/\[id\]/page.tsx
+              cd /var/www/timbangqr-ocr-led && npm run build && pm2 reload ocr-led
+            fi
             /usr/local/bin/update-lps
           '
           rm -f ~/.ssh/id_deploy
