@@ -88,10 +88,10 @@ export interface QrFailureParams {
 }
 
 /**
- * Mencatat kendala / kegagalan scan QR (Hangus, Usang, Tidak Terdaftar, dll)
- * secara non-blocking (fire-and-forget).
+ * Mencatat kendala / kegagalan scan QR (Hangus, Usang, Tidak Terdaftar, dll).
+ * Mengembalikan Promise agar route handler dapat memastikan data tersimpan.
  */
-export function logQrFailure({
+export async function logQrFailure({
     transdepo,
     platNomor,
     namaLps,
@@ -104,12 +104,12 @@ export function logQrFailure({
     operatorName = 'Sistem Auto-Detect',
     tiketNumberRef,
     fotoKondisiUrl,
-}: QrFailureParams): void {
+}: QrFailureParams): Promise<void> {
     const depo = String(transdepo || '').toUpperCase();
     const cleanDepo = depo.includes('HARAPAN') ? 'HARAPAN_JAYA' : 'AIR_HITAM';
 
-    prisma.qrFailureReport
-        .create({
+    try {
+        await prisma.qrFailureReport.create({
             data: {
                 transdepo: cleanDepo,
                 platNomor: platNomor || null,
@@ -124,9 +124,9 @@ export function logQrFailure({
                 tiketNumberRef: tiketNumberRef || null,
                 fotoKondisiUrl: fotoKondisiUrl || null,
             },
-        })
-        .catch((err) => {
-            console.error('[QR Failure Logger Error]', err);
         });
+    } catch (err) {
+        console.error('[QR Failure Logger Error]', err);
+    }
 }
 
