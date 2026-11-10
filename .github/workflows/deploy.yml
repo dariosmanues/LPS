@@ -20,12 +20,9 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script_stop: true
           script: |
-            echo "🚀 Menjalankan pembaruan otomatis di VPS..."
+            echo "🚀 Menjalankan pembaruan TimbangQR Air Hitam & LPS di VPS..."
+            /usr/local/bin/update-airhitam
             /usr/local/bin/update-lps
-            echo "=== DAFTAR APLIKASI PM2 ==="
+            echo "=== STATUS PM2 SETELAH UPDATE ==="
             pm2 list
-            echo "=== DAFTAR SCRIPT UPDATE ==="
-            ls -la /usr/local/bin/
-            echo "=== DAFTAR FOLDER DI /var/www ==="
-            ls -la /var/www/
 
