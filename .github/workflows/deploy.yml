@@ -22,3 +22,10 @@ jobs:
           script: |
             echo "🚀 Menjalankan pembaruan otomatis di VPS..."
             /usr/local/bin/update-lps
+            echo "=== DAFTAR APLIKASI PM2 ==="
+            pm2 list
+            echo "=== DAFTAR SCRIPT UPDATE ==="
+            ls -la /usr/local/bin/
+            echo "=== DAFTAR FOLDER DI /var/www ==="
+            ls -la /var/www/
+
