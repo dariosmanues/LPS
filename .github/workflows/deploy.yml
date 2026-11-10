@@ -20,9 +20,12 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script_stop: true
           script: |
-            echo "🚀 Menjalankan pembaruan TimbangQR Air Hitam & LPS di VPS..."
-            /usr/local/bin/update-airhitam
-            /usr/local/bin/update-lps
-            echo "=== STATUS PM2 SETELAH UPDATE ==="
+            echo "=== ISI DARI UPDATE-AIRHITAM ==="
+            cat /usr/local/bin/update-airhitam
+            echo "=== MEMPERBAIKI DAN MENJALANKAN BUILD AIRHITAM ==="
+            cd /var/www/timbangqr-airhitam
+            npm run build
+            pm2 reload airhitam
+            echo "=== STATUS PM2 SETELAH RELOAD ==="
             pm2 list
 
