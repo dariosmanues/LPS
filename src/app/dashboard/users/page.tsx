@@ -371,7 +371,7 @@ export default function UsersPage() {
                                                             ? 'bg-linear-to-br from-green-600 to-emerald-700'
                                                             : 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-200'
                                                     }`}>
-                                                        {user.role === 'SUPERADMIN' ? (
+                                                        {isSuperAdmin && user.role === 'SUPERADMIN' ? (
                                                             <img
                                                                 src="/avatar-superadmin.png"
                                                                 alt={user.name}
