@@ -247,8 +247,16 @@ export function Sidebar({ children }: SidebarProps) {
                             </div>
                             {session?.user && (
                                 <div className="flex items-center gap-3 pt-2 border-t border-purple-100/60">
-                                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold shrink-0">
-                                        {session.user.name?.charAt(0) || 'U'}
+                                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold shrink-0 overflow-hidden ring-2 ring-purple-200">
+                                        {isSuperAdmin ? (
+                                            <img
+                                                src="/avatar-superadmin.png"
+                                                alt={session.user.name || 'Nisa'}
+                                                className="w-full h-full object-cover object-center"
+                                            />
+                                        ) : (
+                                            session.user.name?.charAt(0) || 'U'
+                                        )}
                                     </div>
                                     <div className="min-w-0">
                                         <p className="font-semibold text-gray-800 text-sm truncate">{session.user.name}</p>
@@ -400,7 +408,7 @@ export function Sidebar({ children }: SidebarProps) {
                         {/* User Avatar */}
                         {session?.user && (
                             <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs ${
+                                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs overflow-hidden ${
                                     isSuperAdmin
                                         ? 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-300'
                                         : 'bg-linear-to-br from-amber-500 to-amber-600 ring-2 ring-amber-200'
@@ -409,7 +417,15 @@ export function Sidebar({ children }: SidebarProps) {
                                     isSuperAdmin ? 'Super Admin (Akses Penuh)' : 'Mode Read-Only (Hanya Lihat)'
                                 }`}
                             >
-                                {session.user.name?.charAt(0) || 'U'}
+                                {isSuperAdmin ? (
+                                    <img
+                                        src="/avatar-superadmin.png"
+                                        alt={session.user.name || 'Nisa'}
+                                        className="w-full h-full object-cover object-center"
+                                    />
+                                ) : (
+                                    session.user.name?.charAt(0) || 'U'
+                                )}
                             </div>
                         )}
                         <button

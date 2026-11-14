@@ -165,8 +165,16 @@ export default function DashboardPage() {
                                 aria-expanded={userMenuOpen}
                                 title="Menu Pengguna"
                             >
-                                <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-semibold shadow-xs">
-                                    {session?.user?.name?.charAt(0) || 'A'}
+                                <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-semibold shadow-xs overflow-hidden ring-2 ring-purple-200">
+                                    {isSuperAdmin ? (
+                                        <img
+                                            src="/avatar-superadmin.png"
+                                            alt={session?.user?.name || 'Nisa'}
+                                            className="w-full h-full object-cover object-center"
+                                        />
+                                    ) : (
+                                        session?.user?.name?.charAt(0) || 'A'
+                                    )}
                                 </div>
                                 <div className="hidden sm:block">
                                     <p className="text-sm font-medium text-gray-700 leading-tight">

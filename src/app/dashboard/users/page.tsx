@@ -366,12 +366,20 @@ export default function UsersPage() {
                                         <tr key={user.id} className="hover:bg-purple-50/30 transition-colors">
                                             <td className="py-3 px-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0 ${
+                                                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0 overflow-hidden ${
                                                         isLps
                                                             ? 'bg-linear-to-br from-green-600 to-emerald-700'
-                                                            : 'bg-linear-to-br from-purple-600 to-indigo-700'
+                                                            : 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-200'
                                                     }`}>
-                                                        {user.name.charAt(0).toUpperCase()}
+                                                        {user.role === 'SUPERADMIN' ? (
+                                                            <img
+                                                                src="/avatar-superadmin.png"
+                                                                alt={user.name}
+                                                                className="w-full h-full object-cover object-center"
+                                                            />
+                                                        ) : (
+                                                            user.name.charAt(0).toUpperCase()
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <div className="font-semibold text-gray-800 text-sm">{user.name}</div>
