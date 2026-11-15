@@ -77,15 +77,19 @@ export async function GET(request: Request) {
                         platNomor: true,
                         namaSupir: true,
                         jenisArmada: true,
-                        namaLps: true
+                        namaLps: true,
+                        lokasiTransdepo: true,
                     }
                 },
                 timbangQrSync: {
                     select: {
                         ticketNumber: true,
                         plateNumber: true,
+                        lpsName: true,
+                        transdepo: true,
                         grossKg: true,
                         tareKg: true,
+                        rafaksiKg: true,
                         nettoKg: true,
                         weighedAt: true
                     }
@@ -125,6 +129,37 @@ export async function GET(request: Request) {
             currentDaily.tripCount += 1;
             dailyMap.set(dateStr, currentDaily);
 
+            const gross = log.timbangQrSync?.grossKg !== null && log.timbangQrSync?.grossKg !== undefined
+                ? Number(log.timbangQrSync.grossKg)
+                : null;
+            const tare = log.timbangQrSync?.tareKg !== null && log.timbangQrSync?.tareKg !== undefined
+                ? Number(log.timbangQrSync.tareKg)
+                : null;
+            const rafaksi = log.timbangQrSync?.rafaksiKg !== null && log.timbangQrSync?.rafaksiKg !== undefined
+                ? Number(log.timbangQrSync.rafaksiKg)
+                : 0;
+            const netto1 = (gross !== null && tare !== null) ? Math.max(0, gross - tare) : berat;
+            const netto2 = (netto1 - rafaksi) > 0 ? (netto1 - rafaksi) : berat;
+
+            const transdepoRaw = String(log.timbangQrSync?.transdepo || log.armada?.lokasiTransdepo || '');
+            const transdepoTitle = transdepoRaw.toUpperCase().includes('HARAPAN')
+                ? 'TIMBANGQR HARAPAN JAYA'
+                : 'TIMBANGQR AIR HITAM';
+
+            const lpsName = log.timbangQrSync?.lpsName || log.armada?.namaLps || (kelurahan ? `LPS ${kelurahan.nama}` : 'LPS Pekanbaru');
+
+            const weighedDateObj = log.timbangQrSync?.weighedAt ? new Date(log.timbangQrSync.weighedAt) : dateObj;
+            const weighedAtFormatted = weighedDateObj.toLocaleDateString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            }) + ', ' + weighedDateObj.toLocaleTimeString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).replace(':', '.') + ' WIB';
+
             return {
                 id: log.id,
                 ticketNumber: log.timbangQrSync?.ticketNumber || `LOG-${log.id.slice(0, 8)}`,
@@ -132,8 +167,14 @@ export async function GET(request: Request) {
                 driverName: log.armada?.namaSupir || '-',
                 jenisArmada: log.armada?.jenisArmada || 'DUMPTRUCK',
                 beratKg: berat,
-                grossKg: log.timbangQrSync ? Number(log.timbangQrSync.grossKg) : null,
-                tareKg: log.timbangQrSync ? Number(log.timbangQrSync.tareKg) : null,
+                grossKg: gross,
+                tareKg: tare,
+                rafaksiKg: rafaksi,
+                netto1Kg: netto1,
+                netto2Kg: netto2,
+                transdepo: transdepoTitle,
+                lpsName: lpsName,
+                weighedAtFormatted: weighedAtFormatted,
                 recordedAt: log.recordedAt.toISOString(),
                 timeFormatted: dateObj.toLocaleTimeString('id-ID', {
                     timeZone: 'Asia/Jakarta',
