@@ -131,16 +131,36 @@ export async function GET() {
                         }
                     },
                     select: {
-                        beratKg: true
+                        beratKg: true,
+                        recordedAt: true
                     }
                 }
             }
         })
 
+        // Himpun semua bulan yang memiliki data waste logs
+        const availableMonthsSet = new Set<string>();
+
         const armadaStats = armadas.map(armada => {
-            const totalBerat = (armada.wasteLogs || []).reduce((sum, log) => {
-                return sum + Number(log.beratKg || 0)
-            }, 0)
+            const monthlyStats: Record<string, { ritasi: number; beratKg: number }> = {};
+            let totalRitasi = 0;
+            let totalBerat = 0;
+
+            (armada.wasteLogs || []).forEach(log => {
+                const date = new Date(log.recordedAt);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                availableMonthsSet.add(monthKey);
+
+                const berat = Number(log.beratKg || 0);
+                if (!monthlyStats[monthKey]) {
+                    monthlyStats[monthKey] = { ritasi: 0, beratKg: 0 };
+                }
+                monthlyStats[monthKey].ritasi += 1;
+                monthlyStats[monthKey].beratKg += berat;
+
+                totalRitasi += 1;
+                totalBerat += berat;
+            });
 
             return {
                 id: armada.id,
@@ -151,9 +171,18 @@ export async function GET() {
                 noIzinOperasi: armada.noIzinOperasi || '-',
                 namaKetuaLps: armada.namaKetuaLps || '-',
                 lokasiTransdepo: armada.lokasiTransdepo || '-',
-                totalBerat: totalBerat
+                totalBerat: totalBerat,
+                totalRitasi: totalRitasi,
+                monthlyStats: monthlyStats
             }
         })
+
+        // Pastikan bulan berjalan selalu ada dalam daftar filter bulan
+        const nowObj = new Date();
+        const currentMonthKey = `${nowObj.getFullYear()}-${String(nowObj.getMonth() + 1).padStart(2, '0')}`;
+        availableMonthsSet.add(currentMonthKey);
+
+        const availableMonths = Array.from(availableMonthsSet).sort((a, b) => b.localeCompare(a));
 
         const stats = {
             totalLaporan,
@@ -174,6 +203,7 @@ export async function GET() {
             },
             stats,
             armadaStats,
+            availableMonths,
             laporan: laporan.map(item => ({
                 id: item.id,
                 bulan: item.bulan,
