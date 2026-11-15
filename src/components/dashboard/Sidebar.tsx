@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Logo } from '@/components/ui/Logo';
 import { isSuperAdminUser } from '@/lib/permissions';
 import { useViewMode, ViewModeToggle } from '@/components/ViewModeProvider';
+import { SuperAdminAvatarModal, useSuperAdminAvatarUrl } from '@/components/dashboard/SuperAdminAvatarModal';
 
 const menuItems = [
     {
@@ -175,11 +176,20 @@ interface SidebarProps {
 export function Sidebar({ children }: SidebarProps) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [avatarModalOpen, setAvatarModalOpen] = useState(false);
     const { data: session } = useSession();
     const { isMobileMode } = useViewMode();
 
     const isSuperAdmin = isSuperAdminUser(session?.user);
+    const superAdminAvatarUrl = useSuperAdminAvatarUrl();
     const filteredMenuItems = menuItems;
+
+    useEffect(() => {
+        if (!isSuperAdmin) return;
+        const handleOpenModal = () => setAvatarModalOpen(true);
+        window.addEventListener('superadmin-avatar-open-modal', handleOpenModal);
+        return () => window.removeEventListener('superadmin-avatar-open-modal', handleOpenModal);
+    }, [isSuperAdmin]);
 
     const handleLogout = () => {
         signOut({ callbackUrl: '/' });
@@ -247,23 +257,54 @@ export function Sidebar({ children }: SidebarProps) {
                             </div>
                             {session?.user && (
                                 <div className="flex items-center gap-3 pt-2 border-t border-purple-100/60">
-                                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold shrink-0 overflow-hidden ring-2 ring-purple-200">
+                                    <div
+                                        onClick={() => {
+                                            if (isSuperAdmin) {
+                                                setMobileMenuOpen(false);
+                                                setAvatarModalOpen(true);
+                                            }
+                                        }}
+                                        className={`w-10 h-10 rounded-full bg-linear-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white font-semibold shrink-0 overflow-hidden ring-2 ring-purple-200 relative group ${
+                                            isSuperAdmin ? 'cursor-pointer' : ''
+                                        }`}
+                                        title={isSuperAdmin ? 'Klik untuk ganti foto profil' : undefined}
+                                    >
                                         {isSuperAdmin ? (
-                                            <img
-                                                src="/avatar-superadmin.png"
-                                                alt={session.user.name || 'Nisa'}
-                                                className="w-full h-full object-cover object-center"
-                                            />
+                                            <>
+                                                <img
+                                                    src={superAdminAvatarUrl}
+                                                    alt={session.user.name || 'Nisa'}
+                                                    className="w-full h-full object-cover object-center"
+                                                />
+                                                <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                </span>
+                                            </>
                                         ) : (
                                             session.user.name?.charAt(0) || 'U'
                                         )}
                                     </div>
-                                    <div className="min-w-0">
+                                    <div className="min-w-0 flex-1">
                                         <p className="font-semibold text-gray-800 text-sm truncate">{session.user.name}</p>
                                         {isSuperAdmin ? (
-                                            <span className="inline-block text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-bold">
-                                                Super Admin (Full Akses)
-                                            </span>
+                                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                <span className="inline-block text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-bold">
+                                                    Super Admin
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setMobileMenuOpen(false);
+                                                        setAvatarModalOpen(true);
+                                                    }}
+                                                    className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-purple-600 text-white rounded-full font-semibold hover:bg-purple-700 transition-colors cursor-pointer"
+                                                >
+                                                    <span>📷</span> Ganti Foto
+                                                </button>
+                                            </div>
                                         ) : (
                                             <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-semibold">
                                                 <span>👁️</span> Read-Only
@@ -364,6 +405,15 @@ export function Sidebar({ children }: SidebarProps) {
                         </button>
                     </nav>
                 </div>
+
+                {isSuperAdmin && (
+                    <SuperAdminAvatarModal
+                        isOpen={avatarModalOpen}
+                        onClose={() => setAvatarModalOpen(false)}
+                        userName={session?.user?.name || 'Nisa'}
+                        userEmail={session?.user?.email || 'superadmin@lps.pekanbaru.go.id'}
+                    />
+                )}
             </div>
         );
     }
@@ -408,21 +458,36 @@ export function Sidebar({ children }: SidebarProps) {
                         {/* User Avatar */}
                         {session?.user && (
                             <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs overflow-hidden ${
+                                onClick={() => {
+                                    if (isSuperAdmin) {
+                                        setAvatarModalOpen(true);
+                                    }
+                                }}
+                                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm cursor-pointer shadow-xs overflow-hidden relative group ${
                                     isSuperAdmin
                                         ? 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-300'
                                         : 'bg-linear-to-br from-amber-500 to-amber-600 ring-2 ring-amber-200'
                                 }`}
                                 title={`${session.user.name} - ${
-                                    isSuperAdmin ? 'Super Admin (Akses Penuh)' : 'Mode Read-Only (Hanya Lihat)'
+                                    isSuperAdmin
+                                        ? 'Super Admin (Klik untuk ganti foto profil)'
+                                        : 'Mode Read-Only (Hanya Lihat)'
                                 }`}
                             >
                                 {isSuperAdmin ? (
-                                    <img
-                                        src="/avatar-superadmin.png"
-                                        alt={session.user.name || 'Nisa'}
-                                        className="w-full h-full object-cover object-center"
-                                    />
+                                    <>
+                                        <img
+                                            src={superAdminAvatarUrl}
+                                            alt={session.user.name || 'Nisa'}
+                                            className="w-full h-full object-cover object-center"
+                                        />
+                                        <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                        </span>
+                                    </>
                                 ) : (
                                     session.user.name?.charAt(0) || 'U'
                                 )}
@@ -459,6 +524,15 @@ export function Sidebar({ children }: SidebarProps) {
                     {children}
                 </main>
             </div>
+
+            {isSuperAdmin && (
+                <SuperAdminAvatarModal
+                    isOpen={avatarModalOpen}
+                    onClose={() => setAvatarModalOpen(false)}
+                    userName={session?.user?.name || 'Nisa'}
+                    userEmail={session?.user?.email || 'superadmin@lps.pekanbaru.go.id'}
+                />
+            )}
         </div>
     );
 }

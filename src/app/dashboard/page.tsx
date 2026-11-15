@@ -8,6 +8,7 @@ import { GlassCard, StatCard } from '@/components/ui';
 import { MonthlyWasteChart } from '@/components/dashboard/MonthlyWasteChart';
 import { usePermissions } from '@/lib/permissions';
 import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
+import { useSuperAdminAvatarUrl, triggerSuperAdminAvatarModal } from '@/components/dashboard/SuperAdminAvatarModal';
 
 interface TransdepoStats {
     totalKg: number;
@@ -35,6 +36,7 @@ interface WasteStats {
 export default function DashboardPage() {
     const { data: session } = useSession();
     const { isSuperAdmin, isReadOnly } = usePermissions();
+    const superAdminAvatarUrl = useSuperAdminAvatarUrl();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [period, setPeriod] = useState<'today' | 'month'>('today');
     const [todayStats, setTodayStats] = useState<WasteStats | null>(null);
@@ -168,7 +170,7 @@ export default function DashboardPage() {
                                 <div className="w-10 h-10 rounded-full bg-linear-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-semibold shadow-xs overflow-hidden ring-2 ring-purple-200">
                                     {isSuperAdmin ? (
                                         <img
-                                            src="/avatar-superadmin.png"
+                                            src={superAdminAvatarUrl}
                                             alt={session?.user?.name || 'Nisa'}
                                             className="w-full h-full object-cover object-center"
                                         />
@@ -196,11 +198,27 @@ export default function DashboardPage() {
                                         className="fixed inset-0 z-40"
                                         onClick={() => setUserMenuOpen(false)}
                                     />
-                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                                    <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
                                         <div className="px-4 py-2 border-b border-gray-100">
                                             <p className="text-sm font-semibold text-gray-800">{session?.user?.name || 'Admin'}</p>
                                             <p className="text-xs text-gray-500">{session?.user?.email || session?.user?.role || 'Administrator'}</p>
                                         </div>
+                                        {isSuperAdmin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setUserMenuOpen(false);
+                                                    triggerSuperAdminAvatarModal();
+                                                }}
+                                                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-700 hover:bg-purple-50 transition-colors text-left font-medium cursor-pointer border-b border-gray-100"
+                                            >
+                                                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                Ganti Foto Profil
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={() => signOut({ callbackUrl: '/' })}
