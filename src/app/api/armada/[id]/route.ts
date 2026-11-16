@@ -166,10 +166,8 @@ export async function DELETE(
 
     try {
         const { id } = await params;
-        const { searchParams } = new URL(request.url);
-        const force = searchParams.get('force') === 'true';
 
-        // Ambil data armada sebelum dihapus untuk sinkronisasi penonaktifan ke TimbangQR
+        // Ambil data armada sebelum dihapus untuk menyimpan snapshot & sinkronisasi penonaktifan ke TimbangQR
         const existingArmada = await prisma.armada.findUnique({
             where: { id },
             include: {
@@ -179,53 +177,117 @@ export async function DELETE(
             },
         });
 
-        if (force) {
-            // Force delete: Hapus timbangqr_syncs terkait, lalu log sampah, baru armadanya
-            const wasteLogs = await prisma.wasteLog.findMany({
-                where: { armadaId: id },
-                select: { id: true },
-            });
-            const wasteLogIds = wasteLogs.map((w) => w.id);
-
-            const operations = [];
-            if (wasteLogIds.length > 0) {
-                operations.push(
-                    prisma.timbangQrSync.deleteMany({
-                        where: { wasteLogId: { in: wasteLogIds } },
-                    })
-                );
-                operations.push(
-                    prisma.wasteLog.deleteMany({
-                        where: { armadaId: id },
-                    })
-                );
-            }
-            operations.push(
-                prisma.armada.delete({
-                    where: { id },
-                })
-            );
-
-            await prisma.$transaction(operations);
-        } else {
-            // Normal delete: Cek apakah armada memiliki log sampah
-            const count = await prisma.wasteLog.count({
-                where: { armadaId: id },
-            });
-            if (count > 0) {
-                return NextResponse.json({
-                    error: `Armada memiliki ${count} riwayat data sampah (Log).`,
-                    requiresConfirmation: true,
-                }, { status: 409 });
-            }
-
-            await prisma.armada.delete({
-                where: { id },
-            });
+        if (!existingArmada) {
+            return NextResponse.json({ error: 'Data armada tidak ditemukan.' }, { status: 404 });
         }
 
-        // Sinkronisasi penonaktifan ke TimbangQR sesuai wilayah transdepo
-        if (existingArmada) {
+        // Pastikan kolom armada_id di waste_logs mengizinkan NULL & ON DELETE SET NULL agar transaksi tidak pernah ikut terhapus
+        try {
+            await prisma.$executeRawUnsafe(`ALTER TABLE "waste_logs" ALTER COLUMN "armada_id" DROP NOT NULL;`);
+            await prisma.$executeRawUnsafe(`
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE constraint_name = 'waste_logs_armada_id_fkey'
+                        AND table_name = 'waste_logs'
+                    ) THEN
+                        ALTER TABLE "waste_logs" DROP CONSTRAINT "waste_logs_armada_id_fkey";
+                        ALTER TABLE "waste_logs" ADD CONSTRAINT "waste_logs_armada_id_fkey"
+                            FOREIGN KEY ("armada_id") REFERENCES "armada"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+                    END IF;
+                END
+                $$;
+            `);
+        } catch (ddlErr) {
+            console.warn('[DELETE /api/armada/[id]] DDL check warning:', ddlErr);
+        }
+
+        // Ambil semua transaksi (wasteLog) milik armada ini agar datanya tetap terjaga 100% (TIDAK DIHAPUS)
+        const wasteLogs = await prisma.wasteLog.findMany({
+            where: { armadaId: id },
+            select: {
+                id: true,
+                kelurahanId: true,
+                metadata: true,
+            },
+        });
+
+        // Cek apakah ada armada lain dengan plat nomor yang sama (misal saat menghapus data duplikat)
+        const cleanPlate = (existingArmada.platNomor || '').replace(/[^A-Z0-9]/gi, '').toUpperCase();
+        const otherArmadas = await prisma.armada.findMany({
+            where: { id: { not: id } },
+            select: { id: true, platNomor: true, kelurahanId: true, namaLps: true },
+        });
+        const samePlateArmadas = otherArmadas.filter(
+            (a) => (a.platNomor || '').replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanPlate
+        );
+        const survivingArmada =
+            samePlateArmadas.find((a) => a.kelurahanId === existingArmada.kelurahanId) ||
+            samePlateArmadas.find((a) => (a.namaLps || '').toLowerCase() === (existingArmada.namaLps || '').toLowerCase()) ||
+            samePlateArmadas[0] ||
+            null;
+
+        const deletedArmadaSnapshot = {
+            id: existingArmada.id,
+            platNomor: existingArmada.platNomor,
+            namaLps: existingArmada.namaLps,
+            namaSupir: existingArmada.namaSupir || null,
+            jenisArmada: existingArmada.jenisArmada || null,
+            lokasiTransdepo: existingArmada.lokasiTransdepo || null,
+            wilayahKerja: existingArmada.wilayahKerja || null,
+            noIzinOperasi: existingArmada.noIzinOperasi || null,
+            namaKetuaLps: existingArmada.namaKetuaLps || null,
+            kelurahanId: existingArmada.kelurahanId || null,
+            kelurahanNama: existingArmada.kelurahan?.nama || null,
+            kecamatanNama: existingArmada.kelurahan?.kecamatan?.nama || null,
+            qrGeneratedIp: existingArmada.qrGeneratedIp || null,
+            qrGeneratedUserAgent: existingArmada.qrGeneratedUserAgent || null,
+            qrGeneratedBy: existingArmada.qrGeneratedBy || null,
+            deletedAt: new Date().toISOString(),
+        };
+
+        await prisma.$transaction(async (tx) => {
+            if (wasteLogs.length > 0) {
+                for (const log of wasteLogs) {
+                    let parsedMeta: Record<string, any> = {};
+                    if (log.metadata) {
+                        try {
+                            parsedMeta = JSON.parse(log.metadata);
+                        } catch {
+                            parsedMeta = {};
+                        }
+                    }
+
+                    const updatedMetadata = JSON.stringify({
+                        ...parsedMeta,
+                        platNomor: parsedMeta.platNomor || existingArmada.platNomor,
+                        lpsName: parsedMeta.lpsName || existingArmada.namaLps,
+                        driverName: parsedMeta.driverName || existingArmada.namaSupir || null,
+                        vehicleType: parsedMeta.vehicleType || existingArmada.jenisArmada || null,
+                        lokasiTransdepo: parsedMeta.lokasiTransdepo || existingArmada.lokasiTransdepo || null,
+                        deletedArmada: deletedArmadaSnapshot,
+                    });
+
+                    await tx.wasteLog.update({
+                        where: { id: log.id },
+                        data: {
+                            armadaId: survivingArmada ? survivingArmada.id : null,
+                            kelurahanId: log.kelurahanId || existingArmada.kelurahanId || null,
+                            metadata: updatedMetadata,
+                        },
+                    });
+                }
+            }
+
+            // Hanya hapus master armada, JANGAN hapus wasteLog ataupun timbangQrSync
+            await tx.armada.delete({
+                where: { id },
+            });
+        });
+
+        // Sinkronisasi penonaktifan ke TimbangQR sesuai wilayah transdepo (jika tidak ada duplikat aktif dengan plat yang sama)
+        if (!survivingArmada) {
             try {
                 await syncArmadaToTimbangQr({ ...existingArmada, isActive: false });
             } catch (syncErr) {
@@ -233,16 +295,13 @@ export async function DELETE(
             }
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({
+            success: true,
+            preservedLogsCount: wasteLogs.length,
+            reassignedToArmadaId: survivingArmada?.id || null,
+        });
     } catch (error: any) {
         console.error('Error deleting armada:', error);
-
-        if (error.code === 'P2003') {
-            return NextResponse.json({
-                error: 'Data tidak dapat dihapus karena masih terhubung dengan data lain (Log Sampah).',
-                requiresConfirmation: true
-            }, { status: 409 });
-        }
 
         return NextResponse.json({
             error: `Gagal menghapus data armada: ${error instanceof Error ? error.message : 'Unknown error'}`

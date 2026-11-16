@@ -141,12 +141,22 @@ export async function GET(request: Request) {
             const netto1 = (gross !== null && tare !== null) ? Math.max(0, gross - tare) : berat;
             const netto2 = (netto1 - rafaksi) > 0 ? (netto1 - rafaksi) : berat;
 
-            const transdepoRaw = String(log.timbangQrSync?.transdepo || log.armada?.lokasiTransdepo || '');
+            let metaObj: Record<string, any> = {};
+            if (log.metadata) {
+                try {
+                    metaObj = JSON.parse(log.metadata);
+                } catch {
+                    metaObj = {};
+                }
+            }
+            const deletedSnap = metaObj.deletedArmada || {};
+
+            const transdepoRaw = String(log.timbangQrSync?.transdepo || log.armada?.lokasiTransdepo || deletedSnap.lokasiTransdepo || '');
             const transdepoTitle = transdepoRaw.toUpperCase().includes('HARAPAN')
                 ? 'TIMBANGQR HARAPAN JAYA'
                 : 'TIMBANGQR AIR HITAM';
 
-            const lpsName = log.timbangQrSync?.lpsName || log.armada?.namaLps || (kelurahan ? `LPS ${kelurahan.nama}` : 'LPS Pekanbaru');
+            const lpsName = log.timbangQrSync?.lpsName || log.armada?.namaLps || deletedSnap.namaLps || (kelurahan ? `LPS ${kelurahan.nama}` : 'LPS Pekanbaru');
 
             const weighedDateObj = log.timbangQrSync?.weighedAt ? new Date(log.timbangQrSync.weighedAt) : dateObj;
             const weighedAtFormatted = weighedDateObj.toLocaleDateString('id-ID', {
@@ -162,10 +172,10 @@ export async function GET(request: Request) {
 
             return {
                 id: log.id,
-                ticketNumber: log.timbangQrSync?.ticketNumber || `LOG-${log.id.slice(0, 8)}`,
-                plateNumber: log.armada?.platNomor || log.timbangQrSync?.plateNumber || '-',
-                driverName: log.armada?.namaSupir || '-',
-                jenisArmada: log.armada?.jenisArmada || 'DUMPTRUCK',
+                ticketNumber: log.timbangQrSync?.ticketNumber || metaObj.ticketNumber || `LOG-${log.id.slice(0, 8)}`,
+                plateNumber: log.armada?.platNomor || log.timbangQrSync?.plateNumber || deletedSnap.platNomor || metaObj.platNomor || '-',
+                driverName: log.armada?.namaSupir || deletedSnap.namaSupir || metaObj.driverName || '-',
+                jenisArmada: log.armada?.jenisArmada || deletedSnap.jenisArmada || metaObj.vehicleType || 'DUMPTRUCK',
                 beratKg: berat,
                 grossKg: gross,
                 tareKg: tare,

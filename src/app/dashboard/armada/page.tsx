@@ -269,28 +269,23 @@ export default function ArmadaPage() {
         setShowModal(true);
     };
 
-    const handleDelete = async (id: string, force = false) => {
-        if (!force && !confirm('Apakah Anda yakin ingin menghapus data armada ini?')) return;
+    const handleDelete = async (id: string) => {
+        if (!confirm('Apakah Anda yakin ingin menghapus data armada ini?\n\nCatatan: Data transaksi / riwayat penimbangan pada armada ini TIDAK akan dihapus dan tetap tersimpan di laporan.')) return;
 
         try {
-            const res = await fetch(`/api/armada/${id}${force ? '?force=true' : ''}`, {
+            const res = await fetch(`/api/armada/${id}`, {
                 method: 'DELETE',
             });
 
             if (res.ok) {
+                const data = await res.json().catch(() => ({}));
                 fetchArmada();
-                if (force) alert('Data armada dan riwayatnya berhasil dihapus.');
-            } else {
-                const data = await res.json();
-
-                if (!force && res.status === 409 && data.requiresConfirmation) {
-                    if (confirm('Armada ini memiliki riwayat data sampah (Log). \n\nApakah Anda yakin ingin menghapus armada BESERTA SELURUH RIWAYATNYA?\n\nTindakan ini akan menghapus data armada dan semua log sampah terkait secara permanen dan tidak dapat dibatalkan.')) {
-                        handleDelete(id, true);
-                        return;
-                    }
-                } else {
-                    alert(data.error || 'Gagal menghapus data armada');
+                if (data.preservedLogsCount > 0) {
+                    alert(`✅ Data armada berhasil dihapus. Sebanyak ${data.preservedLogsCount} data transaksi penimbangan tetap tersimpan dengan aman.`);
                 }
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(data.error || 'Gagal menghapus data armada');
             }
         } catch (error) {
             console.error('Error deleting armada:', error);

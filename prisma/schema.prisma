@@ -87,8 +87,8 @@ model Armada {
 
 model WasteLog {
   id          String      @id @default(uuid())
-  armadaId    String      @map("armada_id")
-  armada      Armada      @relation(fields: [armadaId], references: [id])
+  armadaId    String?     @map("armada_id")
+  armada      Armada?     @relation(fields: [armadaId], references: [id], onDelete: SetNull)
   kelurahanId String?     @map("kelurahan_id")
   kelurahan   Kelurahan?  @relation(fields: [kelurahanId], references: [id])
   recordedBy  String      @map("recorded_by")

@@ -226,13 +226,13 @@ export default function LogsPage() {
                                                 {formatDate(log.recordedAt)}
                                             </td>
                                             <td className="px-5 py-3.5">
-                                                <div className="font-bold text-gray-800 text-sm">{log.armada.platNomor}</div>
-                                                {log.armada.namaLps && (
+                                                <div className="font-bold text-gray-800 text-sm">{log.armada?.platNomor || '-'}</div>
+                                                {log.armada?.namaLps && (
                                                     <div className="text-[11px] text-gray-500 font-medium">{log.armada.namaLps}</div>
                                                 )}
                                             </td>
                                             <td className="px-5 py-3.5 text-gray-600 text-xs">
-                                                {log.armada.namaSupir || '-'}
+                                                {log.armada?.namaSupir || '-'}
                                             </td>
                                             <td className="px-5 py-3.5">
                                                 {log.kelurahan ? (

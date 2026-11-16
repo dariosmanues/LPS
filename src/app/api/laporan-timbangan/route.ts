@@ -32,6 +32,13 @@ export async function GET(request: NextRequest) {
                             { timbangQrSync: null },
                             { armada: { lokasiTransdepo: { contains: 'AIR', mode: 'insensitive' } } }
                         ]
+                    },
+                    {
+                        AND: [
+                            { timbangQrSync: null },
+                            { armadaId: null },
+                            { metadata: { contains: 'AIR', mode: 'insensitive' } }
+                        ]
                     }
                 ]
             }
@@ -42,6 +49,13 @@ export async function GET(request: NextRequest) {
                         AND: [
                             { timbangQrSync: null },
                             { armada: { lokasiTransdepo: { contains: 'HARAPAN', mode: 'insensitive' } } }
+                        ]
+                    },
+                    {
+                        AND: [
+                            { timbangQrSync: null },
+                            { armadaId: null },
+                            { metadata: { contains: 'HARAPAN', mode: 'insensitive' } }
                         ]
                     }
                 ]
@@ -165,6 +179,7 @@ export async function GET(request: NextRequest) {
             select: {
                 beratKg: true,
                 armadaId: true,
+                metadata: true,
                 kelurahan: { select: { nama: true } },
                 armada: {
                     select: {
@@ -174,6 +189,7 @@ export async function GET(request: NextRequest) {
                 },
                 timbangQrSync: {
                     select: {
+                        plateNumber: true,
                         grossKg: true,
                         tareKg: true,
                         nettoKg: true,
@@ -199,7 +215,9 @@ export async function GET(request: NextRequest) {
             return sum + (item.timbangQrSync?.rafaksiKg ? Number(item.timbangQrSync.rafaksiKg) : 0);
         }, 0);
 
-        const uniqueArmadaCount = new Set(allFilteredLogs.map(l => l.armadaId).filter(Boolean)).size;
+        const uniqueArmadaCount = new Set(
+            allFilteredLogs.map(l => l.armadaId || l.timbangQrSync?.plateNumber).filter(Boolean)
+        ).size;
         const activeLpsSet = new Set<string>();
         const activeKelurahanSet = new Set<string>();
         allFilteredLogs.forEach(l => {
@@ -257,11 +275,21 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            const ticketNumber = sync?.ticketNumber || log.metadata ? JSON.parse(log.metadata || '{}').ticketNumber || '-' : '-';
-            const plateNumber = sync?.plateNumber || armada?.platNomor || '-';
-            const lpsName = armada?.namaLps || sync?.lpsName || kel?.nama || 'LPS Belum Terdata';
-            const driverName = payloadObj.driverName || armada?.namaSupir || '-';
-            const vehicleType = payloadObj.vehicleType || armada?.jenisArmada || 'PICKUP';
+            let metaObj: any = {};
+            if (log.metadata) {
+                try {
+                    metaObj = JSON.parse(log.metadata);
+                } catch {
+                    metaObj = {};
+                }
+            }
+            const deletedSnap = metaObj.deletedArmada || {};
+
+            const ticketNumber = sync?.ticketNumber || metaObj.ticketNumber || '-';
+            const plateNumber = sync?.plateNumber || armada?.platNomor || deletedSnap.platNomor || metaObj.platNomor || '-';
+            const lpsName = armada?.namaLps || sync?.lpsName || deletedSnap.namaLps || metaObj.lpsName || kel?.nama || 'LPS Belum Terdata';
+            const driverName = payloadObj.driverName || armada?.namaSupir || deletedSnap.namaSupir || metaObj.driverName || '-';
+            const vehicleType = payloadObj.vehicleType || armada?.jenisArmada || deletedSnap.jenisArmada || metaObj.vehicleType || 'PICKUP';
             const wasteType = payloadObj.wasteType || 'SAMPAH RUMAH TANGGA';
             
             const grossKg = sync?.grossKg ? Number(sync.grossKg) : null;
@@ -280,8 +308,8 @@ export async function GET(request: NextRequest) {
                 driverName,
                 vehicleType,
                 wasteType,
-                kelurahan: kel?.nama || '-',
-                kecamatan: kel?.kecamatan?.nama || '-',
+                kelurahan: kel?.nama || deletedSnap.kelurahanNama || '-',
+                kecamatan: kel?.kecamatan?.nama || deletedSnap.kecamatanNama || '-',
                 transdepo: sync?.transdepo || (isAirHitam ? 'AIR_HITAM' : 'HARAPAN_JAYA'),
                 grossKg,
                 tareKg,

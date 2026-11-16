@@ -45,7 +45,7 @@ export async function GET(request: Request) {
                     select: { id: true, namaLps: true, platNomor: true, lokasiTransdepo: true },
                 },
                 timbangQrSync: {
-                    select: { ticketNumber: true, lpsName: true, transdepo: true }
+                    select: { ticketNumber: true, lpsName: true, transdepo: true, plateNumber: true }
                 }
             },
             orderBy: { recordedAt: 'desc' }
@@ -77,12 +77,22 @@ export async function GET(request: Request) {
             })
         ]);
 
+        const parseLogMeta = (metadata?: string | null) => {
+            if (!metadata) return {};
+            try {
+                return JSON.parse(metadata);
+            } catch {
+                return {};
+            }
+        };
+
         // Helper to aggregate by LPS
         const aggregateByLps = (logs: typeof periodLogs) => {
             const lpsMap = new Map<string, { totalKg: number; tripCount: number }>();
 
             logs.forEach(log => {
-                const lpsName = log.armada?.namaLps || log.timbangQrSync?.lpsName || 'LPS Lainnya';
+                const meta = parseLogMeta(log.metadata);
+                const lpsName = log.armada?.namaLps || log.timbangQrSync?.lpsName || meta.deletedArmada?.namaLps || meta.lpsName || 'LPS Lainnya';
                 const current = lpsMap.get(lpsName) || { totalKg: 0, tripCount: 0 };
                 lpsMap.set(lpsName, {
                     totalKg: current.totalKg + Number(log.beratKg),
@@ -105,7 +115,8 @@ export async function GET(request: Request) {
             if (syncTransdepo === 'AIR_HITAM' || syncTransdepo === 'AIRHITAM') return true;
             const userTransdepo = (log.user?.transdepo || '').toUpperCase();
             if (userTransdepo === 'AIR_HITAM' || userTransdepo === 'AIRHITAM') return true;
-            const armadaTransdepo = (log.armada?.lokasiTransdepo || '').toUpperCase();
+            const meta = parseLogMeta(log.metadata);
+            const armadaTransdepo = (log.armada?.lokasiTransdepo || meta.deletedArmada?.lokasiTransdepo || meta.lokasiTransdepo || '').toUpperCase();
             if (armadaTransdepo.includes('AIR')) return true;
             return false;
         };
@@ -123,7 +134,12 @@ export async function GET(request: Request) {
 
         const totalKg = periodLogs.reduce((sum, log) => sum + Number(log.beratKg), 0);
         const tripCount = periodLogs.length;
-        const uniqueArmada = new Set(periodLogs.map(log => log.armadaId)).size;
+        const uniqueArmada = new Set(
+            periodLogs.map(log => {
+                const meta = parseLogMeta(log.metadata);
+                return log.armadaId || log.timbangQrSync?.plateNumber || meta.deletedArmada?.platNomor || log.id;
+            })
+        ).size;
 
         return NextResponse.json({
             period,

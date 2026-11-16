@@ -26,13 +26,15 @@ export async function GET(request: NextRequest) {
                 { armada: { platNomor: { contains: search, mode: 'insensitive' } } },
                 { armada: { namaLps: { contains: search, mode: 'insensitive' } } },
                 { armada: { namaSupir: { contains: search, mode: 'insensitive' } } },
+                { timbangQrSync: { plateNumber: { contains: search, mode: 'insensitive' } } },
+                { timbangQrSync: { lpsName: { contains: search, mode: 'insensitive' } } },
                 { kelurahan: { nama: { contains: search, mode: 'insensitive' } } },
                 { kelurahan: { kecamatan: { nama: { contains: search, mode: 'insensitive' } } } },
                 { metadata: { contains: search, mode: 'insensitive' } },
             ];
         }
 
-        const [logs, total] = await Promise.all([
+        const [rawLogs, total] = await Promise.all([
             prisma.wasteLog.findMany({
                 where,
                 take: limit,
@@ -50,6 +52,13 @@ export async function GET(request: NextRequest) {
                             qrGeneratedBy: true,
                         },
                     },
+                    timbangQrSync: {
+                        select: {
+                            plateNumber: true,
+                            lpsName: true,
+                            ticketNumber: true,
+                        },
+                    },
                     kelurahan: {
                         select: { nama: true, kecamatan: { select: { nama: true } } },
                     },
@@ -58,6 +67,32 @@ export async function GET(request: NextRequest) {
             }),
             prisma.wasteLog.count({ where }),
         ]);
+
+        // Pastikan log yang armadanya telah dihapus tetap memiliki informasi armada lengkap dari snapshot/timbangQrSync
+        const logs = rawLogs.map((log) => {
+            if (log.armada) return log;
+            let meta: Record<string, any> = {};
+            if (log.metadata) {
+                try {
+                    meta = JSON.parse(log.metadata);
+                } catch {
+                    meta = {};
+                }
+            }
+            const deletedSnap = meta.deletedArmada || {};
+            return {
+                ...log,
+                armada: {
+                    platNomor: deletedSnap.platNomor || log.timbangQrSync?.plateNumber || meta.platNomor || '-',
+                    namaSupir: deletedSnap.namaSupir || meta.driverName || '-',
+                    namaLps: deletedSnap.namaLps || log.timbangQrSync?.lpsName || meta.lpsName || undefined,
+                    namaKetuaLps: deletedSnap.namaKetuaLps || null,
+                    qrGeneratedIp: deletedSnap.qrGeneratedIp || meta.qrCreatorIp || null,
+                    qrGeneratedUserAgent: deletedSnap.qrGeneratedUserAgent || meta.qrCreatorDevice || null,
+                    qrGeneratedBy: deletedSnap.qrGeneratedBy || meta.qrCreatorName || null,
+                },
+            };
+        });
 
         return NextResponse.json({ logs, total, page, limit });
     } catch (error) {
@@ -194,8 +229,8 @@ export async function POST(request: NextRequest) {
             data: {
                 logId: wasteLog.id,
                 armada: {
-                    platNomor: wasteLog.armada.platNomor,
-                    driver: wasteLog.armada.namaSupir,
+                    platNomor: wasteLog.armada?.platNomor || armada.platNomor,
+                    driver: wasteLog.armada?.namaSupir || armada.namaSupir,
                 },
                 kelurahan: wasteLog.kelurahan
                     ? {

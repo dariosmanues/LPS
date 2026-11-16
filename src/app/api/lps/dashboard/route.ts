@@ -121,22 +121,41 @@ export async function GET() {
         const systemStartDate = new Date('2026-10-12T00:00:00+07:00');
 
         // Get armada details with waste stats for this kelurahan (hanya mulai 12 Oktober 2026)
-        const armadas = await prisma.armada.findMany({
-            where: { kelurahanId: kelurahanId },
-            include: {
-                wasteLogs: {
-                    where: {
-                        recordedAt: {
-                            gte: systemStartDate
+        const [armadas, orphanedLogs] = await Promise.all([
+            prisma.armada.findMany({
+                where: { kelurahanId: kelurahanId },
+                include: {
+                    wasteLogs: {
+                        where: {
+                            recordedAt: {
+                                gte: systemStartDate
+                            }
+                        },
+                        select: {
+                            beratKg: true,
+                            recordedAt: true
                         }
-                    },
-                    select: {
-                        beratKg: true,
-                        recordedAt: true
                     }
                 }
-            }
-        })
+            }),
+            prisma.wasteLog.findMany({
+                where: {
+                    kelurahanId: kelurahanId,
+                    armadaId: null,
+                    recordedAt: {
+                        gte: systemStartDate
+                    }
+                },
+                include: {
+                    timbangQrSync: {
+                        select: {
+                            plateNumber: true,
+                            transdepo: true
+                        }
+                    }
+                }
+            })
+        ])
 
         // Himpun semua bulan yang memiliki data waste logs
         const availableMonthsSet = new Set<string>();
@@ -176,6 +195,72 @@ export async function GET() {
                 monthlyStats: monthlyStats
             }
         })
+
+        // Gabungkan transaksi dari armada yang telah dihapus agar riwayat bulanan tetap utuh 100%
+        if (orphanedLogs.length > 0) {
+            const deletedGroups = new Map<string, typeof armadaStats[0]>();
+
+            orphanedLogs.forEach(log => {
+                let meta: Record<string, any> = {};
+                if (log.metadata) {
+                    try {
+                        meta = JSON.parse(log.metadata);
+                    } catch {
+                        meta = {};
+                    }
+                }
+                const snap = meta.deletedArmada || {};
+                const platNomor = snap.platNomor || log.timbangQrSync?.plateNumber || meta.platNomor || 'ARMADA-ARSIP';
+                const cleanPlat = platNomor.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+                const date = new Date(log.recordedAt);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                availableMonthsSet.add(monthKey);
+                const berat = Number(log.beratKg || 0);
+
+                // Jika ada armada aktif dengan plat yang sama, gabungkan ke armada tersebut
+                const existingEntry = armadaStats.find(
+                    a => a.platNomor.replace(/[^A-Z0-9]/gi, '').toUpperCase() === cleanPlat
+                );
+
+                if (existingEntry) {
+                    if (!existingEntry.monthlyStats[monthKey]) {
+                        existingEntry.monthlyStats[monthKey] = { ritasi: 0, beratKg: 0 };
+                    }
+                    existingEntry.monthlyStats[monthKey].ritasi += 1;
+                    existingEntry.monthlyStats[monthKey].beratKg += berat;
+                    existingEntry.totalRitasi += 1;
+                    existingEntry.totalBerat += berat;
+                } else {
+                    let group = deletedGroups.get(cleanPlat);
+                    if (!group) {
+                        group = {
+                            id: snap.id || `deleted-${cleanPlat}`,
+                            platNomor,
+                            namaSupir: snap.namaSupir || meta.driverName || '-',
+                            jenisArmada: snap.jenisArmada || meta.vehicleType || '-',
+                            wilayahKerja: snap.wilayahKerja || '-',
+                            noIzinOperasi: snap.noIzinOperasi || '-',
+                            namaKetuaLps: snap.namaKetuaLps || '-',
+                            lokasiTransdepo: snap.lokasiTransdepo || log.timbangQrSync?.transdepo || '-',
+                            totalBerat: 0,
+                            totalRitasi: 0,
+                            monthlyStats: {}
+                        };
+                        deletedGroups.set(cleanPlat, group);
+                    }
+                    if (!group.monthlyStats[monthKey]) {
+                        group.monthlyStats[monthKey] = { ritasi: 0, beratKg: 0 };
+                    }
+                    group.monthlyStats[monthKey].ritasi += 1;
+                    group.monthlyStats[monthKey].beratKg += berat;
+                    group.totalRitasi += 1;
+                    group.totalBerat += berat;
+                }
+            });
+
+            deletedGroups.forEach(group => armadaStats.push(group));
+        }
 
         // Pastikan bulan berjalan selalu ada dalam daftar filter bulan
         const nowObj = new Date();
