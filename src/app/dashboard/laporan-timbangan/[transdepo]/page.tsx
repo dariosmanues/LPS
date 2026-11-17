@@ -46,6 +46,9 @@ interface Pagination {
     totalPages: number;
 }
 
+// Global in-memory cache per transdepo for instant navigation (SWR)
+const transdepoCache: Record<string, { items: LaporanItem[]; summary: Summary; pagination: Pagination; kelurahanOptions: string[]; timestamp: number }> = {};
+
 export default function LaporanTimbanganTransdepoPage() {
     const params = useParams();
     const router = useRouter();
@@ -61,9 +64,10 @@ export default function LaporanTimbanganTransdepoPage() {
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [currentPage, setCurrentPage] = useState<number>(1);
 
-    // Data State
-    const [items, setItems] = useState<LaporanItem[]>([]);
-    const [summary, setSummary] = useState<Summary>({
+    // Data State (Instant Load from Cache if available)
+    const initialCached = transdepoCache[currentSlug];
+    const [items, setItems] = useState<LaporanItem[]>(() => initialCached?.items || []);
+    const [summary, setSummary] = useState<Summary>(() => initialCached?.summary || {
         totalNettoKg: 0,
         totalNettoTon: 0,
         totalGrossKg: 0,
@@ -75,14 +79,14 @@ export default function LaporanTimbanganTransdepoPage() {
         activeLpsCount: 0,
         activeKelurahanCount: 0,
     });
-    const [pagination, setPagination] = useState<Pagination>({
+    const [pagination, setPagination] = useState<Pagination>(() => initialCached?.pagination || {
         page: 1,
         limit: 25,
         totalCount: 0,
         totalPages: 1,
     });
-    const [kelurahanOptions, setKelurahanOptions] = useState<string[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [kelurahanOptions, setKelurahanOptions] = useState<string[]>(() => initialCached?.kelurahanOptions || []);
+    const [loading, setLoading] = useState<boolean>(() => !initialCached);
     const [exporting, setExporting] = useState<boolean>(false);
     const [showCustomDate, setShowCustomDate] = useState<boolean>(false);
 
@@ -93,8 +97,10 @@ export default function LaporanTimbanganTransdepoPage() {
     }, [currentSlug]);
 
     // Fetch Data
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (isBackground = false) => {
+        if (!isBackground && !transdepoCache[currentSlug]) {
+            setLoading(true);
+        }
         try {
             const query = new URLSearchParams();
             query.set('transdepo', currentSlug);
@@ -141,6 +147,17 @@ export default function LaporanTimbanganTransdepoPage() {
                         ? data.lpsOptions
                         : [];
                 setKelurahanOptions(options);
+
+                // Cache default view for instant back/forth navigation
+                if (!selectedKelurahan && selectedRange === 'all' && !searchQuery.trim() && currentPage === 1) {
+                    transdepoCache[currentSlug] = {
+                        items: data.items || [],
+                        summary: data.summary,
+                        pagination: data.pagination,
+                        kelurahanOptions: options,
+                        timestamp: Date.now(),
+                    };
+                }
             } else {
                 console.error('API returned error:', data.error);
                 setItems([]);
@@ -154,7 +171,10 @@ export default function LaporanTimbanganTransdepoPage() {
     };
 
     useEffect(() => {
-        fetchData();
+        const cached = transdepoCache[currentSlug];
+        const isDefault = !selectedKelurahan && selectedRange === 'all' && !searchQuery.trim() && currentPage === 1;
+        const isFresh = isDefault && cached && (Date.now() - cached.timestamp < 20000);
+        fetchData(Boolean(isFresh));
     }, [currentSlug, selectedKelurahan, selectedRange, startDate, endDate, currentPage]);
 
     const handleSearch = (e: React.FormEvent) => {

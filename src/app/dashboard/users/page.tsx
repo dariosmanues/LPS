@@ -48,13 +48,18 @@ const ROLE_OPTIONS = [
     { value: 'LPS_BENDAHARA', label: 'Bendahara LPS (Kelurahan)', group: 'LPS' },
 ];
 
+// Global in-memory cache for instant navigation (SWR)
+let cachedUsers: User[] | null = null;
+let cachedWilayah: KecamatanRef[] | null = null;
+let lastUsersFetchTime = 0;
+
 export default function UsersPage() {
     const { isSuperAdmin, user: currentUser } = usePermissions();
     const currentUserId = currentUser?.id ?? null;
     const avatarVersion = useAvatarVersion();
-    const [users, setUsers] = useState<User[]>([]);
-    const [kecamatanList, setKecamatanList] = useState<KecamatanRef[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [users, setUsers] = useState<User[]>(() => cachedUsers || []);
+    const [kecamatanList, setKecamatanList] = useState<KecamatanRef[]>(() => cachedWilayah || []);
+    const [loading, setLoading] = useState(() => !cachedUsers);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRoleFilter, setSelectedRoleFilter] = useState('ALL');
 
@@ -71,16 +76,24 @@ export default function UsersPage() {
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
-        fetchUsers();
-        fetchWilayah();
+        const isFresh = cachedUsers && (Date.now() - lastUsersFetchTime < 20000);
+        fetchUsers(Boolean(isFresh));
+        if (!cachedWilayah) {
+            fetchWilayah();
+        }
     }, []);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (isBackground = false) => {
         try {
+            if (!isBackground && !cachedUsers) {
+                setLoading(true);
+            }
             const res = await fetch('/api/users');
             const data = await res.json();
             if (Array.isArray(data)) {
+                cachedUsers = data;
                 setUsers(data);
+                lastUsersFetchTime = Date.now();
             }
         } catch (error) {
             console.error('Error fetching users:', error);
@@ -94,6 +107,7 @@ export default function UsersPage() {
             const res = await fetch('/api/wilayah');
             const data = await res.json();
             if (Array.isArray(data)) {
+                cachedWilayah = data;
                 setKecamatanList(data);
             }
         } catch (error) {
@@ -182,6 +196,7 @@ export default function UsersPage() {
                     type: 'success',
                     text: editingUser ? 'Data user berhasil diperbarui' : 'User baru berhasil dibuat',
                 });
+                cachedUsers = null;
                 await fetchUsers();
                 setTimeout(() => {
                     closeModal();
@@ -202,6 +217,7 @@ export default function UsersPage() {
             const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
 
             if (res.ok) {
+                cachedUsers = null;
                 fetchUsers();
             } else {
                 alert('Gagal menghapus user');

@@ -39,18 +39,22 @@ interface Armada {
     verifiedBy?: string | null;
 }
 
+// Global in-memory cache for instant navigation (SWR)
+let cachedArmadaMap: { [key: string]: { data: Armada[]; timestamp: number } } = {};
+let cachedKelurahan: Kelurahan[] | null = null;
+
 export default function ArmadaPage() {
     const { isSuperAdmin, isReadOnly } = usePermissions();
-    const [armadaList, setArmadaList] = useState<Armada[]>([]);
+    const [sortBy, setSortBy] = useState<'kelurahan' | 'namaLps' | 'platNomor' | 'createdAt'>('createdAt');
+    const [armadaList, setArmadaList] = useState<Armada[]>(() => cachedArmadaMap['createdAt']?.data || []);
     const [searchQuery, setSearchQuery] = useState('');
-    const [kelurahanList, setKelurahanList] = useState<Kelurahan[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [kelurahanList, setKelurahanList] = useState<Kelurahan[]>(() => cachedKelurahan || []);
+    const [loading, setLoading] = useState(() => !cachedArmadaMap['createdAt']);
     const [error, setError] = useState<string | null>(null);
     const [showModal, setShowModal] = useState(false);
     const [showQRModal, setShowQRModal] = useState<Armada | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState<string | null>(null);
-    const [sortBy, setSortBy] = useState<'kelurahan' | 'namaLps' | 'platNomor' | 'createdAt'>('createdAt');
     const [syncingTimbangQr, setSyncingTimbangQr] = useState(false);
     const [verifyingPlate, setVerifyingPlate] = useState<string | null>(null);
     const [filterMultiLpsOnly, setFilterMultiLpsOnly] = useState(false);
@@ -189,25 +193,44 @@ export default function ArmadaPage() {
         jenisArmada: '',
     });
 
+    const initialSortByRef = useRef(true);
+
     useEffect(() => {
-        fetchArmada();
-        fetchKelurahan();
+        if (!cachedKelurahan) {
+            fetchKelurahan();
+        }
+        const cached = cachedArmadaMap[sortBy];
+        const isFresh = cached && (Date.now() - cached.timestamp < 20000);
+        fetchArmada(Boolean(isFresh));
     }, []);
 
     useEffect(() => {
-        fetchArmada();
+        if (initialSortByRef.current) {
+            initialSortByRef.current = false;
+            return;
+        }
+        const cached = cachedArmadaMap[sortBy];
+        const isFresh = cached && (Date.now() - cached.timestamp < 20000);
+        fetchArmada(Boolean(isFresh));
     }, [sortBy]);
 
-    const fetchArmada = async () => {
+    const fetchArmada = async (isBackground = false) => {
         try {
             setError(null);
+            if (!isBackground && !cachedArmadaMap[sortBy]) {
+                setLoading(true);
+            }
             const res = await fetch(`/api/armada?sortBy=${sortBy}`);
             if (!res.ok) throw new Error('Failed to fetch armada');
             const data = await res.json();
-            setArmadaList(Array.isArray(data) ? data : []);
+            const list = Array.isArray(data) ? data : [];
+            cachedArmadaMap[sortBy] = { data: list, timestamp: Date.now() };
+            setArmadaList(list);
         } catch (error) {
             console.error('Error fetching armada:', error);
-            setError('Gagal memuat data. Mohon pastikan database sudah berjalan.');
+            if (!cachedArmadaMap[sortBy]) {
+                setError('Gagal memuat data. Mohon pastikan database sudah berjalan.');
+            }
         } finally {
             setLoading(false);
         }
@@ -218,7 +241,9 @@ export default function ArmadaPage() {
             const res = await fetch('/api/kelurahan');
             if (res.ok) {
                 const data = await res.json();
-                setKelurahanList(Array.isArray(data) ? data : []);
+                const list = Array.isArray(data) ? data : [];
+                cachedKelurahan = list;
+                setKelurahanList(list);
             }
         } catch (error) {
             console.error('Error fetching kelurahan:', error);

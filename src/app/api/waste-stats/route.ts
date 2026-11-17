@@ -4,10 +4,25 @@ import { prisma } from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// In-memory cache 8 detik untuk mempercepat navigasi menu tanpa mengorbankan real-time timbangan
+const statsCache: Record<string, { data: unknown; timestamp: number }> = {};
+const STATS_CACHE_TTL_MS = 8000;
+
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const period = searchParams.get('period') || 'today'; // 'today' or 'month'
+        const cacheKey = period;
+
+        const cached = statsCache[cacheKey];
+        if (cached && (Date.now() - cached.timestamp < STATS_CACHE_TTL_MS)) {
+            return NextResponse.json(cached.data, {
+                headers: {
+                    'X-Cache': 'HIT',
+                    'Cache-Control': 'public, s-maxage=8, stale-while-revalidate=20',
+                }
+            });
+        }
 
         // Hitung rentang waktu dalam zona WIB (UTC+7)
         const now = new Date();
@@ -141,7 +156,7 @@ export async function GET(request: Request) {
             })
         ).size;
 
-        return NextResponse.json({
+        const responsePayload = {
             period,
             totalKg,
             tripCount,
@@ -163,6 +178,15 @@ export async function GET(request: Request) {
                 tripCount: airHitamTrips,
                 lpsStats: airHitamLpsStats,
             },
+        };
+
+        statsCache[cacheKey] = { data: responsePayload, timestamp: Date.now() };
+
+        return NextResponse.json(responsePayload, {
+            headers: {
+                'X-Cache': 'MISS',
+                'Cache-Control': 'public, s-maxage=8, stale-while-revalidate=20',
+            }
         });
     } catch (error) {
         console.error('Error fetching waste stats:', error);

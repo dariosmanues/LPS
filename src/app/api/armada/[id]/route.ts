@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
 import { requireSuperAdmin } from '@/lib/permissions';
+import { clearArmadaCache } from '../route';
 
 function parseSafeDate(val: any): Date | null | undefined {
     if (val === undefined) return undefined;
@@ -143,6 +144,8 @@ export async function PATCH(
         } catch (syncErr) {
             console.warn('[PATCH /api/armada/[id]] TimbangQR sync warning:', syncErr);
         }
+
+        clearArmadaCache();
 
         return NextResponse.json({
             ...armada,
@@ -294,6 +297,8 @@ export async function DELETE(
                 console.warn('[DELETE /api/armada/[id]] TimbangQR deactivation sync warning:', syncErr);
             }
         }
+
+        clearArmadaCache();
 
         return NextResponse.json({
             success: true,

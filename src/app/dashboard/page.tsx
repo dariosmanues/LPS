@@ -33,19 +33,26 @@ interface WasteStats {
     airHitam: TransdepoStats;
 }
 
+// Global in-memory cache for instant navigation (SWR)
+let cachedTodayStats: WasteStats | null = null;
+let cachedMonthStats: WasteStats | null = null;
+let lastStatsFetchTime = 0;
+
 export default function DashboardPage() {
     const { data: session } = useSession();
     const { isSuperAdmin, isReadOnly } = usePermissions();
     const superAdminAvatarUrl = useSuperAdminAvatarUrl();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [period, setPeriod] = useState<'today' | 'month'>('today');
-    const [todayStats, setTodayStats] = useState<WasteStats | null>(null);
-    const [monthStats, setMonthStats] = useState<WasteStats | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [todayStats, setTodayStats] = useState<WasteStats | null>(() => cachedTodayStats);
+    const [monthStats, setMonthStats] = useState<WasteStats | null>(() => cachedMonthStats);
+    const [loading, setLoading] = useState(() => !cachedTodayStats);
 
-    const fetchAllStats = async () => {
+    const fetchAllStats = async (isBackground = false) => {
         try {
-            setLoading(true);
+            if (!isBackground && !cachedTodayStats) {
+                setLoading(true);
+            }
             const [resToday, resMonth] = await Promise.all([
                 fetch('/api/waste-stats?period=today', { cache: 'no-store' }),
                 fetch('/api/waste-stats?period=month', { cache: 'no-store' }),
@@ -53,12 +60,15 @@ export default function DashboardPage() {
 
             if (resToday.ok) {
                 const dataToday = await resToday.json();
+                cachedTodayStats = dataToday;
                 setTodayStats(dataToday);
             }
             if (resMonth.ok) {
                 const dataMonth = await resMonth.json();
+                cachedMonthStats = dataMonth;
                 setMonthStats(dataMonth);
             }
+            lastStatsFetchTime = Date.now();
         } catch (error) {
             console.error('Error fetching stats:', error);
         } finally {
@@ -67,7 +77,8 @@ export default function DashboardPage() {
     };
 
     useEffect(() => {
-        fetchAllStats();
+        const isFresh = cachedTodayStats && (Date.now() - lastStatsFetchTime < 15000);
+        fetchAllStats(Boolean(isFresh));
     }, []);
 
     const [showResetModal, setShowResetModal] = useState(false);

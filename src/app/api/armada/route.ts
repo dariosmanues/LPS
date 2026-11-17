@@ -16,10 +16,32 @@ function parseSafeString(val: any): string | null {
     return str;
 }
 
+// In-memory cache 15 detik untuk navigasi cepat
+const armadaCache: Record<string, { data: unknown; timestamp: number }> = {};
+const ARMADA_CACHE_TTL_MS = 15000;
+
+export function clearArmadaCache() {
+    for (const k in armadaCache) delete armadaCache[k];
+}
+
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const sortBy = searchParams.get('sortBy') || 'createdAt';
+        const search = searchParams.get('search') || searchParams.get('q') || '';
+        const cacheKey = `${sortBy}_${search.trim().toLowerCase()}`;
+
+        if (!search.trim()) {
+            const cached = armadaCache[cacheKey];
+            if (cached && (Date.now() - cached.timestamp < ARMADA_CACHE_TTL_MS)) {
+                return NextResponse.json(cached.data, {
+                    headers: {
+                        'X-Cache': 'HIT',
+                        'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+                    }
+                });
+            }
+        }
 
         let orderBy: any = { createdAt: 'desc' };
 
@@ -35,8 +57,6 @@ export async function GET(request: Request) {
         } else if (sortBy === 'platNomor') {
             orderBy = { platNomor: 'asc' };
         }
-
-        const search = searchParams.get('search') || searchParams.get('q') || '';
 
         let where: any = undefined;
         if (search.trim()) {
@@ -66,7 +86,15 @@ export async function GET(request: Request) {
                 }
             }
         });
-        return NextResponse.json(armada);
+        if (!search.trim()) {
+            armadaCache[cacheKey] = { data: armada, timestamp: Date.now() };
+        }
+        return NextResponse.json(armada, {
+            headers: {
+                'X-Cache': 'MISS',
+                'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+            }
+        });
     } catch (error) {
         console.error('Error fetching armada:', error);
         return NextResponse.json({ error: 'Failed to fetch armada' }, { status: 500 });
@@ -134,6 +162,7 @@ export async function POST(request: Request) {
         });
 
         // Sinkronisasi otomatis ke TimbangQR sesuai wilayah transdepo masing-masing (Air Hitam / Harapan Jaya)
+        clearArmadaCache();
         let timbangQrSync = null;
         try {
             timbangQrSync = await syncArmadaToTimbangQr(armada);

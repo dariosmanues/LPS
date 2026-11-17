@@ -293,11 +293,10 @@ export function SuperAdminAvatarModal({
                     {/* Feedback Banner */}
                     {feedback && (
                         <div
-                            className={`w-full px-4 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2 ${
-                                feedback.type === 'success'
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : 'bg-red-50 text-red-700 border border-red-200'
-                            }`}
+                            className={`w-full px-4 py-2.5 rounded-xl text-xs font-medium flex items-center justify-center gap-2 ${feedback.type === 'success'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-red-50 text-red-700 border border-red-200'
+                                }`}
                         >
                             <span>{feedback.type === 'success' ? '✅' : '⚠️'}</span>
                             <span>{feedback.message}</span>

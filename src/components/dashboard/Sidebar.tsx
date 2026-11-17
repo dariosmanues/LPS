@@ -325,6 +325,7 @@ export function Sidebar({ children }: SidebarProps) {
                                     <Link
                                         key={item.name}
                                         href={item.href}
+                                        prefetch={true}
                                         onClick={() => setMobileMenuOpen(false)}
                                         className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
                                             isActive
@@ -372,6 +373,7 @@ export function Sidebar({ children }: SidebarProps) {
                                 <Link
                                     key={item.name}
                                     href={item.href}
+                                    prefetch={true}
                                     className={`flex flex-col items-center justify-center py-1 rounded-xl transition-all ${
                                         isActive
                                             ? 'text-purple-600 font-bold'
@@ -441,6 +443,7 @@ export function Sidebar({ children }: SidebarProps) {
                                 <Link
                                     key={item.name}
                                     href={item.href}
+                                    prefetch={true}
                                     className={`sidebar-icon shrink-0 ${isActive ? 'active' : ''}`}
                                     title={item.name}
                                 >
