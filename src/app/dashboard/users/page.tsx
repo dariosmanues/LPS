@@ -43,6 +43,7 @@ const ROLE_OPTIONS = [
     { value: 'OPERATOR', label: 'Operator Transdepo', group: 'DLHK' },
     { value: 'VIEWER', label: 'Viewer / Tamu (Hanya Lihat)', group: 'DLHK' },
     { value: 'GATEKEEPER', label: 'Petugas TPA / Gatekeeper', group: 'DLHK' },
+    { value: 'PU', label: 'Petugas PU (Khusus Armada DLHK)', group: 'PU' },
     { value: 'LPS_KETUA', label: 'Ketua LPS (Kelurahan)', group: 'LPS' },
     { value: 'LPS_SEKRETARIS', label: 'Sekretaris LPS (Kelurahan)', group: 'LPS' },
     { value: 'LPS_BENDAHARA', label: 'Bendahara LPS (Kelurahan)', group: 'LPS' },
@@ -255,6 +256,11 @@ export default function UsersPage() {
                     label: 'Gatekeeper TPA',
                     style: 'bg-slate-100 text-slate-700 font-medium border border-slate-200',
                 };
+            case 'PU':
+                return {
+                    label: 'Petugas PU (DLHK)',
+                    style: 'bg-amber-100 text-amber-800 font-semibold border border-amber-300',
+                };
             case 'LPS_KETUA':
                 return {
                     label: 'Ketua LPS',
@@ -296,6 +302,9 @@ export default function UsersPage() {
             }
             if (selectedRoleFilter === 'LPS') {
                 return ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(u.role);
+            }
+            if (selectedRoleFilter === 'PU') {
+                return u.role === 'PU';
             }
             return u.role === selectedRoleFilter;
         });
@@ -350,6 +359,7 @@ export default function UsersPage() {
                         <option value="ALL">Semua Role ({users.length})</option>
                         <option value="DLHK">Akun DLHK & TPA</option>
                         <option value="LPS">Akun Pengurus LPS Kelurahan</option>
+                        <option value="PU">Akun Petugas PU (Armada DLHK)</option>
                         <option value="SUPERADMIN">Super Admin (Nisa)</option>
                         <option value="LPS_KETUA">Ketua LPS</option>
                         <option value="LPS_SEKRETARIS">Sekretaris LPS</option>
@@ -395,6 +405,8 @@ export default function UsersPage() {
                                                         className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0 overflow-hidden relative group ${
                                                             isLps
                                                                 ? 'bg-linear-to-br from-green-600 to-emerald-700'
+                                                                : user.role === 'PU'
+                                                                ? 'bg-linear-to-br from-amber-500 to-orange-600 ring-2 ring-amber-200'
                                                                 : 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-200'
                                                         } ${isSuperAdmin && user.role === 'SUPERADMIN' && user.id === currentUserId ? 'cursor-pointer' : ''}`}
                                                     >
@@ -443,6 +455,11 @@ export default function UsersPage() {
                                                 ) : isLps ? (
                                                     <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                                                         ⚠️ Belum terhubung kelurahan
+                                                    </span>
+                                                ) : user.role === 'PU' ? (
+                                                    <span className="inline-flex items-center gap-1 text-xs text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg font-medium">
+                                                        <span>🚜</span>
+                                                        <span>Khusus Armada DLHK</span>
                                                     </span>
                                                 ) : (
                                                     <span className="text-xs text-gray-400">Pusat / DLHK</span>
@@ -523,7 +540,7 @@ export default function UsersPage() {
                                 <p className="text-xs text-gray-500 mt-0.5">
                                     {editingUser
                                         ? `Memperbarui akun ${editingUser.name}`
-                                        : 'Daftarkan akun admin, operator, atau pengurus LPS kelurahan'}
+                                        : 'Daftarkan akun admin, operator, pengurus LPS kelurahan, atau petugas PU armada DLHK'}
                                 </p>
                             </div>
                             <button
@@ -613,6 +630,9 @@ export default function UsersPage() {
                                         <option value="LPS_SEKRETARIS">Sekretaris LPS (Kelurahan)</option>
                                         <option value="LPS_BENDAHARA">Bendahara LPS (Kelurahan)</option>
                                     </optgroup>
+                                    <optgroup label="Khusus Armada Dinas (PU / DLHK)">
+                                        <option value="PU">Petugas PU (Khusus Armada DLHK)</option>
+                                    </optgroup>
                                     <optgroup label="Internal DLHK & Operasional">
                                         <option value="SUPERADMIN">Super Admin (Akses Penuh - Nisa)</option>
                                         <option value="ADMIN">Admin DLHK</option>
@@ -622,6 +642,19 @@ export default function UsersPage() {
                                     </optgroup>
                                 </select>
                             </div>
+
+                            {/* Keterangan Akun Khusus PU Armada DLHK */}
+                            {formData.role === 'PU' && (
+                                <div className="bg-amber-50/80 p-4 rounded-2xl border border-amber-200 space-y-1.5 animate-fadeIn">
+                                    <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm">
+                                        <span>🚜</span>
+                                        <span>Akun Khusus Armada DLHK / PU</span>
+                                    </div>
+                                    <p className="text-xs text-amber-800 leading-relaxed">
+                                        Role ini setara dengan peran operasional kelurahan namun khusus diperuntukkan bagi armada dinas DLHK / PU lintas wilayah (tanpa terikat satu wilayah kelurahan LPS tertentu).
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Dropdown Kelurahan (Muncul jika role LPS dipilih) */}
                             {isLpsRole(formData.role) && (

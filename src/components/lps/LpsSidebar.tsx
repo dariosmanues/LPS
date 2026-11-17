@@ -50,6 +50,7 @@ export function LpsSidebar({ children, kelurahanName }: LpsSidebarProps) {
             case 'LPS_KETUA': return 'Ketua LPS';
             case 'LPS_SEKRETARIS': return 'Sekretaris LPS';
             case 'LPS_BENDAHARA': return 'Bendahara LPS';
+            case 'PU': return 'Petugas PU (DLHK)';
             default: return role;
         }
     };
