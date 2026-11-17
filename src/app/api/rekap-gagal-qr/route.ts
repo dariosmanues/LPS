@@ -14,8 +14,12 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search')?.trim();
         const startDate = searchParams.get('startDate')?.trim();
         const endDate = searchParams.get('endDate')?.trim();
+        const isExport = searchParams.get('export') === 'true' || searchParams.get('limit') === 'all';
         const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-        const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '25', 10)));
+        const limitParam = searchParams.get('limit');
+        const limit = isExport
+            ? undefined
+            : Math.min(100, Math.max(1, parseInt(limitParam || '25', 10)));
 
         const where: Record<string, any> = {};
 
@@ -70,8 +74,12 @@ export async function GET(request: NextRequest) {
             prisma.qrFailureReport.findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
-                take: limit,
-                skip: (page - 1) * limit,
+                ...(isExport
+                    ? {}
+                    : {
+                          take: limit,
+                          skip: (page - 1) * (limit || 25),
+                      }),
             }),
             prisma.qrFailureReport.groupBy({
                 by: ['kategoriAlasan', 'transdepo'],
@@ -107,10 +115,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             pagination: {
-                page,
-                limit,
+                page: isExport ? 1 : page,
+                limit: isExport ? totalCount : (limit || 25),
                 totalCount,
-                totalPages: Math.ceil(totalCount / limit),
+                totalPages: isExport ? 1 : Math.ceil(totalCount / (limit || 25)),
             },
             summary: {
                 totalAll,

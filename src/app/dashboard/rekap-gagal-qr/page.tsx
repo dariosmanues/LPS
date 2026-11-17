@@ -62,6 +62,7 @@ export default function RekapGagalQrPage() {
     const [page, setPage] = useState<number>(1);
     const [totalPages, setTotalPages] = useState<number>(1);
     const [totalCount, setTotalCount] = useState<number>(0);
+    const [isExporting, setIsExporting] = useState<boolean>(false);
 
     // Modal State (Create & Edit)
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -186,57 +187,89 @@ export default function RekapGagalQrPage() {
         }
     };
 
-    // Export CSV Function
-    const handleExportCsv = () => {
-        if (!items || items.length === 0) {
-            alert('Tidak ada data untuk diekspor.');
-            return;
+    // Export CSV Function (Seluruh Data sesuai Filter)
+    const handleExportCsv = async () => {
+        setIsExporting(true);
+        try {
+            const params = new URLSearchParams();
+            if (selectedTransdepo !== 'ALL') params.set('transdepo', selectedTransdepo);
+            if (selectedKategori !== 'ALL') params.set('kategori', selectedKategori);
+            if (searchQuery.trim()) params.set('search', searchQuery.trim());
+            if (startDate) params.set('startDate', startDate);
+            if (endDate) params.set('endDate', endDate);
+            params.set('export', 'true');
+
+            const res = await fetch(`/api/rekap-gagal-qr?${params.toString()}`);
+            const json = await res.json();
+
+            const exportData: QrFailureItem[] = json.success && Array.isArray(json.data) ? json.data : [];
+
+            if (exportData.length === 0) {
+                alert('Tidak ada data kendala QR yang sesuai filter untuk diekspor.');
+                return;
+            }
+
+            const headers = [
+                'No',
+                'Waktu Kejadian (WIB)',
+                'Lokasi Transdepo',
+                'Plat Nomor',
+                'Nama LPS',
+                'Kelurahan',
+                'Kecamatan',
+                'Token QR',
+                'Kategori Alasan',
+                'Keterangan Detail',
+                'Tindakan Operator',
+                'Petugas Pos',
+                'No Tiket Terkait',
+            ];
+
+            const rows = exportData.map((it, idx) => {
+                const dateWib = new Date(it.createdAt).toLocaleString('id-ID', {
+                    timeZone: 'Asia/Jakarta',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                });
+
+                return [
+                    idx + 1,
+                    `"${dateWib}"`,
+                    `"${it.transdepo === 'AIR_HITAM' ? 'Air Hitam' : 'Harapan Jaya'}"`,
+                    `"${(it.platNomor || '-').replace(/"/g, '""')}"`,
+                    `"${(it.namaLps || '-').replace(/"/g, '""')}"`,
+                    `"${(it.kelurahan || '-').replace(/"/g, '""')}"`,
+                    `"${(it.kecamatan || '-').replace(/"/g, '""')}"`,
+                    `"${(it.qrCode || '-').replace(/"/g, '""')}"`,
+                    `"${(it.kategoriAlasan || '-').replace(/"/g, '""')}"`,
+                    `"${(it.keterangan || '').replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`,
+                    `"${(it.tindakan || '-').replace(/"/g, '""')}"`,
+                    `"${(it.operatorName || '-').replace(/"/g, '""')}"`,
+                    `"${(it.tiketNumberRef || '-').replace(/"/g, '""')}"`,
+                ].join(',');
+            });
+
+            const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const depoLabel = selectedTransdepo !== 'ALL' ? selectedTransdepo : 'SEMUA_POS';
+            link.download = `rekap_kendala_qr_${depoLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Gagal mengekspor data kendala QR:', err);
+            alert('Terjadi kesalahan saat mengunduh data CSV/Excel');
+        } finally {
+            setIsExporting(false);
         }
-
-        const headers = [
-            'No',
-            'Waktu Kejadian',
-            'Lokasi Transdepo',
-            'Plat Nomor',
-            'Nama LPS',
-            'Kelurahan',
-            'Kecamatan',
-            'Token QR',
-            'Kategori Alasan',
-            'Keterangan Detail',
-            'Tindakan Operator',
-            'Petugas Pos',
-            'No Tiket Terkait',
-        ];
-
-        const rows = items.map((it, idx) => [
-            idx + 1,
-            new Date(it.createdAt).toLocaleString('id-ID'),
-            it.transdepo === 'AIR_HITAM' ? 'Air Hitam' : 'Harapan Jaya',
-            `"${it.platNomor || '-'}"`,
-            `"${it.namaLps || '-'}"`,
-            `"${it.kelurahan || '-'}"`,
-            `"${it.kecamatan || '-'}"`,
-            `"${it.qrCode || '-'}"`,
-            `"${it.kategoriAlasan}"`,
-            `"${(it.keterangan || '').replace(/"/g, '""')}"`,
-            `"${it.tindakan || '-'}"`,
-            `"${it.operatorName || '-'}"`,
-            `"${it.tiketNumberRef || '-'}"`,
-        ]);
-
-        const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [
-            headers.join(','),
-            ...rows.map((r) => r.join(',')),
-        ].join('\n');
-
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement('a');
-        link.setAttribute('href', encodedUri);
-        link.setAttribute('download', `rekap_kendala_qr_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
     };
 
     // Submit Create or Edit Failure Report (SuperAdmin)
@@ -384,13 +417,26 @@ export default function RekapGagalQrPage() {
                         )}
                         <button
                             onClick={handleExportCsv}
-                            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/80 transition-all cursor-pointer"
-                            title="Download Data CSV/Excel"
+                            disabled={isExporting}
+                            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-200 bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700/80 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Download Seluruh Data CSV/Excel Sesuai Filter"
                         >
-                            <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            Ekspor Excel/CSV
+                            {isExporting ? (
+                                <>
+                                    <svg className="w-4 h-4 animate-spin text-emerald-400" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Mengekspor...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    Ekspor Excel/CSV
+                                </>
+                            )}
                         </button>
                         <button
                             onClick={() => window.print()}
