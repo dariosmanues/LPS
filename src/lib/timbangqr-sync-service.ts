@@ -79,6 +79,8 @@ export function formatArmadaPayload(armada: any) {
     wilayahKerja: armada.wilayahKerja || null,
     lokasiTransdepo: armada.lokasiTransdepo || null,
     jenisArmada: armada.jenisArmada || null,
+    defaultTareKg: armada.defaultTareKg || null,
+    default_tare_kg: armada.defaultTareKg || null,
     noIzinOperasi: armada.noIzinOperasi || null,
     nomorSkLps: armada.nomorSkLps || null,
     tanggalSkLps: armada.tanggalSkLps ? new Date(armada.tanggalSkLps).toISOString().split('T')[0] : null,

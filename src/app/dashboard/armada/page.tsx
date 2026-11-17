@@ -29,6 +29,7 @@ interface Armada {
     tanggalTerbitIzin: string | null;
     lokasiTransdepo: string | null; // AIRHITAM or HARAPANJAYA
     jenisArmada: string | null; // DUMPTRUCK, PICKUP, or BENTOR
+    defaultTareKg?: number | null;
     qrCode: string;
     isActive: boolean;
     isQrUsed?: boolean;
@@ -191,6 +192,7 @@ export default function ArmadaPage() {
         tanggalTerbitIzin: '',
         lokasiTransdepo: '',
         jenisArmada: '',
+        defaultTareKg: '',
     });
 
     const initialSortByRef = useRef(true);
@@ -266,6 +268,7 @@ export default function ArmadaPage() {
             tanggalTerbitIzin: '',
             lokasiTransdepo: '',
             jenisArmada: '',
+            defaultTareKg: '',
         });
         setIsEditing(false);
         setEditId(null);
@@ -288,6 +291,7 @@ export default function ArmadaPage() {
             tanggalTerbitIzin: armada.tanggalTerbitIzin ? new Date(armada.tanggalTerbitIzin).toISOString().split('T')[0] : '',
             lokasiTransdepo: armada.lokasiTransdepo || '',
             jenisArmada: armada.jenisArmada || '',
+            defaultTareKg: armada.defaultTareKg !== null && armada.defaultTareKg !== undefined ? String(armada.defaultTareKg) : '',
         });
         setIsEditing(true);
         setEditId(armada.id);
@@ -337,6 +341,7 @@ export default function ArmadaPage() {
                 kelurahanId: formData.kelurahanId?.trim() || null,
                 tanggalSkLps: safeDateOrNull(formData.tanggalSkLps),
                 tanggalTerbitIzin: safeDateOrNull(formData.tanggalTerbitIzin),
+                defaultTareKg: formData.defaultTareKg !== '' && formData.defaultTareKg !== null && formData.defaultTareKg !== undefined ? parseInt(String(formData.defaultTareKg), 10) : null,
             };
 
             const res = await fetch(url, {
@@ -756,6 +761,7 @@ export default function ArmadaPage() {
                                         <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Nama Supir</th>
                                         <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">No. Plat</th>
                                         <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Jenis Armada</th>
+                                        <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Tare</th>
                                         <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Lokasi & Wilayah Kerja</th>
                                         <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Tgl Terbit Izin</th>
                                         <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Status</th>
@@ -806,6 +812,16 @@ export default function ArmadaPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-gray-600">{armada.jenisArmada || '-'}</td>
+                                            <td className="px-6 py-4 text-gray-600 font-mono text-sm">
+                                                {armada.defaultTareKg ? (
+                                                    <span className="inline-flex items-center gap-1 font-semibold text-gray-800 bg-gray-100/90 border border-gray-200 px-2.5 py-1 rounded-lg">
+                                                        <span>{armada.defaultTareKg.toLocaleString('id-ID')}</span>
+                                                        <span className="text-[11px] text-gray-500 font-normal">kg</span>
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-300 font-normal">-</span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 text-gray-600">
                                                 <div>
                                                     <p>{armada.lokasiTransdepo || '-'}</p>
@@ -1015,6 +1031,17 @@ export default function ArmadaPage() {
                                     <option value="PICKUP">Pick Up</option>
                                     <option value="BENTOR">Bentor</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className="block text-gray-600 text-sm mb-2 font-medium">Tare Acuan Kendaraan (kg)</label>
+                                <input
+                                    type="number"
+                                    value={formData.defaultTareKg}
+                                    onChange={(e) => setFormData({ ...formData, defaultTareKg: e.target.value })}
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none transition-all font-mono"
+                                    placeholder="Contoh: 1250 (berat kosong dalam kg)"
+                                    min="0"
+                                />
                             </div>
                             <div className="flex gap-3 pt-4">
                                 <button type="button" onClick={resetForm} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors">

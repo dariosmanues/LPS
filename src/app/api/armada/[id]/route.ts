@@ -34,7 +34,7 @@ export async function PATCH(
             namaLps, kelurahanId, platNomor, noIzinOperasi,
             namaSupir, namaKetuaLps, noTlpKetuaLps,
             alamatLps, wilayahKerja, nomorSkLps, tanggalSkLps, tanggalTerbitIzin,
-            lokasiTransdepo, jenisArmada, isActive
+            lokasiTransdepo, jenisArmada, isActive, defaultTareKg
         } = body;
 
         let safeKelurahanId: string | null | undefined = undefined;
@@ -66,6 +66,9 @@ export async function PATCH(
         if (tanggalTerbitIzin !== undefined) updateData.tanggalTerbitIzin = parseSafeDate(tanggalTerbitIzin);
         if (lokasiTransdepo !== undefined) updateData.lokasiTransdepo = parseSafeString(lokasiTransdepo);
         if (jenisArmada !== undefined) updateData.jenisArmada = parseSafeString(jenisArmada);
+        if (defaultTareKg !== undefined) {
+            updateData.defaultTareKg = (defaultTareKg !== null && defaultTareKg !== '') ? parseInt(String(defaultTareKg), 10) : null;
+        }
         if (isActive !== undefined) updateData.isActive = Boolean(isActive);
         if (body.isQrUsed !== undefined) updateData.isQrUsed = Boolean(body.isQrUsed);
         if (body.regenerateQr || body.action === 'regenerate') {

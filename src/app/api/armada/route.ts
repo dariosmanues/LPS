@@ -112,7 +112,7 @@ export async function POST(request: Request) {
             namaLps, kelurahanId, platNomor, noIzinOperasi,
             namaSupir, namaKetuaLps, noTlpKetuaLps,
             alamatLps, wilayahKerja, nomorSkLps, tanggalSkLps, tanggalTerbitIzin,
-            lokasiTransdepo, jenisArmada
+            lokasiTransdepo, jenisArmada, defaultTareKg
         } = body;
 
         const cleanNamaLps = parseSafeString(namaLps);
@@ -152,6 +152,7 @@ export async function POST(request: Request) {
                 tanggalTerbitIzin: parseSafeDate(tanggalTerbitIzin),
                 lokasiTransdepo: parseSafeString(lokasiTransdepo),
                 jenisArmada: parseSafeString(jenisArmada),
+                defaultTareKg: defaultTareKg !== undefined && defaultTareKg !== null && defaultTareKg !== '' ? parseInt(String(defaultTareKg), 10) : null,
                 qrCode,
             },
             include: {
