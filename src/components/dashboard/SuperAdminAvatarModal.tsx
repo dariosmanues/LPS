@@ -17,18 +17,31 @@ export function notifySuperAdminAvatarUpdated() {
     }
 }
 
-export function useSuperAdminAvatarUrl() {
-    const [version, setVersion] = useState<number>(1);
+/**
+ * URL foto profil PER USER.
+ * - Tanpa userId  : foto milik akun yang sedang login.
+ * - Dengan userId : foto milik user tersebut (mis. di daftar Users).
+ */
+export function useSuperAdminAvatarUrl(userId?: string | null) {
+    const version = useAvatarVersion();
+    return getUserAvatarUrl(userId, version);
+}
 
+export function getUserAvatarUrl(userId?: string | null, version: number = 1) {
+    const params = new URLSearchParams({ v: String(version) });
+    if (userId) params.set('userId', userId);
+    return `/api/superadmin-avatar?${params.toString()}`;
+}
+
+/** Versi foto (berubah setiap ada update) untuk dipakai bersama getUserAvatarUrl */
+export function useAvatarVersion() {
+    const [version, setVersion] = useState<number>(1);
     useEffect(() => {
-        const handleUpdate = () => {
-            setVersion(Date.now());
-        };
+        const handleUpdate = () => setVersion(Date.now());
         window.addEventListener(AVATAR_UPDATED_EVENT, handleUpdate);
         return () => window.removeEventListener(AVATAR_UPDATED_EVENT, handleUpdate);
     }, []);
-
-    return `/api/superadmin-avatar?v=${version}`;
+    return version;
 }
 
 interface SuperAdminAvatarModalProps {
@@ -233,7 +246,9 @@ export function SuperAdminAvatarModal({
                                 alt={userName}
                                 className="w-full h-full object-cover object-center"
                                 onError={(e) => {
-                                    (e.currentTarget as HTMLImageElement).src = '/avatar-superadmin.png';
+                                    const img = e.currentTarget as HTMLImageElement;
+                                    img.onerror = null;
+                                    img.style.visibility = 'hidden';
                                 }}
                             />
                         </div>

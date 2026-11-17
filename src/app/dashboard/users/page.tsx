@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { GlassCard } from '@/components/ui';
 import { usePermissions } from '@/lib/permissions';
 import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
-import { useSuperAdminAvatarUrl, triggerSuperAdminAvatarModal } from '@/components/dashboard/SuperAdminAvatarModal';
+import { getUserAvatarUrl, useAvatarVersion, triggerSuperAdminAvatarModal } from '@/components/dashboard/SuperAdminAvatarModal';
 
 interface KelurahanRef {
     id: string;
@@ -49,8 +49,9 @@ const ROLE_OPTIONS = [
 ];
 
 export default function UsersPage() {
-    const { isSuperAdmin } = usePermissions();
-    const superAdminAvatarUrl = useSuperAdminAvatarUrl();
+    const { isSuperAdmin, user: currentUser } = usePermissions();
+    const currentUserId = currentUser?.id ?? null;
+    const avatarVersion = useAvatarVersion();
     const [users, setUsers] = useState<User[]>([]);
     const [kecamatanList, setKecamatanList] = useState<KecamatanRef[]>([]);
     const [loading, setLoading] = useState(true);
@@ -370,30 +371,32 @@ export default function UsersPage() {
                                                 <div className="flex items-center gap-3">
                                                     <div
                                                         onClick={() => {
-                                                            if (isSuperAdmin && user.role === 'SUPERADMIN') {
+                                                            if (isSuperAdmin && user.role === 'SUPERADMIN' && user.id === currentUserId) {
                                                                 triggerSuperAdminAvatarModal();
                                                             }
                                                         }}
-                                                        title={isSuperAdmin && user.role === 'SUPERADMIN' ? 'Klik untuk ganti foto profil' : undefined}
+                                                        title={isSuperAdmin && user.role === 'SUPERADMIN' && user.id === currentUserId ? 'Klik untuk ganti foto profil' : undefined}
                                                         className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0 overflow-hidden relative group ${
                                                             isLps
                                                                 ? 'bg-linear-to-br from-green-600 to-emerald-700'
                                                                 : 'bg-linear-to-br from-purple-600 to-indigo-700 ring-2 ring-purple-200'
-                                                        } ${isSuperAdmin && user.role === 'SUPERADMIN' ? 'cursor-pointer' : ''}`}
+                                                        } ${isSuperAdmin && user.role === 'SUPERADMIN' && user.id === currentUserId ? 'cursor-pointer' : ''}`}
                                                     >
                                                         {isSuperAdmin && user.role === 'SUPERADMIN' ? (
                                                             <>
                                                                 <img
-                                                                    src={superAdminAvatarUrl}
+                                                                    src={getUserAvatarUrl(user.id, avatarVersion)}
                                                                     alt={user.name}
                                                                     className="w-full h-full object-cover object-center"
                                                                 />
+                                                                {user.id === currentUserId && (
                                                                 <span className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                                                     <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                                                     </svg>
                                                                 </span>
+                                                                )}
                                                             </>
                                                         ) : (
                                                             user.name.charAt(0).toUpperCase()
@@ -440,12 +443,12 @@ export default function UsersPage() {
                                                 <div className="flex items-center justify-end gap-1">
                                                     {isSuperAdmin ? (
                                                         <>
-                                                            {user.role === 'SUPERADMIN' && (
+                                                            {user.role === 'SUPERADMIN' && user.id === currentUserId && (
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => triggerSuperAdminAvatarModal()}
                                                                     className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
-                                                                    title="Ganti Foto Profil Nisa"
+                                                                    title="Ganti Foto Profil Saya"
                                                                 >
                                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
