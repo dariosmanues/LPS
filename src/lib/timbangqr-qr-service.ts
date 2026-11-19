@@ -386,12 +386,11 @@ export async function handleTimbangQrGet(request: NextRequest) {
             const burnedTicketParam = searchParams.get('burnedTicket')?.trim() || null;
             const effectiveTicketRef = armada.lastTicketNumber || burnedTicketParam || null;
 
-            // Wajibkan armada BM 8058 QQ hanya menggunakan QR LPS sekali pakai terbaru (tolak ARMADA-BM8058QQ)
-            const isStrictLpsOnlyPlate = normCheck === 'BM8058QQ';
-            if (isStrictLpsOnlyPlate && (!code || !isLpsQrCode || code !== armada.qrCode)) {
-                const revokedMsg = `QR Master Permanen (${code || 'ARMADA-BM8058QQ'}) untuk armada ${armada.platNomor} telah dinonaktifkan. Armada ini wajib menggunakan QR Code LPS sekali pakai terbaru dari Pengurus/Ketua LPS.`;
+            // Wajibkan SELURUH armada hanya menggunakan QR LPS sekali pakai terbaru (tolak ARMADA-* dan QR plat polos)
+            if (code && (!isLpsQrCode || code !== armada.qrCode)) {
+                const revokedMsg = `QR Master Permanen (${code}) untuk armada ${armada.platNomor} telah dinonaktifkan. Seluruh armada wajib menggunakan QR Code LPS sekali pakai terbaru dari Pengurus/Ketua LPS.`;
                 logScanAudit({
-                    qrCode: code || `ARMADA-${normCheck}`,
+                    qrCode: code,
                     platNomor: armada.platNomor,
                     namaLps: armada.namaLps,
                     action: 'SCAN_VALIDATE',
@@ -416,7 +415,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                     namaLps: armada.namaLps,
                     kelurahan: armada.kelurahan?.nama,
                     kecamatan: armada.kelurahan?.kecamatan?.nama,
-                    qrCode: code || `ARMADA-${normCheck}`,
+                    qrCode: code,
                     kategoriAlasan: 'USANG',
                     keterangan: revokedMsg,
                     tindakan: 'DIARAHKAN_CETAK_ULANG',
@@ -436,7 +435,7 @@ export async function handleTimbangQrGet(request: NextRequest) {
                 );
             }
 
-            const shouldBurn = Boolean((armada.isQrUsed || burnedTicketParam) && (isLpsQrCode || isStrictLpsOnlyPlate));
+            const shouldBurn = Boolean((armada.isQrUsed || burnedTicketParam) && isLpsQrCode);
             if (shouldBurn) {
                 logScanAudit({
                     qrCode: code || armada.qrCode,
