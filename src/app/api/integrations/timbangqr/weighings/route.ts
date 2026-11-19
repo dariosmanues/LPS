@@ -299,6 +299,22 @@ export async function POST(request: NextRequest) {
         return { duplicate: true, updated: true, syncId: duplicate.id, wasteLogId: duplicate.wasteLogId };
       }
 
+      // Proteksi Rapid Duplicate di level MyLPS:
+      // Cegah pembuatan WasteLog ganda jika armada yang sama mengirim tonase netto identik dalam waktu < 30 detik
+      const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+      const recentSync = await tx.timbangQrSync.findFirst({
+        where: {
+          plateNumber: input.plateNumber,
+          nettoKg: input.nettoKg,
+          transdepo: input.transdepo,
+          receivedAt: { gte: thirtySecondsAgo },
+        },
+      });
+      if (recentSync) {
+        console.warn(`[LPS Sync] Rapid duplicate detected and rejected for ${input.plateNumber} (Incoming Ticket: ${input.ticketNumber}, Prior Ticket: ${recentSync.ticketNumber})`);
+        return { duplicate: true, updated: false, syncId: recentSync.id, wasteLogId: recentSync.wasteLogId, message: 'Rapid duplicate ignored' };
+      }
+
       const wasteLog = await tx.wasteLog.create({
         data: {
           armadaId: armada.id,
