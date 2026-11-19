@@ -385,7 +385,58 @@ export async function handleTimbangQrGet(request: NextRequest) {
 
             const burnedTicketParam = searchParams.get('burnedTicket')?.trim() || null;
             const effectiveTicketRef = armada.lastTicketNumber || burnedTicketParam || null;
-            const shouldBurn = Boolean((armada.isQrUsed || burnedTicketParam) && isLpsQrCode);
+
+            // Wajibkan armada BM 8058 QQ hanya menggunakan QR LPS sekali pakai terbaru (tolak ARMADA-BM8058QQ)
+            const isStrictLpsOnlyPlate = normCheck === 'BM8058QQ';
+            if (isStrictLpsOnlyPlate && (!code || !isLpsQrCode || code !== armada.qrCode)) {
+                const revokedMsg = `QR Master Permanen (${code || 'ARMADA-BM8058QQ'}) untuk armada ${armada.platNomor} telah dinonaktifkan. Armada ini wajib menggunakan QR Code LPS sekali pakai terbaru dari Pengurus/Ketua LPS.`;
+                logScanAudit({
+                    qrCode: code || `ARMADA-${normCheck}`,
+                    platNomor: armada.platNomor,
+                    namaLps: armada.namaLps,
+                    action: 'SCAN_VALIDATE',
+                    clientIp: displayIp,
+                    userAgent: displayUserAgent,
+                    status: 'INVALID',
+                    metadata: {
+                        reason: 'QR Master Permanen Dinonaktifkan (Wajib QR LPS Sekali Pakai)',
+                        lastTicketNumber: effectiveTicketRef,
+                        qrCreatorName,
+                        scannerIp: clientIp,
+                    },
+                });
+                await logQrFailure({
+                    transdepo: resolveFailureTransdepo(
+                        request,
+                        transdepoQuery,
+                        armada.lokasiTransdepo,
+                        effectiveTicketRef
+                    ),
+                    platNomor: armada.platNomor,
+                    namaLps: armada.namaLps,
+                    kelurahan: armada.kelurahan?.nama,
+                    kecamatan: armada.kelurahan?.kecamatan?.nama,
+                    qrCode: code || `ARMADA-${normCheck}`,
+                    kategoriAlasan: 'USANG',
+                    keterangan: revokedMsg,
+                    tindakan: 'DIARAHKAN_CETAK_ULANG',
+                    operatorName: 'Sistem Timbangan (Auto)',
+                    tiketNumberRef: effectiveTicketRef,
+                });
+                return NextResponse.json(
+                    {
+                        success: false,
+                        valid: false,
+                        burned: true,
+                        loggedFailure: true,
+                        message: revokedMsg,
+                        data: formatted,
+                    },
+                    { status: 400, headers: corsHeaders }
+                );
+            }
+
+            const shouldBurn = Boolean((armada.isQrUsed || burnedTicketParam) && (isLpsQrCode || isStrictLpsOnlyPlate));
             if (shouldBurn) {
                 logScanAudit({
                     qrCode: code || armada.qrCode,
