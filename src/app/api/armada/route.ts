@@ -16,6 +16,14 @@ function parseSafeString(val: any): string | null {
     return str;
 }
 
+function parseSafePermit(val: any): string | null {
+    const str = parseSafeString(val);
+    if (!str) return null;
+    if (str.replace(/[^A-Za-z0-9]/g, '').length < 4) return null;
+    if (/^(?:belum|tidak|none|null|kosong|-+)$/i.test(str)) return null;
+    return str;
+}
+
 // In-memory cache 15 detik untuk navigasi cepat
 const armadaCache: Record<string, { data: unknown; timestamp: number }> = {};
 const ARMADA_CACHE_TTL_MS = 15000;
@@ -141,7 +149,7 @@ export async function POST(request: Request) {
                 namaLps: cleanNamaLps,
                 kelurahanId: safeKelurahanId,
                 platNomor: cleanPlatNomor,
-                noIzinOperasi: parseSafeString(noIzinOperasi),
+                noIzinOperasi: parseSafePermit(noIzinOperasi),
                 namaSupir: parseSafeString(namaSupir),
                 namaKetuaLps: parseSafeString(namaKetuaLps),
                 noTlpKetuaLps: parseSafeString(noTlpKetuaLps),

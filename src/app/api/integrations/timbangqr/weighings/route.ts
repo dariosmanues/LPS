@@ -288,14 +288,32 @@ export async function POST(request: NextRequest) {
             payload: JSON.stringify(input),
           },
         });
-        await tx.armada.updateMany({
-          where: { id: { in: matchingArmadas.map((a) => a.id) } },
-          data: {
-            isQrUsed: true,
-            qrUsedAt: new Date(input.weighedAt),
-            lastTicketNumber: input.ticketNumber,
-          },
-        });
+        const nonPermanentIds = matchingArmadas
+          .filter((a) => !/-PERMANEN$/i.test(a.qrCode || ''))
+          .map((a) => a.id);
+        const permanentIds = matchingArmadas
+          .filter((a) => /-PERMANEN$/i.test(a.qrCode || ''))
+          .map((a) => a.id);
+        if (nonPermanentIds.length > 0) {
+          await tx.armada.updateMany({
+            where: { id: { in: nonPermanentIds } },
+            data: {
+              isQrUsed: true,
+              qrUsedAt: new Date(input.weighedAt),
+              lastTicketNumber: input.ticketNumber,
+            },
+          });
+        }
+        if (permanentIds.length > 0) {
+          await tx.armada.updateMany({
+            where: { id: { in: permanentIds } },
+            data: {
+              isQrUsed: false,
+              qrUsedAt: new Date(input.weighedAt),
+              lastTicketNumber: input.ticketNumber,
+            },
+          });
+        }
         return { duplicate: true, updated: true, syncId: duplicate.id, wasteLogId: duplicate.wasteLogId };
       }
 
@@ -350,15 +368,33 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
 
-      // Burn QR code so it cannot be reused (hangus)
-      await tx.armada.updateMany({
-        where: { id: { in: matchingArmadas.map((a) => a.id) } },
-        data: {
-          isQrUsed: true,
-          qrUsedAt: new Date(input.weighedAt),
-          lastTicketNumber: input.ticketNumber,
-        },
-      });
+      // Burn QR code so it cannot be reused (hangus) — kecuali QR Permanen (-PERMANEN)
+      const nonPermanentIdsNew = matchingArmadas
+        .filter((a) => !/-PERMANEN$/i.test(a.qrCode || ''))
+        .map((a) => a.id);
+      const permanentIdsNew = matchingArmadas
+        .filter((a) => /-PERMANEN$/i.test(a.qrCode || ''))
+        .map((a) => a.id);
+      if (nonPermanentIdsNew.length > 0) {
+        await tx.armada.updateMany({
+          where: { id: { in: nonPermanentIdsNew } },
+          data: {
+            isQrUsed: true,
+            qrUsedAt: new Date(input.weighedAt),
+            lastTicketNumber: input.ticketNumber,
+          },
+        });
+      }
+      if (permanentIdsNew.length > 0) {
+        await tx.armada.updateMany({
+          where: { id: { in: permanentIdsNew } },
+          data: {
+            isQrUsed: false,
+            qrUsedAt: new Date(input.weighedAt),
+            lastTicketNumber: input.ticketNumber,
+          },
+        });
+      }
 
       return { duplicate: false, syncId: sync.id, wasteLogId: wasteLog.id };
     });

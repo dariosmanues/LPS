@@ -24,6 +24,9 @@ export const authOptions: NextAuthOptions = {
                     if (lookupEmail === 'superadmin' || lookupEmail === 'nisa') lookupEmail = 'superadmin@lps.pekanbaru.go.id';
                     else if (lookupEmail === 'viewer') lookupEmail = 'viewer@lps.pekanbaru.go.id';
                     else if (lookupEmail === 'admin') lookupEmail = 'admin@lps.pekanbaru.go.id';
+                    else if (lookupEmail === 'dzakwan') lookupEmail = 'dzakwan@lps.pekanbaru.go.id';
+                    else if (lookupEmail === 'santi' || lookupEmail === 'santirahmayanti' || lookupEmail === 'santi rahmayanti' || lookupEmail === 'shanti') lookupEmail = 'santi.rahmayanti@lps.pekanbaru.go.id';
+                    else if (lookupEmail === 'sal' || lookupEmail === 'salpriadi' || lookupEmail === 'sal priadi') lookupEmail = 'sal.priadi@lps.pekanbaru.go.id';
                 }
 
                 let user = await prisma.user.findUnique({

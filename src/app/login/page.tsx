@@ -29,12 +29,19 @@ export default function LoginPage() {
                 setError('Email atau password salah');
                 setLoading(false);
             } else {
-                // Arahkan sesuai role: pengurus LPS Kelurahan ke /lps, lainnya ke /dashboard
+                // Arahkan sesuai role/akun: pengurus LPS Kelurahan ke /lps, akun Pick Up Sewa ke /dashboard/sewa-pickup, lainnya ke /dashboard
                 const session = await getSession();
-                const role = ((session?.user as { role?: string } | undefined)?.role || '').toUpperCase();
+                const userObj = session?.user as { role?: string; email?: string } | undefined;
+                const role = (userObj?.role || '').toUpperCase();
+                const userEmail = (userObj?.email || '').toLowerCase();
                 const isLps = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'].includes(role);
+                const isSewaPickUpUser = [
+                    'dzakwan@lps.pekanbaru.go.id',
+                    'santi.rahmayanti@lps.pekanbaru.go.id',
+                    'sal.priadi@lps.pekanbaru.go.id',
+                ].includes(userEmail);
                 // Full page navigation so middleware reads updated auth cookie
-                window.location.href = isLps ? '/lps' : '/dashboard';
+                window.location.href = isLps ? '/lps' : (isSewaPickUpUser ? '/dashboard/sewa-pickup' : '/dashboard');
             }
         } catch {
             setError('Terjadi kesalahan, silakan coba lagi');
@@ -63,14 +70,14 @@ export default function LoginPage() {
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Email
+                                Email / Username
                             </label>
                             <input
-                                type="email"
+                                type="text"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-100 outline-none transition-all"
-                                placeholder="email@example.com"
+                                placeholder="email@example.com atau username"
                                 required
                             />
                         </div>

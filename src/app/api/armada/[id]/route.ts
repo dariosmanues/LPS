@@ -19,6 +19,15 @@ function parseSafeString(val: any): string | null | undefined {
     return str;
 }
 
+function parseSafePermit(val: any): string | null | undefined {
+    if (val === undefined) return undefined;
+    const str = parseSafeString(val);
+    if (!str) return null;
+    if (str.replace(/[^A-Za-z0-9]/g, '').length < 4) return null;
+    if (/^(?:belum|tidak|none|null|kosong|-+)$/i.test(str)) return null;
+    return str;
+}
+
 export async function PATCH(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -55,7 +64,7 @@ export async function PATCH(
         if (namaLps !== undefined) updateData.namaLps = parseSafeString(namaLps);
         if (platNomor !== undefined) updateData.platNomor = parseSafeString(platNomor);
         if (kelurahanId !== undefined) updateData.kelurahanId = safeKelurahanId;
-        if (noIzinOperasi !== undefined) updateData.noIzinOperasi = parseSafeString(noIzinOperasi);
+        if (noIzinOperasi !== undefined) updateData.noIzinOperasi = parseSafePermit(noIzinOperasi);
         if (namaSupir !== undefined) updateData.namaSupir = parseSafeString(namaSupir);
         if (namaKetuaLps !== undefined) updateData.namaKetuaLps = parseSafeString(namaKetuaLps);
         if (noTlpKetuaLps !== undefined) updateData.noTlpKetuaLps = parseSafeString(noTlpKetuaLps);

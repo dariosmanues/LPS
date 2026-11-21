@@ -435,7 +435,10 @@ export async function handleTimbangQrGet(request: NextRequest) {
                 );
             }
 
-            const shouldBurn = Boolean((armada.isQrUsed || burnedTicketParam) && isLpsQrCode);
+            const isPermanentQr = Boolean(
+                (code && /-PERMANEN$/i.test(code)) || /-PERMANEN$/i.test(armada.qrCode || '')
+            );
+            const shouldBurn = !isPermanentQr && Boolean((armada.isQrUsed || burnedTicketParam) && isLpsQrCode);
             if (shouldBurn) {
                 logScanAudit({
                     qrCode: code || armada.qrCode,

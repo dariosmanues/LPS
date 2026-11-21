@@ -68,6 +68,10 @@ export function getTargetTimbangQrUrls(
 }
 
 export function formatArmadaPayload(armada: any) {
+  const rawIzin = armada.noIzinOperasi ? String(armada.noIzinOperasi).trim() : '';
+  const validIzin = rawIzin && rawIzin.replace(/[^A-Za-z0-9]/g, '').length >= 4 && !/^(?:belum|tidak|none|null|kosong|-+)$/i.test(rawIzin)
+    ? rawIzin
+    : null;
   return {
     id: armada.id,
     platNomor: armada.platNomor,
@@ -81,7 +85,7 @@ export function formatArmadaPayload(armada: any) {
     jenisArmada: armada.jenisArmada || null,
     defaultTareKg: armada.defaultTareKg || null,
     default_tare_kg: armada.defaultTareKg || null,
-    noIzinOperasi: armada.noIzinOperasi || null,
+    noIzinOperasi: validIzin,
     nomorSkLps: armada.nomorSkLps || null,
     tanggalSkLps: armada.tanggalSkLps ? new Date(armada.tanggalSkLps).toISOString().split('T')[0] : null,
     tanggalTerbitIzin: armada.tanggalTerbitIzin ? new Date(armada.tanggalTerbitIzin).toISOString().split('T')[0] : null,
