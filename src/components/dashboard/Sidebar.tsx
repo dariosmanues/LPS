@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Logo } from '@/components/ui/Logo';
 import { isSuperAdminUser } from '@/lib/permissions';
@@ -38,6 +38,16 @@ const menuItems = [
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+            </svg>
+        )
+    },
+    {
+        name: 'Users & Role Management',
+        shortName: 'Users',
+        href: '/dashboard/users',
+        icon: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
         )
     },
@@ -95,16 +105,6 @@ const menuItems = [
         icon: (
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        )
-    },
-    {
-        name: 'Users',
-        shortName: 'Users',
-        href: '/dashboard/users',
-        icon: (
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
         )
     },
@@ -188,12 +188,34 @@ export function Sidebar({ children }: SidebarProps) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [avatarModalOpen, setAvatarModalOpen] = useState(false);
+    const [canScrollUp, setCanScrollUp] = useState(false);
+    const [canScrollDown, setCanScrollDown] = useState(false);
+    const desktopNavRef = useRef<HTMLElement>(null);
     const { data: session } = useSession();
     const { isMobileMode } = useViewMode();
 
     const isSuperAdmin = isSuperAdminUser(session?.user);
     const superAdminAvatarUrl = useSuperAdminAvatarUrl();
     const filteredMenuItems = menuItems;
+
+    const updateNavScrollState = () => {
+        const el = desktopNavRef.current;
+        if (!el) return;
+        setCanScrollUp(el.scrollTop > 4);
+        setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+    };
+
+    useEffect(() => {
+        updateNavScrollState();
+        window.addEventListener('resize', updateNavScrollState);
+        return () => window.removeEventListener('resize', updateNavScrollState);
+    }, [isMobileMode]);
+
+    const scrollDesktopNav = (direction: 'up' | 'down') => {
+        const el = desktopNavRef.current;
+        if (!el) return;
+        el.scrollBy({ top: direction === 'down' ? 180 : -180, behavior: 'smooth' });
+    };
 
     useEffect(() => {
         if (!isSuperAdmin) return;
@@ -438,14 +460,33 @@ export function Sidebar({ children }: SidebarProps) {
         <div className="min-h-screen bg-[#F5F6FA] overflow-x-auto">
             <div className="min-w-[1120px] min-h-screen relative">
                 {/* Desktop Floating Left Sidebar */}
-                <aside className="fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex flex-col items-center py-5 z-40">
+                <aside className="fixed left-4 top-4 bottom-4 w-20 bg-white rounded-3xl shadow-lg flex flex-col items-center py-3.5 z-40">
                     {/* Logo */}
-                    <Link href="/" className="mb-3 shrink-0" title="Beranda">
+                    <Link href="/" className="mb-2 shrink-0" title="Beranda">
                         <Logo size="md" />
                     </Link>
 
+                    {/* Scroll Up Indicator */}
+                    {canScrollUp && (
+                        <button
+                            type="button"
+                            onClick={() => scrollDesktopNav('up')}
+                            className="shrink-0 w-12 h-5 mb-0.5 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-600 flex items-center justify-center transition-colors cursor-pointer"
+                            title="Scroll menu ke atas"
+                            aria-label="Scroll menu ke atas"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                            </svg>
+                        </button>
+                    )}
+
                     {/* Navigation */}
-                    <nav className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-1.5 px-2 py-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    <nav
+                        ref={desktopNavRef}
+                        onScroll={updateNavScrollState}
+                        className="flex-1 w-full min-h-0 overflow-y-auto overflow-x-hidden flex flex-col items-center gap-1 px-2 py-1 [scrollbar-width:thin] [scrollbar-color:#d8b4fe_transparent]"
+                    >
                         {filteredMenuItems.map((item) => {
                             const isActive =
                                 pathname === item.href ||
@@ -464,8 +505,23 @@ export function Sidebar({ children }: SidebarProps) {
                         })}
                     </nav>
 
+                    {/* Scroll Down Indicator */}
+                    {canScrollDown && (
+                        <button
+                            type="button"
+                            onClick={() => scrollDesktopNav('down')}
+                            className="shrink-0 w-12 h-5 mt-0.5 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-600 flex items-center justify-center transition-colors cursor-pointer animate-pulse"
+                            title="Lihat menu lainnya di bawah"
+                            aria-label="Scroll menu ke bawah"
+                        >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                    )}
+
                     {/* Bottom Actions */}
-                    <div className="shrink-0 mt-auto flex flex-col items-center gap-2 pt-3 border-t border-gray-100 w-full px-2">
+                    <div className="shrink-0 mt-auto flex flex-col items-center gap-1.5 pt-2.5 border-t border-gray-100 w-full px-2">
                         {/* Quick Switch to Mobile Mode */}
                         <ViewModeToggle variant="sidebar" theme="purple" />
 
