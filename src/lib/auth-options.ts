@@ -100,7 +100,12 @@ export const authOptions: NextAuthOptions = {
                 if (token.id || token.email) {
                     try {
                         const dbUser = await prisma.user.findFirst({
-                            where: token.id ? { id: token.id as string } : { email: token.email as string },
+                            where: {
+                                OR: [
+                                    ...(token.id ? [{ id: token.id as string }] : []),
+                                    ...(token.email ? [{ email: (token.email as string).toLowerCase() }] : []),
+                                ],
+                            },
                             select: { id: true, role: true, kelurahanId: true, name: true }
                         });
                         if (dbUser) {
