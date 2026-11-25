@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   reactCompiler: true,
   serverExternalPackages: ['serialport', '@serialport/parser-readline', '@serialport/bindings-cpp'],
   async headers() {

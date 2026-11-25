@@ -68,10 +68,12 @@ export async function middleware(req: NextRequest) {
         });
     }
 
-    // Unauthenticated: redirect to login
+    // Unauthenticated: redirect to login (use relative path so proxy localhost:3000 never leaks into callbackUrl)
     if (!token) {
-        const loginUrl = new URL('/login', req.url);
-        loginUrl.searchParams.set('callbackUrl', req.url);
+        const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || '177-202-246-42.sslip.io';
+        const proto = req.headers.get('x-forwarded-proto') || 'https';
+        const loginUrl = new URL('/login', `${proto}://${host}`);
+        loginUrl.searchParams.set('callbackUrl', `${req.nextUrl.pathname}${req.nextUrl.search}`);
         return NextResponse.redirect(loginUrl);
     }
 
