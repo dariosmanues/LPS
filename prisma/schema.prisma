@@ -302,3 +302,42 @@ model QrFailureReport {
   @@map("qr_failure_reports")
 }
 
+model Tps3rReport {
+  id                         String   @id @default(cuid())
+  tanggal                    DateTime @default(now())
+  namaOperator               String   @map("nama_operator")
+  jumlahPekerja              Int      @map("jumlah_pekerja")
+  jenisSampah                String   @map("jenis_sampah") // organik, anorganik
+  beratSampahMasuk           Float    @map("berat_sampah_masuk")
+  beratAmpasSetelahPilahan   Float    @map("berat_ampas_setelah_pilahan")
+  beratPlastikSetelahPilahan Float    @map("berat_plastik_setelah_pilahan")
+  beratSampahDibakar         Float    @map("berat_sampah_dibakar")
+
+  // Konsumsi Bahan Bakar
+  jenisBBM                   String   @map("jenis_bbm") // kayu, oli, ban
+  jumlahKayu                 Float?   @map("jumlah_kayu")
+  jumlahBan                  Float?   @map("jumlah_ban")
+  jumlahOli                  Float?   @map("jumlah_oli")
+
+  // Waktu Operasional
+  waktuPemilahanMulai        DateTime @map("waktu_pemilahan_mulai")
+  waktuPemilahanSelesai      DateTime @map("waktu_pemilahan_selesai")
+  waktuPembakaranMulai       DateTime @map("waktu_pembakaran_mulai")
+  waktuPembakaranSelesai     DateTime @map("waktu_pembakaran_selesai")
+
+  // Kondisi Alat Incinerator
+  statusOperasi              String   @map("status_operasi") // normal, kendala, perawatan
+  catatanKerusakan           String?  @map("catatan_kerusakan")
+  tindakanPerbaikan          String?  @map("tindakan_perbaikan")
+  tindakanPerawatan          String?  @map("tindakan_perawatan")
+
+  // Dokumentasi
+  fotoIncinerator            String?  @map("foto_incinerator")
+
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  @@index([tanggal])
+  @@map("tps3r_reports")
+}
+
