@@ -103,6 +103,7 @@ export function formatArmadaForTimbangQr(
         jenisArmada: string | null;
         lokasiTransdepo: string | null;
         noIzinOperasi?: string | null;
+        defaultTareKg?: number | null;
         qrCode: string;
         isQrUsed?: boolean;
         qrUsedAt?: Date | null;
@@ -132,6 +133,8 @@ export function formatArmadaForTimbangQr(
         jenisArmada: armada.jenisArmada || null,
         lokasiTransdepo: armada.lokasiTransdepo || null,
         noIzinOperasi: armada.noIzinOperasi || null,
+        defaultTareKg: typeof armada.defaultTareKg === 'number' && armada.defaultTareKg > 0 ? armada.defaultTareKg : null,
+        default_tare_kg: typeof armada.defaultTareKg === 'number' && armada.defaultTareKg > 0 ? armada.defaultTareKg : null,
         qrCode,
         qrUrl,
         qrDataUrl: generateQrDataUrl(qrCode, 200),

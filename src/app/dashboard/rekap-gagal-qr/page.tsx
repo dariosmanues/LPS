@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import Link from 'next/link';
+import {
+    ResponsiveContainer,
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+} from 'recharts';
 import { ReadOnlyBanner } from '@/components/dashboard/ReadOnlyBanner';
 import { usePermissions } from '@/lib/permissions';
 
@@ -34,11 +42,33 @@ interface SummaryStats {
     totalLainnya: number;
 }
 
+interface TimelineBucket {
+    key: string;
+    label: string;
+    fullLabel: string;
+    total: number;
+    airHitam: number;
+    harapanJaya: number;
+    hangus: number;
+    usang: number;
+    kadaluarsa: number;
+    tidakTerdaftar: number;
+    platTidakSesuai: number;
+    lainnya: number;
+}
+
+function getWibYmd(offsetDays = 0): string {
+    const now = new Date(Date.now() + 7 * 60 * 60 * 1000 + offsetDays * 24 * 60 * 60 * 1000);
+    return now.toISOString().slice(0, 10);
+}
+
 export default function RekapGagalQrPage() {
     const { isSuperAdmin, isReadOnly } = usePermissions();
 
     // Data State
     const [items, setItems] = useState<QrFailureItem[]>([]);
+    const [timeline, setTimeline] = useState<TimelineBucket[]>([]);
+    const [activeGranularity, setActiveGranularity] = useState<'hourly' | 'daily' | 'weekly' | 'monthly'>('daily');
     const [summary, setSummary] = useState<SummaryStats>({
         totalAll: 0,
         totalAirHitam: 0,
@@ -52,12 +82,15 @@ export default function RekapGagalQrPage() {
     });
     const [loading, setLoading] = useState(true);
 
-    // Filter State
+    // Filter & Timeline Setting State
     const [selectedTransdepo, setSelectedTransdepo] = useState<string>('ALL');
     const [selectedKategori, setSelectedKategori] = useState<string>('ALL');
     const [selectedRange, setSelectedRange] = useState<string>('all');
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
+    const [granularity, setGranularity] = useState<'auto' | 'hourly' | 'daily' | 'weekly' | 'monthly'>('auto');
+    const [chartMode, setChartMode] = useState<'pos' | 'kategori'>('pos');
+    const [hiddenSeries, setHiddenSeries] = useState<Record<string, boolean>>({});
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [page, setPage] = useState<number>(1);
     const [totalPages, setTotalPages] = useState<number>(1);
@@ -130,6 +163,7 @@ export default function RekapGagalQrPage() {
             if (searchQuery.trim()) params.set('search', searchQuery.trim());
             if (startDate) params.set('startDate', startDate);
             if (endDate) params.set('endDate', endDate);
+            if (granularity !== 'auto') params.set('granularity', granularity);
             params.set('page', String(page));
             params.set('limit', '25');
 
@@ -138,6 +172,8 @@ export default function RekapGagalQrPage() {
 
             if (json.success) {
                 setItems(json.data || []);
+                setTimeline(Array.isArray(json.timeline) ? json.timeline : []);
+                if (json.granularity) setActiveGranularity(json.granularity);
                 setSummary(json.summary || {
                     totalAll: 0,
                     totalAirHitam: 0,
@@ -157,35 +193,110 @@ export default function RekapGagalQrPage() {
         } finally {
             setLoading(false);
         }
-    }, [selectedTransdepo, selectedKategori, searchQuery, startDate, endDate, page]);
+    }, [selectedTransdepo, selectedKategori, searchQuery, startDate, endDate, granularity, page]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
 
-    // Handle Quick Date Range
+    // Handle Quick Date Range (WIB Accurate)
     const handleRangeChange = (val: string) => {
         setSelectedRange(val);
         setPage(1);
-        const now = new Date();
+        const todayWib = getWibYmd(0);
 
         if (val === 'today') {
-            const todayStr = now.toISOString().slice(0, 10);
-            setStartDate(todayStr);
-            setEndDate(todayStr);
+            setStartDate(todayWib);
+            setEndDate(todayWib);
+            setGranularity('hourly');
+        } else if (val === 'yesterday') {
+            const yest = getWibYmd(-1);
+            setStartDate(yest);
+            setEndDate(yest);
+            setGranularity('hourly');
         } else if (val === '7days') {
-            const past = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            setStartDate(past.toISOString().slice(0, 10));
-            setEndDate(now.toISOString().slice(0, 10));
+            setStartDate(getWibYmd(-6));
+            setEndDate(todayWib);
+            if (granularity === 'hourly') setGranularity('daily');
+        } else if (val === '14days') {
+            setStartDate(getWibYmd(-13));
+            setEndDate(todayWib);
+            if (granularity === 'hourly') setGranularity('daily');
+        } else if (val === '30days') {
+            setStartDate(getWibYmd(-29));
+            setEndDate(todayWib);
+            if (granularity === 'hourly') setGranularity('daily');
         } else if (val === 'month') {
-            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-            setStartDate(firstDay.toISOString().slice(0, 10));
-            setEndDate(now.toISOString().slice(0, 10));
-        } else {
+            const firstOfMonth = `${todayWib.slice(0, 7)}-01`;
+            setStartDate(firstOfMonth);
+            setEndDate(todayWib);
+            if (granularity === 'hourly') setGranularity('daily');
+        } else if (val === 'all') {
             setStartDate('');
             setEndDate('');
+            setGranularity('auto');
         }
     };
+
+    const handleCustomStartDate = (val: string) => {
+        setStartDate(val);
+        setSelectedRange('custom');
+        setPage(1);
+    };
+
+    const handleCustomEndDate = (val: string) => {
+        setEndDate(val);
+        setSelectedRange('custom');
+        setPage(1);
+    };
+
+    const toggleSeries = (dataKey: string) => {
+        setHiddenSeries((prev) => ({ ...prev, [dataKey]: !prev[dataKey] }));
+    };
+
+    // Statistik Analitik Timeline (Puncak & Rata-rata)
+    const timelineAnalytics = useMemo(() => {
+        if (!timeline || timeline.length === 0) {
+            return { peak: null as TimelineBucket | null, avg: 0, totalInChart: 0 };
+        }
+        let peak: TimelineBucket | null = null;
+        let sum = 0;
+        for (const b of timeline) {
+            sum += b.total;
+            if (!peak || b.total > peak.total) {
+                peak = b;
+            }
+        }
+        const avg = timeline.length > 0 ? sum / timeline.length : 0;
+        return { peak: peak && peak.total > 0 ? peak : null, avg, totalInChart: sum };
+    }, [timeline]);
+
+    const chartData = useMemo(() => {
+        return timeline.map((b) => ({
+            ...b,
+            kategoriLain:
+                (b.kadaluarsa || 0) +
+                (b.tidakTerdaftar || 0) +
+                (b.platTidakSesuai || 0) +
+                (b.lainnya || 0),
+        }));
+    }, [timeline]);
+
+    const activeSeriesConfig = useMemo(() => {
+        if (chartMode === 'pos') {
+            return [
+                { key: 'total', name: 'Total Kendala', color: '#818cf8', strokeWidth: 3 },
+                { key: 'airHitam', name: 'Pos Air Hitam', color: '#38bdf8', strokeWidth: 2.2 },
+                { key: 'harapanJaya', name: 'Pos Harapan Jaya', color: '#34d399', strokeWidth: 2.2 },
+            ];
+        }
+        return [
+            { key: 'total', name: 'Total Kendala', color: '#818cf8', strokeWidth: 2.5 },
+            { key: 'hangus', name: 'QR Hangus (Sudah Dipakai)', color: '#fb7185', strokeWidth: 2.5 },
+            { key: 'usang', name: 'QR Usang / Rusak', color: '#fbbf24', strokeWidth: 2.5 },
+            { key: 'kategoriLain', name: 'Lainnya (Tidak Terdaftar/Kadaluarsa)', color: '#c084fc', strokeWidth: 2 },
+        ];
+    }, [chartMode]);
 
     // Export CSV Function (Seluruh Data sesuai Filter)
     const handleExportCsv = async () => {
@@ -496,6 +607,313 @@ export default function RekapGagalQrPage() {
                 </div>
             </div>
 
+            {/* TIMELINE SETTING & LINE CHART SECTION */}
+            <div className="max-w-7xl mx-auto mb-6 bg-slate-900/95 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xl">
+                {/* Baris 1: Timeline Setting Controls */}
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                                </svg>
+                            </span>
+                            <h2 className="text-base sm:text-lg font-bold text-white">
+                                Grafik Tren & Pengaturan Timeline Kendala QR
+                            </h2>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Atur rentang waktu, interval agregasi (Per Jam / Harian / Mingguan / Bulanan), serta mode garis perbandingan.
+                        </p>
+                    </div>
+
+                    {/* Quick Timeline Preset Pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap bg-slate-950 p-1.5 rounded-xl border border-slate-800/90">
+                        {[
+                            { id: 'all', label: 'Semua Waktu' },
+                            { id: 'today', label: 'Hari Ini' },
+                            { id: 'yesterday', label: 'Kemarin' },
+                            { id: '7days', label: '7 Hari' },
+                            { id: '14days', label: '14 Hari' },
+                            { id: '30days', label: '30 Hari' },
+                            { id: 'month', label: 'Bulan Ini' },
+                        ].map((preset) => (
+                            <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => handleRangeChange(preset.id)}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                    selectedRange === preset.id
+                                        ? 'bg-gradient-to-r from-indigo-600 to-rose-600 text-white shadow-sm'
+                                        : 'text-slate-400 hover:text-white hover:bg-slate-900'
+                                }`}
+                            >
+                                {preset.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Baris 2: Custom Date Picker + Interval Granularity + Chart Mode */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 py-3.5 border-b border-slate-800/60 text-xs">
+                    {/* Rentang Tanggal Custom */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-slate-400 font-medium flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Rentang Tanggal:
+                        </span>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => handleCustomStartDate(e.target.value)}
+                            className="bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-indigo-500"
+                            title="Dari Tanggal"
+                        />
+                        <span className="text-slate-500">s/d</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => handleCustomEndDate(e.target.value)}
+                            className="bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-2.5 py-1.5 text-xs focus:outline-hidden focus:border-indigo-500"
+                            title="Sampai Tanggal"
+                        />
+                        {(startDate || endDate) && (
+                            <button
+                                type="button"
+                                onClick={() => handleRangeChange('all')}
+                                className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium transition-colors cursor-pointer"
+                            >
+                                Reset Waktu
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Interval Granularity & Mode Garis */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Granularity Selector */}
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 font-medium">Interval:</span>
+                            <div className="inline-flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                                {[
+                                    { id: 'auto', label: 'Otomatis' },
+                                    { id: 'hourly', label: 'Per Jam' },
+                                    { id: 'daily', label: 'Harian' },
+                                    { id: 'weekly', label: 'Mingguan' },
+                                    { id: 'monthly', label: 'Bulanan' },
+                                ].map((g) => (
+                                    <button
+                                        key={g.id}
+                                        type="button"
+                                        onClick={() => setGranularity(g.id as any)}
+                                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                                            granularity === g.id
+                                                ? 'bg-indigo-600 text-white shadow-xs'
+                                                : 'text-slate-400 hover:text-slate-200'
+                                        }`}
+                                    >
+                                        {g.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Mode Garis Selector */}
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 font-medium">Mode Garis:</span>
+                            <div className="inline-flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setChartMode('pos')}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                                        chartMode === 'pos'
+                                            ? 'bg-slate-800 text-white border border-slate-700'
+                                            : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    Per Pos Timbangan
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setChartMode('kategori')}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                                        chartMode === 'kategori'
+                                            ? 'bg-slate-800 text-white border border-slate-700'
+                                            : 'text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    Per Kategori Kendala
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Baris 3: Legend Interaktif & Insight Badges */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3.5 pb-2">
+                    {/* Toggleable Legend Pills */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {activeSeriesConfig.map((s) => {
+                            const isHidden = Boolean(hiddenSeries[s.key]);
+                            return (
+                                <button
+                                    key={s.key}
+                                    type="button"
+                                    onClick={() => toggleSeries(s.key)}
+                                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                                        isHidden
+                                            ? 'bg-slate-950 text-slate-600 border-slate-800 opacity-50 line-through'
+                                            : 'bg-slate-950/90 text-slate-200 border-slate-800 hover:border-slate-700'
+                                    }`}
+                                    title="Klik untuk tampilkan / sembunyikan garis ini"
+                                >
+                                    <span
+                                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: s.color }}
+                                    />
+                                    <span>{s.name}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Peak & Average Insight Pills */}
+                    <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                        {timelineAnalytics.peak && (
+                            <span className="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 font-medium">
+                                Puncak: <strong className="text-rose-200">{timelineAnalytics.peak.label}</strong> ({timelineAnalytics.peak.total} kasus)
+                            </span>
+                        )}
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-950 text-slate-400 border border-slate-800 font-medium">
+                            Rata-rata:{' '}
+                            <strong className="text-slate-200">
+                                {timelineAnalytics.avg.toFixed(1)} kasus /{' '}
+                                {activeGranularity === 'hourly'
+                                    ? 'jam'
+                                    : activeGranularity === 'weekly'
+                                      ? 'minggu'
+                                      : activeGranularity === 'monthly'
+                                        ? 'bulan'
+                                        : 'hari'}
+                            </strong>
+                        </span>
+                    </div>
+                </div>
+
+                {/* Baris 4: Recharts LineChart */}
+                <div className="h-[300px] sm:h-[340px] w-full mt-2">
+                    {loading ? (
+                        <div className="h-full w-full flex flex-col items-center justify-center text-slate-500 text-xs">
+                            <div className="inline-block animate-spin rounded-full h-7 w-7 border-2 border-indigo-500 border-t-transparent mb-2"></div>
+                            <span>Memuat grafik timeline kendala QR...</span>
+                        </div>
+                    ) : chartData.length === 0 ? (
+                        <div className="h-full w-full flex flex-col items-center justify-center text-slate-500 text-xs bg-slate-950/50 rounded-xl border border-slate-800/60">
+                            <p className="font-semibold text-slate-400">Belum ada data pada rentang timeline ini</p>
+                            <p className="text-[11px] text-slate-600 mt-1">Ubah rentang waktu atau klik &quot;Semua Waktu&quot; untuk melihat grafik historis.</p>
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData} margin={{ top: 12, right: 18, left: -12, bottom: 6 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                                <XAxis
+                                    dataKey="label"
+                                    stroke="#64748b"
+                                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                                    axisLine={{ stroke: '#1e293b' }}
+                                    tickLine={false}
+                                    dy={8}
+                                    minTickGap={16}
+                                />
+                                <YAxis
+                                    stroke="#64748b"
+                                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    allowDecimals={false}
+                                />
+                                <Tooltip
+                                    content={({ active, payload }) => {
+                                        if (!active || !payload || payload.length === 0) return null;
+                                        const point = payload[0]?.payload as TimelineBucket & { kategoriLain?: number };
+                                        return (
+                                            <div className="bg-slate-950/95 border border-slate-700/90 rounded-2xl p-3.5 shadow-2xl text-xs min-w-[220px] backdrop-blur-md">
+                                                <div className="font-bold text-white pb-2 mb-2 border-b border-slate-800">
+                                                    {point?.fullLabel || point?.label}
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <span className="text-slate-300 flex items-center gap-1.5">
+                                                            <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                                                            Total Kendala
+                                                        </span>
+                                                        <span className="font-extrabold text-white">{point?.total ?? 0} kasus</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <span className="text-sky-300 flex items-center gap-1.5">
+                                                            <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                                                            Pos Air Hitam
+                                                        </span>
+                                                        <span className="font-bold text-sky-300">{point?.airHitam ?? 0}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <span className="text-emerald-300 flex items-center gap-1.5">
+                                                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                                            Pos Harapan Jaya
+                                                        </span>
+                                                        <span className="font-bold text-emerald-300">{point?.harapanJaya ?? 0}</span>
+                                                    </div>
+                                                    <div className="pt-1.5 mt-1.5 border-t border-slate-800/80 space-y-1">
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span className="text-rose-300 flex items-center gap-1.5">
+                                                                <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                                                                QR Hangus
+                                                            </span>
+                                                            <span className="font-semibold text-rose-300">{point?.hangus ?? 0}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span className="text-amber-300 flex items-center gap-1.5">
+                                                                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                                                                QR Usang / Rusak
+                                                            </span>
+                                                            <span className="font-semibold text-amber-300">{point?.usang ?? 0}</span>
+                                                        </div>
+                                                        {(point?.kategoriLain || 0) > 0 && (
+                                                            <div className="flex items-center justify-between gap-4">
+                                                                <span className="text-purple-300 flex items-center gap-1.5">
+                                                                    <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                                                                    Lainnya
+                                                                </span>
+                                                                <span className="font-semibold text-purple-300">{point?.kategoriLain}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }}
+                                />
+                                {activeSeriesConfig.map((s) =>
+                                    hiddenSeries[s.key] ? null : (
+                                        <Line
+                                            key={s.key}
+                                            type="monotone"
+                                            dataKey={s.key}
+                                            name={s.name}
+                                            stroke={s.color}
+                                            strokeWidth={s.strokeWidth}
+                                            dot={{ r: 3.5, fill: s.color, strokeWidth: 0 }}
+                                            activeDot={{ r: 6, fill: s.color, stroke: '#0f172a', strokeWidth: 2 }}
+                                        />
+                                    )
+                                )}
+                            </LineChart>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+            </div>
+
             {/* Filter Bar & Search */}
             <div className="max-w-7xl mx-auto mb-6 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -558,8 +976,12 @@ export default function RekapGagalQrPage() {
                         >
                             <option value="all">Semua Waktu</option>
                             <option value="today">Hari Ini</option>
+                            <option value="yesterday">Kemarin</option>
                             <option value="7days">7 Hari Terakhir</option>
+                            <option value="14days">14 Hari Terakhir</option>
+                            <option value="30days">30 Hari Terakhir</option>
                             <option value="month">Bulan Ini</option>
+                            <option value="custom">Rentang Tanggal Custom</option>
                         </select>
 
                         {/* Search Input */}

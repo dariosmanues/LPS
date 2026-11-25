@@ -6,6 +6,65 @@ import crypto from 'node:crypto';
 
 export const dynamic = 'force-dynamic';
 
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+const DAY_NAMES_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+function toWibDate(d: Date): Date {
+    return new Date(d.getTime() + WIB_OFFSET_MS);
+}
+
+function formatWibYmd(d: Date): string {
+    const w = toWibDate(d);
+    const y = w.getUTCFullYear();
+    const m = String(w.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(w.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function formatDailyLabel(ymd: string): { label: string; fullLabel: string } {
+    const [y, m, d] = ymd.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
+    const dayName = DAY_NAMES_ID[dt.getUTCDay()] || '';
+    const monthName = MONTH_NAMES_SHORT[(m || 1) - 1] || '';
+    return {
+        label: `${String(d).padStart(2, '0')} ${monthName}`,
+        fullLabel: `${dayName}, ${String(d).padStart(2, '0')} ${monthName} ${y}`,
+    };
+}
+
+export interface TimelineBucket {
+    key: string;
+    label: string;
+    fullLabel: string;
+    total: number;
+    airHitam: number;
+    harapanJaya: number;
+    hangus: number;
+    usang: number;
+    kadaluarsa: number;
+    tidakTerdaftar: number;
+    platTidakSesuai: number;
+    lainnya: number;
+}
+
+function createEmptyBucket(key: string, label: string, fullLabel: string): TimelineBucket {
+    return {
+        key,
+        label,
+        fullLabel,
+        total: 0,
+        airHitam: 0,
+        harapanJaya: 0,
+        hangus: 0,
+        usang: 0,
+        kadaluarsa: 0,
+        tidakTerdaftar: 0,
+        platTidakSesuai: 0,
+        lainnya: 0,
+    };
+}
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -14,6 +73,7 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search')?.trim();
         const startDate = searchParams.get('startDate')?.trim();
         const endDate = searchParams.get('endDate')?.trim();
+        const rawGranularity = searchParams.get('granularity')?.trim().toLowerCase();
         const isExport = searchParams.get('export') === 'true' || searchParams.get('limit') === 'all';
         const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
         const limitParam = searchParams.get('limit');
@@ -22,6 +82,7 @@ export async function GET(request: NextRequest) {
             : Math.min(100, Math.max(1, parseInt(limitParam || '25', 10)));
 
         const where: Record<string, any> = {};
+        const statsWhere: Record<string, any> = {};
 
         // Filter Transdepo
         if (transdepo && transdepo !== 'ALL') {
@@ -39,24 +100,30 @@ export async function GET(request: NextRequest) {
             where.kategoriAlasan = kategori;
         }
 
-        // Filter Tanggal
+        // Filter Tanggal (Akurat WIB +07:00)
         if (startDate || endDate) {
-            where.createdAt = {};
-            if (startDate) {
+            const dateFilter: Record<string, Date> = {};
+            if (startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+                dateFilter.gte = new Date(`${startDate}T00:00:00.000+07:00`);
+            } else if (startDate) {
                 const s = new Date(startDate);
                 s.setHours(0, 0, 0, 0);
-                where.createdAt.gte = s;
+                dateFilter.gte = s;
             }
-            if (endDate) {
+            if (endDate && /^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+                dateFilter.lte = new Date(`${endDate}T23:59:59.999+07:00`);
+            } else if (endDate) {
                 const e = new Date(endDate);
                 e.setHours(23, 59, 59, 999);
-                where.createdAt.lte = e;
+                dateFilter.lte = e;
             }
+            where.createdAt = dateFilter;
+            statsWhere.createdAt = dateFilter;
         }
 
         // Pencarian Teks
         if (search) {
-            where.OR = [
+            const searchOr = [
                 { platNomor: { contains: search, mode: 'insensitive' } },
                 { namaLps: { contains: search, mode: 'insensitive' } },
                 { kelurahan: { contains: search, mode: 'insensitive' } },
@@ -66,10 +133,12 @@ export async function GET(request: NextRequest) {
                 { operatorName: { contains: search, mode: 'insensitive' } },
                 { tiketNumberRef: { contains: search, mode: 'insensitive' } },
             ];
+            where.OR = searchOr;
+            statsWhere.OR = searchOr;
         }
 
-        // Query data dan agregasi
-        const [totalCount, reports, allStats] = await Promise.all([
+        // Query data, agregasi KPI, dan raw timeline
+        const [totalCount, reports, allStats, timelineRecords] = await Promise.all([
             prisma.qrFailureReport.count({ where }),
             prisma.qrFailureReport.findMany({
                 where,
@@ -83,9 +152,131 @@ export async function GET(request: NextRequest) {
             }),
             prisma.qrFailureReport.groupBy({
                 by: ['kategoriAlasan', 'transdepo'],
+                where: statsWhere,
                 _count: { id: true },
             }),
+            prisma.qrFailureReport.findMany({
+                where,
+                select: {
+                    createdAt: true,
+                    transdepo: true,
+                    kategoriAlasan: true,
+                },
+                orderBy: { createdAt: 'asc' },
+            }),
         ]);
+
+        // Tentukan granularity otomatis jika auto / tidak diisi
+        const isSingleDay = Boolean(startDate && endDate && startDate === endDate);
+        const granularity: 'hourly' | 'daily' | 'weekly' | 'monthly' =
+            rawGranularity === 'hourly' || rawGranularity === 'daily' || rawGranularity === 'weekly' || rawGranularity === 'monthly'
+                ? rawGranularity
+                : isSingleDay
+                  ? 'hourly'
+                  : 'daily';
+
+        // Bangun Bucket Timeline
+        const bucketMap = new Map<string, TimelineBucket>();
+
+        if (granularity === 'hourly') {
+            const targetYmd = startDate || (timelineRecords.length > 0 ? formatWibYmd(timelineRecords[timelineRecords.length - 1].createdAt) : formatWibYmd(new Date()));
+            if (isSingleDay || !startDate || startDate === endDate) {
+                const { fullLabel: dayTitle } = formatDailyLabel(targetYmd);
+                for (let h = 0; h < 24; h++) {
+                    const hh = String(h).padStart(2, '0');
+                    const key = `${targetYmd} ${hh}:00`;
+                    bucketMap.set(key, createEmptyBucket(key, `${hh}:00`, `${dayTitle} • Pukul ${hh}:00 - ${hh}:59 WIB`));
+                }
+            }
+        } else if (granularity === 'daily') {
+            let rangeStartYmd = startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate) ? startDate : null;
+            let rangeEndYmd = endDate && /^\d{4}-\d{2}-\d{2}$/.test(endDate) ? endDate : null;
+
+            if (!rangeStartYmd && timelineRecords.length > 0) {
+                rangeStartYmd = formatWibYmd(timelineRecords[0].createdAt);
+            }
+            if (!rangeEndYmd && timelineRecords.length > 0) {
+                rangeEndYmd = formatWibYmd(timelineRecords[timelineRecords.length - 1].createdAt);
+            }
+
+            if (rangeStartYmd && rangeEndYmd && rangeStartYmd <= rangeEndYmd) {
+                const startMs = new Date(`${rangeStartYmd}T00:00:00.000Z`).getTime();
+                const endMs = new Date(`${rangeEndYmd}T00:00:00.000Z`).getTime();
+                const diffDays = Math.round((endMs - startMs) / (24 * 60 * 60 * 1000));
+                if (diffDays >= 0 && diffDays <= 90) {
+                    for (let i = 0; i <= diffDays; i++) {
+                        const cur = new Date(startMs + i * 24 * 60 * 60 * 1000);
+                        const ymd = cur.toISOString().slice(0, 10);
+                        const { label, fullLabel } = formatDailyLabel(ymd);
+                        bucketMap.set(ymd, createEmptyBucket(ymd, label, fullLabel));
+                    }
+                }
+            }
+        }
+
+        for (const rec of timelineRecords) {
+            const wib = toWibDate(rec.createdAt);
+            const y = wib.getUTCFullYear();
+            const m = wib.getUTCMonth() + 1;
+            const d = wib.getUTCDate();
+            const hh = String(wib.getUTCHours()).padStart(2, '0');
+            const ymd = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+            let key = ymd;
+            let label = '';
+            let fullLabel = '';
+
+            if (granularity === 'hourly') {
+                key = `${ymd} ${hh}:00`;
+                const { label: dShort, fullLabel: dFull } = formatDailyLabel(ymd);
+                label = isSingleDay ? `${hh}:00` : `${dShort} ${hh}:00`;
+                fullLabel = `${dFull} • Pukul ${hh}:00 - ${hh}:59 WIB`;
+            } else if (granularity === 'daily') {
+                key = ymd;
+                const fmt = formatDailyLabel(ymd);
+                label = fmt.label;
+                fullLabel = fmt.fullLabel;
+            } else if (granularity === 'weekly') {
+                // Start of week (Senin)
+                const dayOfWeek = wib.getUTCDay(); // 0=Minggu, 1=Senin
+                const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                const monday = new Date(Date.UTC(y, m - 1, d + diffToMonday));
+                const sunday = new Date(monday.getTime() + 6 * 24 * 60 * 60 * 1000);
+                const mYmd = monday.toISOString().slice(0, 10);
+                const sYmd = sunday.toISOString().slice(0, 10);
+                const mFmt = formatDailyLabel(mYmd);
+                const sFmt = formatDailyLabel(sYmd);
+                key = mYmd;
+                label = `${mFmt.label} - ${sFmt.label}`;
+                fullLabel = `Minggu (${mFmt.fullLabel} s/d ${sFmt.fullLabel})`;
+            } else {
+                // monthly
+                const mm = String(m).padStart(2, '0');
+                const mName = MONTH_NAMES_SHORT[m - 1] || mm;
+                key = `${y}-${mm}`;
+                label = `${mName} ${y}`;
+                fullLabel = `Bulan ${mName} ${y}`;
+            }
+
+            let bucket = bucketMap.get(key);
+            if (!bucket) {
+                bucket = createEmptyBucket(key, label, fullLabel);
+                bucketMap.set(key, bucket);
+            }
+
+            bucket.total += 1;
+            if (rec.transdepo === 'AIR_HITAM') bucket.airHitam += 1;
+            else if (rec.transdepo === 'HARAPAN_JAYA') bucket.harapanJaya += 1;
+
+            if (rec.kategoriAlasan === 'HANGUS') bucket.hangus += 1;
+            else if (rec.kategoriAlasan === 'USANG') bucket.usang += 1;
+            else if (rec.kategoriAlasan === 'KADALUARSA') bucket.kadaluarsa += 1;
+            else if (rec.kategoriAlasan === 'TIDAK_TERDAFTAR') bucket.tidakTerdaftar += 1;
+            else if (rec.kategoriAlasan === 'PLAT_TIDAK_SESUAI') bucket.platTidakSesuai += 1;
+            else bucket.lainnya += 1;
+        }
+
+        const timeline = Array.from(bucketMap.values()).sort((a, b) => a.key.localeCompare(b.key));
 
         // Hitung Summary Statistik KPI
         let totalHangus = 0;
@@ -114,6 +305,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
+            granularity,
             pagination: {
                 page: isExport ? 1 : page,
                 limit: isExport ? totalCount : (limit || 25),
@@ -131,6 +323,7 @@ export async function GET(request: NextRequest) {
                 totalPlatTidakSesuai,
                 totalLainnya,
             },
+            timeline,
             data: reports,
         });
     } catch (error) {

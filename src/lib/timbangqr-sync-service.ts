@@ -38,33 +38,19 @@ export function isAirHitamOrPalas(lokasiTransdepo?: string | null, wilayahKerja?
 }
 
 /**
- * Menentukan target server TimbangQR berdasarkan wilayah transdepo armada
+ * Menentukan target server TimbangQR.
+ * Catatan: TimbangQR Air Hitam menyimpan & menampilkan seluruh Master Armada
+ * (Air Hitam, Palas, maupun Harapan Jaya), sehingga setiap pembaruan armada/tare
+ * selalu dikirim ke Air Hitam dan Harapan Jaya agar data tare sinkron di kedua pos.
  */
 export function getTargetTimbangQrUrls(
-  lokasiTransdepo?: string | null,
-  wilayahKerja?: string | null
+  _lokasiTransdepo?: string | null,
+  _wilayahKerja?: string | null
 ): Array<{ name: string; url: string }> {
-  const isAH = isAirHitamOrPalas(lokasiTransdepo, wilayahKerja);
-  const isHJ = isHarapanJaya(lokasiTransdepo, wilayahKerja);
-
-  const targets: Array<{ name: string; url: string }> = [];
-
-  if (isAH) {
-    targets.push({ name: 'Air Hitam', url: TIMBANGQR_AIRHITAM_URL });
-  }
-  if (isHJ) {
-    targets.push({ name: 'Harapan Jaya', url: TIMBANGQR_HARAPANJAYA_URL });
-  }
-
-  // Jika belum ditentukan atau null, kirim ke kedua server agar tidak ada yang terlewat
-  if (targets.length === 0) {
-    targets.push(
-      { name: 'Air Hitam', url: TIMBANGQR_AIRHITAM_URL },
-      { name: 'Harapan Jaya', url: TIMBANGQR_HARAPANJAYA_URL }
-    );
-  }
-
-  return targets;
+  return [
+    { name: 'Air Hitam', url: TIMBANGQR_AIRHITAM_URL },
+    { name: 'Harapan Jaya', url: TIMBANGQR_HARAPANJAYA_URL },
+  ];
 }
 
 export function formatArmadaPayload(armada: any) {
