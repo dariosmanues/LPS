@@ -12,7 +12,12 @@ export const metadata: Metadata = {
   title: "LPS Pekanbaru - Sistem Manajemen Armada & Pendataan Sampah",
   description: "Sistem Manajemen Armada dan Pendataan Sampah Kota Pekanbaru",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/mylps-icon.png?v=3", type: "image/png", sizes: "128x128" },
+      { url: "/favicon.ico?v=3", sizes: "any" },
+    ],
+    shortcut: "/mylps-icon.png?v=3",
+    apple: "/mylps-icon.png?v=3",
   },
 };
 
