@@ -52,6 +52,18 @@ const menuItems = [
         )
     },
     {
+        name: 'Log & Track Aktivitas User',
+        shortName: 'Log User',
+        href: '/dashboard/user-activity-logs',
+        exclusiveEmail: 'fikri@lps.pekanbaru.go.id',
+        icon: (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        )
+    },
+    {
         name: 'Wilayah',
         shortName: 'Wilayah',
         href: '/dashboard/wilayah',
@@ -229,7 +241,24 @@ export function Sidebar({ children }: SidebarProps) {
 
     const isSuperAdmin = isSuperAdminUser(session?.user);
     const superAdminAvatarUrl = useSuperAdminAvatarUrl();
-    const filteredMenuItems = menuItems;
+    const currentEmailLower = (session?.user?.email || '').toLowerCase().trim();
+    const filteredMenuItems = menuItems.filter(
+        (item) => !('exclusiveEmail' in item && item.exclusiveEmail) || currentEmailLower === item.exclusiveEmail
+    );
+
+    useEffect(() => {
+        if (!currentEmailLower || !pathname || pathname.startsWith('/dashboard/user-activity-logs')) return;
+        const matchedItem = menuItems.find((m) => m.href === pathname);
+        fetch('/api/user-activity-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'PAGE_VIEW',
+                path: pathname,
+                title: matchedItem ? `${matchedItem.name} (${pathname})` : pathname,
+            }),
+        }).catch(() => {});
+    }, [pathname, currentEmailLower]);
 
     const updateNavScrollState = () => {
         const el = desktopNavRef.current;
@@ -258,6 +287,12 @@ export function Sidebar({ children }: SidebarProps) {
     }, [isSuperAdmin]);
 
     const handleLogout = () => {
+        fetch('/api/user-activity-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'LOGOUT', path: pathname }),
+            keepalive: true,
+        }).catch(() => {});
         signOut({ callbackUrl: '/' });
     };
 

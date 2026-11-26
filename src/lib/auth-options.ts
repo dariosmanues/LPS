@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { NEXTAUTH_SECRET } from '@/lib/auth-secret';
+import { extractHeadersInfo, logUserActivity } from '@/lib/user-activity-logger';
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -12,8 +13,9 @@ export const authOptions: NextAuthOptions = {
                 email: { label: 'Email', type: 'email' },
                 password: { label: 'Password', type: 'password' },
             },
-            async authorize(credentials) {
+            async authorize(credentials, req) {
                 console.log('Attempting login for:', credentials?.email);
+                const { clientIp, userAgent } = extractHeadersInfo(req?.headers);
                 if (!credentials?.email || !credentials?.password) {
                     console.log('Missing credentials');
                     return null;
@@ -55,6 +57,16 @@ export const authOptions: NextAuthOptions = {
 
                 if (!user) {
                     console.log('User not found:', credentials.email);
+                    logUserActivity({
+                        userEmail: credentials.email.toLowerCase().trim(),
+                        action: 'LOGIN_FAILED',
+                        category: 'AUTH',
+                        description: `Gagal login: Email/username "${credentials.email}" tidak ditemukan`,
+                        targetPath: '/login',
+                        ipAddress: clientIp,
+                        userAgent,
+                        metadata: { reason: 'USER_NOT_FOUND', inputEmail: credentials.email },
+                    });
                     return null;
                 }
 
@@ -67,8 +79,34 @@ export const authOptions: NextAuthOptions = {
 
                 if (!isValidPassword) {
                     console.log('Invalid password for:', credentials.email);
+                    logUserActivity({
+                        userId: user.id,
+                        userEmail: user.email,
+                        userName: user.name,
+                        userRole: user.role,
+                        action: 'LOGIN_FAILED',
+                        category: 'AUTH',
+                        description: `Gagal login: Password salah untuk akun ${user.email} (${user.name})`,
+                        targetPath: '/login',
+                        ipAddress: clientIp,
+                        userAgent,
+                        metadata: { reason: 'INVALID_PASSWORD', inputEmail: credentials.email },
+                    });
                     return null;
                 }
+
+                logUserActivity({
+                    userId: user.id,
+                    userEmail: user.email,
+                    userName: user.name,
+                    userRole: user.role,
+                    action: 'LOGIN_SUCCESS',
+                    category: 'AUTH',
+                    description: `Login berhasil ke sistem sebagai ${user.name} (${user.role})`,
+                    targetPath: '/login',
+                    ipAddress: clientIp,
+                    userAgent,
+                });
 
                 return {
                     id: user.id,

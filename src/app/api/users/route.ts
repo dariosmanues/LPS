@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { requireSuperAdmin } from '@/lib/permissions';
+import { extractHeadersInfo, logUserActivity } from '@/lib/user-activity-logger';
 
 // GET all users
 export async function GET() {
@@ -88,6 +89,22 @@ export async function POST(request: Request) {
                 },
                 createdAt: true,
             },
+        });
+
+        const { clientIp, userAgent } = extractHeadersInfo(request.headers);
+        const actorEmail = auth.session?.user?.email || 'superadmin';
+        logUserActivity({
+            userId: user.id,
+            userEmail: user.email,
+            userName: user.name,
+            userRole: user.role,
+            action: 'CREATE_USER',
+            category: 'USER_MGMT',
+            description: `Akun baru ${user.email} (${user.name} - ${user.role}) dibuat oleh ${actorEmail}`,
+            targetPath: '/api/users',
+            ipAddress: clientIp,
+            userAgent,
+            metadata: { createdBy: actorEmail, role: user.role },
         });
 
         return NextResponse.json(user, { status: 201 });

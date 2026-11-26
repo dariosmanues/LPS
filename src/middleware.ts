@@ -85,6 +85,12 @@ export async function middleware(req: NextRequest) {
     // Super Admin has full write access.
     // All other users can view all dashboard menus in Read-Only mode.
     if (pathname.startsWith('/dashboard') || pathname === '/notes') {
+        // KHUSUS menu /dashboard/user-activity-logs: HANYA untuk fikri@lps.pekanbaru.go.id
+        if (pathname.startsWith('/dashboard/user-activity-logs')) {
+            if (userEmail !== 'fikri@lps.pekanbaru.go.id') {
+                return NextResponse.redirect(new URL('/dashboard', req.url));
+            }
+        }
         // Akun pengurus LPS Kelurahan selalu diarahkan ke Dashboard Kelurahan (/lps)
         if (pathname.startsWith('/dashboard') && isLpsRole(userRole)) {
             return NextResponse.redirect(new URL('/lps', req.url));

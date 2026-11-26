@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { requireSuperAdmin } from '@/lib/permissions';
+import { extractHeadersInfo, logUserActivity } from '@/lib/user-activity-logger';
 
 // GET single user
 export async function GET(
@@ -127,6 +128,48 @@ export async function PUT(
                 updatedAt: true,
             },
         });
+
+        const { clientIp, userAgent } = extractHeadersInfo(request.headers);
+        const actorEmail = auth.session?.user?.email || 'superadmin';
+        const actorName = auth.session?.user?.name || actorEmail;
+        if (password) {
+            logUserActivity({
+                userId: existingUser.id,
+                userEmail: existingUser.email,
+                userName: user.name,
+                userRole: user.role,
+                action: 'CHANGE_PASSWORD',
+                category: 'PASSWORD',
+                description: `Password akun ${existingUser.email} (${user.name}) diubah oleh ${actorName} (${actorEmail})`,
+                targetPath: `/api/users/${id}`,
+                ipAddress: clientIp,
+                userAgent,
+                metadata: {
+                    changedByEmail: actorEmail,
+                    changedByName: actorName,
+                    targetEmail: existingUser.email,
+                    targetName: user.name,
+                },
+            });
+        } else {
+            logUserActivity({
+                userId: existingUser.id,
+                userEmail: existingUser.email,
+                userName: user.name,
+                userRole: user.role,
+                action: 'UPDATE_USER',
+                category: 'USER_MGMT',
+                description: `Data/role akun ${existingUser.email} (${user.name}) diperbarui oleh ${actorName} (${actorEmail})`,
+                targetPath: `/api/users/${id}`,
+                ipAddress: clientIp,
+                userAgent,
+                metadata: {
+                    updatedByEmail: actorEmail,
+                    targetEmail: existingUser.email,
+                    newRole: user.role,
+                },
+            });
+        }
 
         return NextResponse.json(user);
     } catch (error) {

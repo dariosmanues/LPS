@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { Logo } from '@/components/ui/Logo';
 import { useViewMode, ViewModeToggle } from '@/components/ViewModeProvider';
@@ -41,7 +41,27 @@ export function LpsSidebar({ children, kelurahanName }: LpsSidebarProps) {
     const { data: session } = useSession();
     const { isMobileMode, setViewMode } = useViewMode();
 
+    useEffect(() => {
+        if (!session?.user?.email || !pathname) return;
+        const matched = lpsMenuItems.find((m) => m.href === pathname);
+        fetch('/api/user-activity-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'PAGE_VIEW',
+                path: pathname,
+                title: matched ? `Portal LPS - ${matched.name} (${pathname})` : pathname,
+            }),
+        }).catch(() => {});
+    }, [pathname, session?.user?.email]);
+
     const handleLogout = () => {
+        fetch('/api/user-activity-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'LOGOUT', path: pathname }),
+            keepalive: true,
+        }).catch(() => {});
         signOut({ callbackUrl: '/' });
     };
 

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import { generateArmadaQrCodeString } from '@/lib/timbangqr-qr-service';
 import { getClientInfo } from '@/lib/audit-logger';
+import { logUserActivity } from '@/lib/user-activity-logger';
 
 export async function PUT(
     request: Request,
@@ -124,6 +125,25 @@ export async function PUT(
         });
 
         console.log('[QR Regenerate] Successfully updated armada with new QR code');
+
+        logUserActivity({
+            userId: session.user.id || null,
+            userEmail: session.user.email || creatorName,
+            userName: creatorName,
+            userRole: session.user.role || null,
+            action: 'REGENERATE_QR',
+            category: 'QR_CODE',
+            description: `Generate ulang QR Code armada ${updatedArmada.platNomor} (${updatedArmada.namaLps}) -> ${newQrCode}`,
+            targetPath: `/api/lps/armada/${armadaId}/regenerate`,
+            ipAddress: clientIp,
+            userAgent,
+            metadata: {
+                armadaId,
+                platNomor: updatedArmada.platNomor,
+                namaLps: updatedArmada.namaLps,
+                newQrCode,
+            },
+        });
 
         return NextResponse.json({
             success: true,
