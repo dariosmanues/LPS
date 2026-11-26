@@ -318,7 +318,8 @@ export async function GET(request: NextRequest) {
         const roleFilter = (searchParams.get('role') || '').trim().toUpperCase();
         const categoryFilter = (searchParams.get('category') || '').trim().toUpperCase();
         const actionFilter = (searchParams.get('action') || '').trim().toUpperCase();
-        const limit = Math.min(800, Math.max(20, parseInt(searchParams.get('limit') || '300', 10)));
+        const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+        const limit = Math.min(800, Math.max(20, parseInt(searchParams.get('limit') || '100', 10) || 100));
 
         const conditions: string[] = [];
         const params: unknown[] = [];
@@ -352,7 +353,16 @@ export async function GET(request: NextRequest) {
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-        params.push(limit);
+        const countRows = await prisma.$queryRawUnsafe<Array<{ total: number }>>(
+            `SELECT COUNT(*)::int AS total FROM user_activity_logs ${whereClause}`,
+            ...params
+        );
+        const totalFiltered = countRows[0]?.total || 0;
+        const totalPages = Math.max(1, Math.ceil(totalFiltered / limit));
+        const safePage = Math.min(page, totalPages);
+        const offset = (safePage - 1) * limit;
+
+        params.push(limit, offset);
 
         const logs = await prisma.$queryRawUnsafe<ActivityLogRow[]>(
             `SELECT id, user_id, user_email, user_name, user_role, action, category,
@@ -361,7 +371,7 @@ export async function GET(request: NextRequest) {
              FROM user_activity_logs
              ${whereClause}
              ORDER BY created_at DESC
-             LIMIT $${params.length}`,
+             LIMIT $${params.length - 1} OFFSET $${params.length}`,
             ...params
         );
 
@@ -464,6 +474,12 @@ export async function GET(request: NextRequest) {
                     unique_ips: 0,
                 },
                 logs,
+                pagination: {
+                    page: safePage,
+                    limit,
+                    totalFiltered,
+                    totalPages,
+                },
                 users: userSummaries,
             },
             {

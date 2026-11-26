@@ -133,13 +133,21 @@ export default function ExclusiveUserActivityLogsPage() {
     const [loading, setLoading] = useState<boolean>(true);
     const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
-    // Filters
+    // Filters & Pagination
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedEmail, setSelectedEmail] = useState<string>('all');
     const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
     const [selectedAction, setSelectedAction] = useState<string>('ALL');
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [totalPages, setTotalPages] = useState<number>(1);
+    const [totalFiltered, setTotalFiltered] = useState<number>(0);
+    const pageSize = 100;
     const [userRoleFilter, setUserRoleFilter] = useState<string>('ALL');
     const [userSearchQuery, setUserSearchQuery] = useState<string>('');
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedEmail, selectedCategory, selectedAction, searchQuery]);
 
     // IP Geo Lookup State
     const [ipGeoMap, setIpGeoMap] = useState<Record<string, IpGeoInfo>>({});
@@ -159,7 +167,10 @@ export default function ExclusiveUserActivityLogsPage() {
     const fetchLogsData = useCallback(async () => {
         if (!isAuthorizedFikri) return;
         try {
-            const params = new URLSearchParams({ limit: '400' });
+            const params = new URLSearchParams({
+                page: String(currentPage),
+                limit: String(pageSize),
+            });
             if (selectedEmail !== 'all') params.set('email', selectedEmail);
             if (selectedCategory !== 'ALL') params.set('category', selectedCategory);
             if (selectedAction !== 'ALL') params.set('action', selectedAction);
@@ -173,13 +184,17 @@ export default function ExclusiveUserActivityLogsPage() {
                 setLogs(data.logs || []);
                 setUsers(data.users || []);
                 if (data.kpi) setKpi(data.kpi);
+                if (data.pagination) {
+                    setTotalPages(data.pagination.totalPages || 1);
+                    setTotalFiltered(data.pagination.totalFiltered || 0);
+                }
             }
         } catch (err) {
             console.error('Error loading user activity logs:', err);
         } finally {
             setLoading(false);
         }
-    }, [isAuthorizedFikri, selectedEmail, selectedCategory, selectedAction, searchQuery]);
+    }, [isAuthorizedFikri, currentPage, pageSize, selectedEmail, selectedCategory, selectedAction, searchQuery]);
 
     useEffect(() => {
         if (!isAuthorizedFikri) return;
@@ -718,6 +733,94 @@ export default function ExclusiveUserActivityLogsPage() {
                                         })}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+
+                        {/* Pagination Bar (Prev / Page Numbers / Next Page) */}
+                        {!loading && logs.length > 0 && (
+                            <div className="px-4 py-3.5 bg-slate-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                <div className="text-xs font-semibold text-gray-600">
+                                    Menampilkan{' '}
+                                    <span className="font-mono font-bold text-gray-900">
+                                        {((currentPage - 1) * pageSize + 1).toLocaleString('id-ID')}
+                                    </span>
+                                    {' – '}
+                                    <span className="font-mono font-bold text-gray-900">
+                                        {Math.min(currentPage * pageSize, totalFiltered || logs.length).toLocaleString('id-ID')}
+                                    </span>{' '}
+                                    dari{' '}
+                                    <span className="font-mono font-extrabold text-purple-700">
+                                        {(totalFiltered || logs.length).toLocaleString('id-ID')}
+                                    </span>{' '}
+                                    log (Halaman{' '}
+                                    <span className="font-mono font-bold text-gray-900">{currentPage}</span> /{' '}
+                                    <span className="font-mono font-bold text-gray-900">{totalPages}</span>)
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage(1)}
+                                        disabled={currentPage <= 1}
+                                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-700 hover:bg-purple-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        ⏮ Awal
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                        disabled={currentPage <= 1}
+                                        className="px-3 py-1.5 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-800 hover:bg-purple-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        ⬅️ Prev Page
+                                    </button>
+
+                                    {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                                        .filter(
+                                            (p) =>
+                                                p === 1 ||
+                                                p === totalPages ||
+                                                (p >= currentPage - 2 && p <= currentPage + 2)
+                                        )
+                                        .map((p, idx, arr) => {
+                                            const prev = arr[idx - 1];
+                                            return (
+                                                <React.Fragment key={p}>
+                                                    {prev && p - prev > 1 && (
+                                                        <span className="px-1 text-xs text-gray-400">...</span>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setCurrentPage(p)}
+                                                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold font-mono border cursor-pointer ${
+                                                            currentPage === p
+                                                                ? 'bg-purple-700 text-white border-purple-700 shadow-xs'
+                                                                : 'bg-white text-gray-700 border-gray-200 hover:bg-purple-50'
+                                                        }`}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                </React.Fragment>
+                                            );
+                                        })}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage >= totalPages}
+                                        className="px-3.5 py-1.5 rounded-xl text-xs font-extrabold border border-purple-600 bg-purple-700 text-white hover:bg-purple-800 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+                                    >
+                                        Next Page ➡️
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        disabled={currentPage >= totalPages}
+                                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-gray-200 bg-white text-gray-700 hover:bg-purple-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                    >
+                                        Akhir ⏭
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </GlassCard>
