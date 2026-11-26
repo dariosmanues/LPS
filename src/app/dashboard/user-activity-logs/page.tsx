@@ -105,6 +105,8 @@ function getActionBadge(action: string) {
         case 'REGENERATE_QR':
         case 'REGENERATE_ALL_QR':
             return { label: '🔵 GENERATE QR ARMADA', cls: 'bg-blue-100 text-blue-800 border-blue-200' };
+        case 'OPERATOR_WEIGHING':
+            return { label: '⚖️ INPUT TIMBANGAN OPERATOR', cls: 'bg-cyan-100 text-cyan-900 border-cyan-300' };
         case 'PAGE_VIEW':
             return { label: '🧭 BUKA MENU / HALAMAN', cls: 'bg-teal-50 text-teal-800 border-teal-200' };
         default:
@@ -495,8 +497,20 @@ export default function ExclusiveUserActivityLogsPage() {
                             <span className="text-xs font-bold text-gray-500 mr-1">Filter Cepat Akun:</span>
                             {[
                                 { label: 'Semua User', email: 'all' },
+                                { label: '⚖️ Semua Operator Timbangan', email: 'role:operator' },
                                 { label: '⭐ superadmin@lps.pekanbaru.go.id (Nisa)', email: 'superadmin@lps.pekanbaru.go.id' },
                                 { label: '👤 fikri@lps.pekanbaru.go.id', email: 'fikri@lps.pekanbaru.go.id' },
+                                { label: '⚖️ putri@lps.local (Putri - Air Hitam)', email: 'putri@lps.local' },
+                                { label: '⚖️ mita@lps.local (Mita - Air Hitam)', email: 'mita@lps.local' },
+                                { label: '⚖️ aisyah@lps.local (Aisyah - Air Hitam)', email: 'aisyah@lps.local' },
+                                { label: '⚖️ nanda@lps.local (Nanda - Air Hitam)', email: 'nanda@lps.local' },
+                                { label: '⚖️ widdy@lps.local (Widdy - Air Hitam)', email: 'widdy@lps.local' },
+                                { label: '⚖️ intan@lps.local (Intan - Harapan Jaya)', email: 'intan@lps.local' },
+                                { label: '⚖️ thaya@lps.local (Thaya - Harapan Jaya)', email: 'thaya@lps.local' },
+                                { label: '⚖️ shindy@lps.local (Shindy - Harapan Jaya)', email: 'shindy@lps.local' },
+                                { label: '⚖️ vani@lps.local (Vani - Harapan Jaya)', email: 'vani@lps.local' },
+                                { label: '⚖️ sharla@lps.local (Sharla - Harapan Jaya)', email: 'sharla@lps.local' },
+                                { label: '⚖️ raka@lps.local (Raka - Harapan Jaya)', email: 'raka@lps.local' },
                                 { label: '👤 admin@lps.pekanbaru.go.id', email: 'admin@lps.pekanbaru.go.id' },
                                 { label: '👤 dzakwan@lps.pekanbaru.go.id', email: 'dzakwan@lps.pekanbaru.go.id' },
                                 { label: '👤 santi.rahmayanti@lps.pekanbaru.go.id', email: 'santi.rahmayanti@lps.pekanbaru.go.id' },
@@ -532,6 +546,7 @@ export default function ExclusiveUserActivityLogsPage() {
                                 className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 font-semibold focus:outline-none focus:border-purple-500"
                             >
                                 <option value="all">-- Semua Akun User ({users.length}) --</option>
+                                <option value="role:operator">⚖️ -- Semua User Operator Timbangan --</option>
                                 {users.map((u) => (
                                     <option key={u.id} value={u.email.toLowerCase()}>
                                         {u.email} ({u.name} - {u.role})
@@ -545,6 +560,7 @@ export default function ExclusiveUserActivityLogsPage() {
                                 className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 font-semibold focus:outline-none focus:border-purple-500"
                             >
                                 <option value="ALL">-- Semua Kategori Aktivitas --</option>
+                                <option value="TIMBANGAN">⚖️ Aktivitas Operator Timbangan (TIMBANGAN)</option>
                                 <option value="AUTH">🔐 Login & Logout (AUTH)</option>
                                 <option value="PASSWORD">🔑 Perubahan Password (PASSWORD)</option>
                                 <option value="USER_MGMT">👥 Manajemen User (USER_MGMT)</option>
@@ -559,6 +575,7 @@ export default function ExclusiveUserActivityLogsPage() {
                                 className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 font-semibold focus:outline-none focus:border-purple-500"
                             >
                                 <option value="ALL">-- Semua Jenis Aksi --</option>
+                                <option value="OPERATOR_WEIGHING">⚖️ Input Timbangan Operator</option>
                                 <option value="LOGIN_SUCCESS">🟢 Login Berhasil</option>
                                 <option value="LOGIN_FAILED">🔴 Login Gagal (Password Salah)</option>
                                 <option value="LOGOUT">⚫ Logout / Sign Out</option>

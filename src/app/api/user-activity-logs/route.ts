@@ -1,5 +1,7 @@
+import fs from 'node:fs';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { Pool } from 'pg';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import {
@@ -7,10 +9,164 @@ import {
     extractHeadersInfo,
     isFikriExclusiveUser,
     logUserActivity,
+    parseDeviceSummary,
 } from '@/lib/user-activity-logger';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+let lastOperatorSyncAt = 0;
+let ahPool: Pool | null = null;
+let hjPool: Pool | null = null;
+
+function readEnvDatabaseUrl(envPath: string): string | null {
+    try {
+        if (!fs.existsSync(envPath)) return null;
+        const txt = fs.readFileSync(envPath, 'utf8');
+        const m = txt.match(/DATABASE_URL="?([^"\r\n]+)"?/);
+        return m ? m[1].trim() : null;
+    } catch {
+        return null;
+    }
+}
+
+async function syncRecentOperatorLogs(): Promise<void> {
+    const now = Date.now();
+    if (now - lastOperatorSyncAt < 10000) return;
+    lastOperatorSyncAt = now;
+
+    try {
+        const ahUrl =
+            process.env.TIMBANGQR_AIRHITAM_DB_URL ||
+            readEnvDatabaseUrl('/var/www/timbangqr-airhitam/.env');
+        const hjUrl =
+            process.env.TIMBANGQR_HARAPANJAYA_DB_URL ||
+            readEnvDatabaseUrl('/var/www/timbangqr-ocr-led/.env');
+
+        if (!ahPool && ahUrl) ahPool = new Pool({ connectionString: ahUrl, max: 2 });
+        if (!hjPool && hjUrl) hjPool = new Pool({ connectionString: hjUrl, max: 2 });
+
+        const lpsUsers = await prisma.$queryRawUnsafe<
+            Array<{ id: string; email: string; name: string }>
+        >(`SELECT id, email, name FROM users`);
+        const userMap = new Map(
+            lpsUsers.map((u) => [u.email.toLowerCase().trim(), u])
+        );
+        const defaultPcUa =
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+        const defaultDevSummary = parseDeviceSummary(defaultPcUa);
+
+        const sources: Array<{
+            pool: Pool | null;
+            prefix: string;
+            label: string;
+            code: string;
+            domain: string;
+        }> = [
+            {
+                pool: ahPool,
+                prefix: 'ah',
+                label: 'Air Hitam',
+                code: 'AIR_HITAM',
+                domain: 'https://airhitam-177-202-246-42.sslip.io',
+            },
+            {
+                pool: hjPool,
+                prefix: 'hj',
+                label: 'Harapan Jaya',
+                code: 'HARAPAN_JAYA',
+                domain: 'https://ocr-177-202-246-42.sslip.io',
+            },
+        ];
+
+        for (const src of sources) {
+            if (!src.pool) continue;
+            const res = await src.pool.query(`
+                SELECT
+                    w.id AS weighing_id,
+                    w.ticket_number,
+                    w.weighed_at,
+                    w.plate_number,
+                    w.driver_name,
+                    w.lps_name,
+                    w.gross_kg,
+                    w.tare_kg,
+                    w.netto_2_kg,
+                    w.qr_token,
+                    w.created_at AS w_created_at,
+                    u.email AS op_email,
+                    u.name AS op_name,
+                    a.ip_address::text AS audit_ip,
+                    a.new_data AS audit_new_data,
+                    a.created_at AS audit_created_at
+                FROM weighings w
+                LEFT JOIN users u ON u.id = w.created_by
+                LEFT JOIN LATERAL (
+                    SELECT ip_address, new_data, created_at
+                    FROM audit_logs al
+                    WHERE al.entity_type = 'WEIGHING' AND al.entity_id = w.id AND al.action = 'CREATE'
+                    ORDER BY al.id DESC
+                    LIMIT 1
+                ) a ON true
+                ORDER BY w.id DESC
+                LIMIT 40
+            `);
+
+            for (const r of res.rows) {
+                const email = (
+                    r.op_email ||
+                    (src.code === 'AIR_HITAM' ? 'operator.ah@lps.com' : 'operator.hj@lps.com')
+                )
+                    .toLowerCase()
+                    .trim();
+                const lpsU = userMap.get(email);
+                const userId = lpsU ? lpsU.id : null;
+                const opName = r.op_name
+                    ? `${r.op_name} (Operator ${src.label})`
+                    : lpsU?.name || `Operator ${src.label}`;
+                const ip = String(
+                    r.audit_ip || r.audit_new_data?.clientIp || 'unknown'
+                ).replace(/^::ffff:/, '');
+                const eventTime = r.audit_created_at || r.weighed_at || r.w_created_at || new Date();
+                const logId = `op_w_${src.prefix}_${r.weighing_id}`;
+                const desc = `Menimbang Armada ${r.plate_number} (${r.lps_name || '-'} • Supir: ${r.driver_name || '-'}) — Tiket ${r.ticket_number} • Gross: ${Number(r.gross_kg || 0).toLocaleString('id-ID')} kg | Tare: ${Number(r.tare_kg || 0).toLocaleString('id-ID')} kg | Netto: ${Number(r.netto_2_kg || 0).toLocaleString('id-ID')} kg [${src.label}]`;
+
+                await prisma.$executeRawUnsafe(
+                    `INSERT INTO user_activity_logs (
+                        id, user_id, user_email, user_name, user_role,
+                        action, category, description, target_path,
+                        ip_address, user_agent, device_summary, metadata, created_at
+                    ) VALUES ($1,$2,$3,$4,'OPERATOR','OPERATOR_WEIGHING','TIMBANGAN',$5,$6,$7,$8,$9,$10,$11)
+                    ON CONFLICT (id) DO NOTHING`,
+                    logId,
+                    userId,
+                    email,
+                    opName,
+                    desc,
+                    `${src.domain}/scan`,
+                    ip,
+                    defaultPcUa,
+                    defaultDevSummary,
+                    JSON.stringify({
+                        source: `TIMBANGQR_${src.code}`,
+                        transdepo: src.code,
+                        ticketNumber: r.ticket_number,
+                        plateNumber: r.plate_number,
+                        lpsName: r.lps_name,
+                        driverName: r.driver_name,
+                        grossKg: Number(r.gross_kg || 0),
+                        tareKg: Number(r.tare_kg || 0),
+                        nettoKg: Number(r.netto_2_kg || 0),
+                        qrToken: r.qr_token || null,
+                    }),
+                    new Date(eventTime)
+                );
+            }
+        }
+    } catch (err) {
+        console.error('[syncRecentOperatorLogs] warning:', err);
+    }
+}
 
 interface ActivityLogRow {
     id: string;
@@ -127,6 +283,7 @@ export async function GET(request: NextRequest) {
         }
 
         await ensureUserActivityTable();
+        await syncRecentOperatorLogs();
 
         const { searchParams } = new URL(request.url);
         const lookupIp = searchParams.get('lookupIp')?.trim();
@@ -137,16 +294,25 @@ export async function GET(request: NextRequest) {
 
         const search = (searchParams.get('search') || '').trim();
         const emailFilter = (searchParams.get('email') || '').trim().toLowerCase();
+        const roleFilter = (searchParams.get('role') || '').trim().toUpperCase();
         const categoryFilter = (searchParams.get('category') || '').trim().toUpperCase();
         const actionFilter = (searchParams.get('action') || '').trim().toUpperCase();
-        const limit = Math.min(500, Math.max(20, parseInt(searchParams.get('limit') || '200', 10)));
+        const limit = Math.min(800, Math.max(20, parseInt(searchParams.get('limit') || '300', 10)));
 
         const conditions: string[] = [];
         const params: unknown[] = [];
 
         if (emailFilter && emailFilter !== 'all') {
-            params.push(emailFilter);
-            conditions.push(`LOWER(user_email) = $${params.length}`);
+            if (emailFilter === 'role:operator') {
+                conditions.push(`UPPER(COALESCE(user_role, '')) = 'OPERATOR'`);
+            } else {
+                params.push(emailFilter);
+                conditions.push(`LOWER(user_email) = $${params.length}`);
+            }
+        }
+        if (roleFilter && roleFilter !== 'ALL') {
+            params.push(roleFilter);
+            conditions.push(`UPPER(COALESCE(user_role, '')) = $${params.length}`);
         }
         if (categoryFilter && categoryFilter !== 'ALL') {
             params.push(categoryFilter);

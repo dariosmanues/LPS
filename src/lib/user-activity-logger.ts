@@ -132,9 +132,10 @@ export interface LogUserActivityParams {
         | 'DELETE_USER'
         | 'REGENERATE_QR'
         | 'REGENERATE_ALL_QR'
+        | 'OPERATOR_WEIGHING'
         | 'PAGE_VIEW'
         | 'DATA_ACTION';
-    category?: 'AUTH' | 'PASSWORD' | 'USER_MGMT' | 'QR_CODE' | 'NAVIGATION' | 'DATA_ACTION';
+    category?: 'AUTH' | 'PASSWORD' | 'USER_MGMT' | 'QR_CODE' | 'TIMBANGAN' | 'NAVIGATION' | 'DATA_ACTION';
     description: string;
     targetPath?: string | null;
     ipAddress?: string | null;
