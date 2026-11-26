@@ -494,8 +494,11 @@ export async function POST(request: NextRequest) {
         const actionType = body.action === 'LOGOUT' ? 'LOGOUT' : 'PAGE_VIEW';
         const pageTitle = typeof body.title === 'string' ? body.title.trim() : path;
 
-        // Do not log Fikri's own visits to /dashboard/user-activity-logs to avoid self-clutter
-        if (path.startsWith('/dashboard/user-activity-logs')) {
+        // Do not log Fikri's own visits to /dashboard/user-activity-logs or /dashboard/server-status to avoid self-clutter
+        if (
+            path.startsWith('/dashboard/user-activity-logs') ||
+            path.startsWith('/dashboard/server-status')
+        ) {
             return NextResponse.json({ ok: true, skipped: true });
         }
 

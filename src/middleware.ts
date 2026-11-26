@@ -85,8 +85,11 @@ export async function middleware(req: NextRequest) {
     // Super Admin has full write access.
     // All other users can view all dashboard menus in Read-Only mode.
     if (pathname.startsWith('/dashboard') || pathname === '/notes') {
-        // KHUSUS menu /dashboard/user-activity-logs: HANYA untuk fikri@lps.pekanbaru.go.id
-        if (pathname.startsWith('/dashboard/user-activity-logs')) {
+        // KHUSUS menu /dashboard/user-activity-logs & /dashboard/server-status: HANYA untuk fikri@lps.pekanbaru.go.id
+        if (
+            pathname.startsWith('/dashboard/user-activity-logs') ||
+            pathname.startsWith('/dashboard/server-status')
+        ) {
             if (userEmail !== 'fikri@lps.pekanbaru.go.id') {
                 return NextResponse.redirect(new URL('/dashboard', req.url));
             }
