@@ -443,6 +443,21 @@ export async function handleTimbangQrGet(request: NextRequest) {
             );
             const shouldBurn = !isPermanentQr && Boolean((armada.isQrUsed || burnedTicketParam) && isLpsQrCode);
             if (shouldBurn) {
+                // Jika TimbangQR melaporkan token ini sudah hangus (burnedTicketParam) namun di DB LPS masih aktif,
+                // langsung sinkronkan status hangus di tabel armada agar Dashboard LPS langsung berubah merah (HANGUS).
+                if (!armada.isQrUsed && burnedTicketParam && (!code || code === armada.qrCode)) {
+                    await prisma.armada.update({
+                        where: { id: armada.id },
+                        data: {
+                            isQrUsed: true,
+                            qrUsedAt: armada.qrUsedAt || new Date(),
+                            lastTicketNumber: effectiveTicketRef,
+                        },
+                    }).catch(() => {});
+                    formatted.isQrUsed = true;
+                    formatted.lastTicketNumber = effectiveTicketRef;
+                }
+
                 logScanAudit({
                     qrCode: code || armada.qrCode,
                     platNomor: armada.platNomor,
