@@ -1,7 +1,7 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { Pool } from 'pg';
 import { authOptions } from '@/lib/auth-options';
 import { prisma } from '@/lib/prisma';
 import {
@@ -15,9 +15,13 @@ import {
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+type PgPoolLike = {
+    query: (sql: string) => Promise<{ rows: Array<Record<string, unknown>> }>;
+};
+
 let lastOperatorSyncAt = 0;
-let ahPool: Pool | null = null;
-let hjPool: Pool | null = null;
+let ahPool: PgPoolLike | null = null;
+let hjPool: PgPoolLike | null = null;
 
 function readEnvDatabaseUrl(envPath: string): string | null {
     try {
@@ -25,6 +29,18 @@ function readEnvDatabaseUrl(envPath: string): string | null {
         const txt = fs.readFileSync(envPath, 'utf8');
         const m = txt.match(/DATABASE_URL="?([^"\r\n]+)"?/);
         return m ? m[1].trim() : null;
+    } catch {
+        return null;
+    }
+}
+
+function createPgPool(connectionString: string): PgPoolLike | null {
+    try {
+        const pkgPath = '/var/www/timbangqr-airhitam/package.json';
+        if (!fs.existsSync(pkgPath)) return null;
+        const req = createRequire(pkgPath);
+        const pgMod = req('pg') as { Pool: new (opts: { connectionString: string; max: number }) => PgPoolLike };
+        return new pgMod.Pool({ connectionString, max: 2 });
     } catch {
         return null;
     }
@@ -43,8 +59,8 @@ async function syncRecentOperatorLogs(): Promise<void> {
             process.env.TIMBANGQR_HARAPANJAYA_DB_URL ||
             readEnvDatabaseUrl('/var/www/timbangqr-ocr-led/.env');
 
-        if (!ahPool && ahUrl) ahPool = new Pool({ connectionString: ahUrl, max: 2 });
-        if (!hjPool && hjUrl) hjPool = new Pool({ connectionString: hjUrl, max: 2 });
+        if (!ahPool && ahUrl) ahPool = createPgPool(ahUrl);
+        if (!hjPool && hjUrl) hjPool = createPgPool(hjUrl);
 
         const lpsUsers = await prisma.$queryRawUnsafe<
             Array<{ id: string; email: string; name: string }>
@@ -57,7 +73,7 @@ async function syncRecentOperatorLogs(): Promise<void> {
         const defaultDevSummary = parseDeviceSummary(defaultPcUa);
 
         const sources: Array<{
-            pool: Pool | null;
+            pool: PgPoolLike | null;
             prefix: string;
             label: string;
             code: string;
@@ -113,23 +129,28 @@ async function syncRecentOperatorLogs(): Promise<void> {
             `);
 
             for (const r of res.rows) {
+                const opEmailStr = typeof r.op_email === 'string' ? r.op_email : '';
                 const email = (
-                    r.op_email ||
+                    opEmailStr ||
                     (src.code === 'AIR_HITAM' ? 'operator.ah@lps.com' : 'operator.hj@lps.com')
                 )
                     .toLowerCase()
                     .trim();
                 const lpsU = userMap.get(email);
                 const userId = lpsU ? lpsU.id : null;
-                const opName = r.op_name
-                    ? `${r.op_name} (Operator ${src.label})`
-                    : lpsU?.name || `Operator ${src.label}`;
+                const opName =
+                    typeof r.op_name === 'string' && r.op_name
+                        ? `${r.op_name} (Operator ${src.label})`
+                        : lpsU?.name || `Operator ${src.label}`;
+                const auditNewData = (r.audit_new_data || {}) as Record<string, unknown>;
                 const ip = String(
-                    r.audit_ip || r.audit_new_data?.clientIp || 'unknown'
-                ).replace(/^::ffff:/, '');
-                const eventTime = r.audit_created_at || r.weighed_at || r.w_created_at || new Date();
-                const logId = `op_w_${src.prefix}_${r.weighing_id}`;
-                const desc = `Menimbang Armada ${r.plate_number} (${r.lps_name || '-'} • Supir: ${r.driver_name || '-'}) — Tiket ${r.ticket_number} • Gross: ${Number(r.gross_kg || 0).toLocaleString('id-ID')} kg | Tare: ${Number(r.tare_kg || 0).toLocaleString('id-ID')} kg | Netto: ${Number(r.netto_2_kg || 0).toLocaleString('id-ID')} kg [${src.label}]`;
+                    r.audit_ip || auditNewData.clientIp || 'unknown'
+                )
+                    .replace(/\/\d+$/, '')
+                    .replace(/^::ffff:/, '');
+                const rawTime = (r.audit_created_at || r.weighed_at || r.w_created_at || new Date()) as string | Date;
+                const logId = `op_w_${src.prefix}_${String(r.weighing_id)}`;
+                const desc = `Menimbang Armada ${String(r.plate_number || '-')} (${String(r.lps_name || '-')} • Supir: ${String(r.driver_name || '-')}) — Tiket ${String(r.ticket_number || '-')} • Gross: ${Number(r.gross_kg || 0).toLocaleString('id-ID')} kg | Tare: ${Number(r.tare_kg || 0).toLocaleString('id-ID')} kg | Netto: ${Number(r.netto_2_kg || 0).toLocaleString('id-ID')} kg [${src.label}]`;
 
                 await prisma.$executeRawUnsafe(
                     `INSERT INTO user_activity_logs (
@@ -159,7 +180,7 @@ async function syncRecentOperatorLogs(): Promise<void> {
                         nettoKg: Number(r.netto_2_kg || 0),
                         qrToken: r.qr_token || null,
                     }),
-                    new Date(eventTime)
+                    new Date(rawTime)
                 );
             }
         }
