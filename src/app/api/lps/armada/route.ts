@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Check if user is LPS role or ADMIN
+        // Check if user is LPS role or ADMIN / SUPERADMIN
         const userRole = (session.user.role || '').toUpperCase();
         const lpsRoles = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'];
-        const isAdmin = userRole === 'ADMIN';
+        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPERADMIN' || userRole === 'SUPER_ADMIN';
 
         if (!isAdmin && !lpsRoles.includes(userRole)) {
             return NextResponse.json(

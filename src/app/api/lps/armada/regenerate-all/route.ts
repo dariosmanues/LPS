@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
         const userRole = (session.user.role || '').toUpperCase();
         const lpsRoles = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'];
-        const isAdmin = userRole === 'ADMIN';
+        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPERADMIN' || userRole === 'SUPER_ADMIN';
 
         if (!isAdmin && !lpsRoles.includes(userRole)) {
             return NextResponse.json(
@@ -49,6 +49,11 @@ export async function POST(request: NextRequest) {
             where: {
                 ...(kelurahanId ? { kelurahanId } : {}),
                 isActive: true,
+                NOT: {
+                    qrCode: {
+                        endsWith: '-PERMANEN',
+                    },
+                },
             },
             select: { id: true, platNomor: true }
         });

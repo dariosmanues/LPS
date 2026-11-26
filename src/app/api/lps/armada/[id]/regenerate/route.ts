@@ -26,12 +26,14 @@ export async function PUT(
 
         console.log('[QR Regenerate] User authenticated:', session.user.email, 'Role:', session.user.role);
 
-        // Check if user is LPS role
+        // Check if user is LPS role or ADMIN / SUPERADMIN
+        const userRole = (session.user.role || '').toUpperCase();
         const lpsRoles = ['LPS_KETUA', 'LPS_SEKRETARIS', 'LPS_BENDAHARA'];
-        if (!lpsRoles.includes(session.user.role.toUpperCase())) {
+        const isAdmin = userRole === 'ADMIN' || userRole === 'SUPERADMIN' || userRole === 'SUPER_ADMIN';
+        if (!isAdmin && !lpsRoles.includes(userRole)) {
             console.error('[QR Regenerate] User role not authorized:', session.user.role);
             return NextResponse.json(
-                { error: 'Forbidden - LPS role required' },
+                { error: 'Forbidden - LPS role or ADMIN required' },
                 { status: 403 }
             );
         }
@@ -39,23 +41,24 @@ export async function PUT(
         const armadaId = params.id;
         console.log('[QR Regenerate] Processing armada ID:', armadaId);
 
-        // Get user's kelurahan
-        const user = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            select: { kelurahanId: true }
-        });
+        let userKelurahanId: string | null = null;
+        if (!isAdmin) {
+            const user = await prisma.user.findUnique({
+                where: { id: session.user.id },
+                select: { kelurahanId: true }
+            });
 
-        if (!user?.kelurahanId) {
-            console.error('[QR Regenerate] User kelurahan not found for user:', session.user.id);
-            return NextResponse.json(
-                { error: 'User kelurahan not found' },
-                { status: 404 }
-            );
+            if (!user?.kelurahanId) {
+                console.error('[QR Regenerate] User kelurahan not found for user:', session.user.id);
+                return NextResponse.json(
+                    { error: 'User kelurahan not found' },
+                    { status: 404 }
+                );
+            }
+            userKelurahanId = user.kelurahanId;
         }
 
-        console.log('[QR Regenerate] User kelurahan:', user.kelurahanId);
-
-        // Verify armada belongs to user's kelurahan
+        // Verify armada exists (and belongs to user's kelurahan for non-admin)
         const armada = await prisma.armada.findUnique({
             where: { id: armadaId },
             select: { kelurahanId: true, platNomor: true }
@@ -69,10 +72,8 @@ export async function PUT(
             );
         }
 
-        console.log('[QR Regenerate] Armada found:', armada.platNomor, 'Kelurahan:', armada.kelurahanId);
-
-        if (armada.kelurahanId !== user.kelurahanId) {
-            console.error('[QR Regenerate] Armada kelurahan mismatch. User:', user.kelurahanId, 'Armada:', armada.kelurahanId);
+        if (!isAdmin && armada.kelurahanId !== userKelurahanId) {
+            console.error('[QR Regenerate] Armada kelurahan mismatch. User:', userKelurahanId, 'Armada:', armada.kelurahanId);
             return NextResponse.json(
                 { error: 'Forbidden - Armada not in your kelurahan' },
                 { status: 403 }
