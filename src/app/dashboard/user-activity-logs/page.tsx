@@ -107,6 +107,8 @@ function getActionBadge(action: string) {
             return { label: '🔵 GENERATE QR ARMADA', cls: 'bg-blue-100 text-blue-800 border-blue-200' };
         case 'OPERATOR_WEIGHING':
             return { label: '⚖️ INPUT TIMBANGAN OPERATOR', cls: 'bg-cyan-100 text-cyan-900 border-cyan-300' };
+        case 'DATA_ACTION':
+            return { label: '⚡ CRUD / UPDATE DATA', cls: 'bg-amber-100 text-amber-950 border-amber-300' };
         case 'PAGE_VIEW':
             return { label: '🧭 BUKA MENU / HALAMAN', cls: 'bg-teal-50 text-teal-800 border-teal-200' };
         default:
@@ -513,6 +515,7 @@ export default function ExclusiveUserActivityLogsPage() {
                             {[
                                 { label: 'Semua User', email: 'all' },
                                 { label: '⚖️ Semua Operator Timbangan', email: 'role:operator' },
+                                { label: '⭐ superadmin@lps.local (Super Admin Timbangan)', email: 'superadmin@lps.local' },
                                 { label: '⭐ superadmin@lps.pekanbaru.go.id (Nisa)', email: 'superadmin@lps.pekanbaru.go.id' },
                                 { label: '👤 fikri@lps.pekanbaru.go.id', email: 'fikri@lps.pekanbaru.go.id' },
                                 { label: '⚖️ putri@lps.local (Putri - Air Hitam)', email: 'putri@lps.local' },
@@ -590,6 +593,7 @@ export default function ExclusiveUserActivityLogsPage() {
                                 className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800 font-semibold focus:outline-none focus:border-purple-500"
                             >
                                 <option value="ALL">-- Semua Jenis Aksi --</option>
+                                <option value="DATA_ACTION">⚡ CRUD / Update Data (DATA_ACTION)</option>
                                 <option value="OPERATOR_WEIGHING">⚖️ Input Timbangan Operator</option>
                                 <option value="LOGIN_SUCCESS">🟢 Login Berhasil</option>
                                 <option value="LOGIN_FAILED">🔴 Login Gagal (Password Salah)</option>

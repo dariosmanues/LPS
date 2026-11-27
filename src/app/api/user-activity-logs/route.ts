@@ -46,6 +46,204 @@ function createPgPool(connectionString: string): PgPoolLike | null {
     }
 }
 
+function fmtWib(iso: unknown): string {
+    if (!iso) return '-';
+    const d = new Date(iso as string | Date);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return (
+        d.toLocaleString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        }) + ' WIB'
+    );
+}
+
+function fmtWibMin(iso: unknown): string {
+    if (!iso) return '-';
+    const d = new Date(iso as string | Date);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return (
+        d.toLocaleString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        }) + ' WIB'
+    );
+}
+
+function fmtKg(val: unknown): string {
+    if (val === null || val === undefined || val === '') return '0';
+    const n = Number(val);
+    return Number.isNaN(n) ? String(val) : n.toLocaleString('id-ID');
+}
+
+function describeWeighingUpdate(
+    entityId: unknown,
+    oldData: Record<string, unknown>,
+    newData: Record<string, unknown>,
+    transdepoLabel: string
+): string {
+    const o = oldData || {};
+    const n = newData || {};
+    const ticket = String(n.ticket_number || o.ticket_number || n.ticket || o.ticket || `#${entityId}`);
+    const plate = String(n.plate_number || o.plate_number || n.plateNumber || o.plateNumber || '-');
+    const lps = String(n.lps_name || o.lps_name || '-');
+    const driver = String(n.driver_name || o.driver_name || '-');
+    const gross = fmtKg(n.gross_kg ?? o.gross_kg ?? n.grossKg);
+    const tare = fmtKg(n.tare_kg ?? o.tare_kg ?? n.tareKg);
+    const netto = fmtKg(n.netto_2_kg ?? o.netto_2_kg ?? n.netto2Kg);
+    const srcRaw = String(n.source || o.source || n.measurementSource || '');
+    const qr = n.qr_token ?? o.qr_token ?? n.qrToken ?? null;
+    const methodLabel = srcRaw === 'MANUAL' || !qr ? 'Input Manual' : `Scan QR (${String(qr)})`;
+
+    const changes: string[] = [];
+    let onlySecondsTruncated = false;
+
+    if (String(o.driver_name ?? '-') !== String(n.driver_name ?? '-')) {
+        changes.push(`Nama Supir: "${String(o.driver_name || '-')}" → "${String(n.driver_name || '-')}"`);
+    }
+    if (String(o.plate_number ?? '-') !== String(n.plate_number ?? '-')) {
+        changes.push(`Nomor Plat: "${String(o.plate_number || '-')}" → "${String(n.plate_number || '-')}"`);
+    }
+    if (String(o.lps_name ?? '-') !== String(n.lps_name ?? '-')) {
+        changes.push(`Nama LPS: "${String(o.lps_name || '-')}" → "${String(n.lps_name || '-')}"`);
+    }
+    if (Number(o.gross_kg ?? 0) !== Number(n.gross_kg ?? 0)) {
+        changes.push(`Berat Bruto: ${fmtKg(o.gross_kg)} kg → ${fmtKg(n.gross_kg)} kg`);
+    }
+    if (Number(o.tare_kg ?? 0) !== Number(n.tare_kg ?? 0)) {
+        changes.push(`Berat Tarra: ${fmtKg(o.tare_kg)} kg → ${fmtKg(n.tare_kg)} kg`);
+    }
+    if (Number(o.rafaksi_kg ?? 0) !== Number(n.rafaksi_kg ?? 0)) {
+        changes.push(`Rafaksi: ${fmtKg(o.rafaksi_kg)} kg → ${fmtKg(n.rafaksi_kg)} kg`);
+    }
+    if (Number(o.netto_2_kg ?? 0) !== Number(n.netto_2_kg ?? 0)) {
+        changes.push(`Berat Netto: ${fmtKg(o.netto_2_kg)} kg → ${fmtKg(n.netto_2_kg)} kg`);
+    }
+    if (String(o.vehicle_type ?? '') !== String(n.vehicle_type ?? '')) {
+        changes.push(`Jenis Armada: "${String(o.vehicle_type || '-')}" → "${String(n.vehicle_type || '-')}"`);
+    }
+    if (String(o.waste_type ?? '') !== String(n.waste_type ?? '')) {
+        changes.push(`Jenis Sampah: "${String(o.waste_type || '-')}" → "${String(n.waste_type || '-')}"`);
+    }
+    if (String(o.status ?? '') !== String(n.status ?? '')) {
+        changes.push(`Status: "${String(o.status || '-')}" → "${String(n.status || '-')}"`);
+    }
+
+    if (o.weighed_at && n.weighed_at && o.weighed_at !== n.weighed_at) {
+        const oldMin = fmtWibMin(o.weighed_at);
+        const newMin = fmtWibMin(n.weighed_at);
+        if (oldMin !== newMin) {
+            changes.push(`Jam Timbang: ${fmtWib(o.weighed_at)} → ${fmtWib(n.weighed_at)}`);
+        } else {
+            onlySecondsTruncated = true;
+        }
+    }
+
+    let changeText = '';
+    if (changes.length > 0) {
+        changeText = `Perubahan: ${changes.join(' | ')}`;
+    } else if (onlySecondsTruncated) {
+        changeText = `Perubahan: Tidak ada perubahan angka/data (Hanya klik Simpan pada form Edit; detik Jam Timbang ${fmtWib(o.weighed_at)} → ${fmtWib(n.weighed_at)})`;
+    } else {
+        changeText = `Perubahan: Tidak ada perubahan angka/data (Klik Simpan pada form Edit tanpa mengubah nilai)`;
+    }
+
+    return `[CRUD: UPDATE WEIGHING #${String(entityId)}] Tiket ${ticket} • Plat ${plate} (${lps} • Supir: ${driver} • Bruto: ${gross} kg | Tarra: ${tare} kg | Netto: ${netto} kg • Asal: ${methodLabel}) — ${changeText} [TimbangQR ${transdepoLabel}]`;
+}
+
+function describeAuditAction(oa: Record<string, unknown>, transdepoLabel: string): string {
+    const action = String(oa.action || '').toUpperCase();
+    const entityType = String(oa.entity_type || '').toUpperCase();
+    const entityId = oa.entity_id;
+    const o = (oa.old_data || {}) as Record<string, unknown>;
+    const n = (oa.new_data || {}) as Record<string, unknown>;
+
+    if (entityType === 'WEIGHING') {
+        if (action === 'UPDATE') {
+            return describeWeighingUpdate(entityId, o, n, transdepoLabel);
+        }
+        if (action === 'DELETE') {
+            const ticket = String(o.ticket_number || n.ticket_number || `#${String(entityId)}`);
+            const plate = String(o.plate_number || n.plate_number || '-');
+            const lps = String(o.lps_name || n.lps_name || '-');
+            const driver = String(o.driver_name || n.driver_name || '-');
+            const gross = fmtKg(o.gross_kg);
+            const tare = fmtKg(o.tare_kg);
+            const netto = fmtKg(o.netto_2_kg);
+            const wTime = fmtWib(o.weighed_at);
+            const methodLabel = o.source === 'MANUAL' || !o.qr_token ? 'Input Manual' : `Scan QR (${String(o.qr_token)})`;
+            return `[CRUD: DELETE WEIGHING #${String(entityId)}] Menghapus Tiket ${ticket} • Plat ${plate} (${lps} • Supir: ${driver}) — Data yang dihapus: Bruto ${gross} kg | Tarra ${tare} kg | Netto ${netto} kg • Jam Timbang: ${wTime} • Metode Asal: ${methodLabel} [TimbangQR ${transdepoLabel}]`;
+        }
+    }
+
+    if (entityType === 'VEHICLE') {
+        const plate = String(n.plate_number || n.plateNumber || o.plate_number || o.plateNumber || `#${String(entityId)}`);
+        const lps = String(n.nama_lps || n.namaLps || o.nama_lps || o.namaLps || '-');
+        const code = String(n.code || o.code || '-');
+
+        if (action === 'CREATE') {
+            const tare = fmtKg(n.default_tare_kg ?? n.tareKg ?? 0);
+            return `[CRUD: CREATE VEHICLE #${String(entityId)}] Menambahkan Master Armada Baru Plat ${plate} (LPS: ${lps} • Tarra Default: ${tare} kg • Kode: ${code}) [TimbangQR ${transdepoLabel}]`;
+        }
+        if (action === 'DELETE') {
+            const kel = String(o.kelurahan_lps || '-');
+            const vType = String(o.vehicle_type || 'PICKUP');
+            return `[CRUD: DELETE VEHICLE #${String(entityId)}] Menghapus Master Armada Plat ${plate} (LPS: ${lps} • Kelurahan: ${kel} • Jenis: ${vType} • Kode: ${code}) [TimbangQR ${transdepoLabel}]`;
+        }
+        if (action === 'DEACTIVATE') {
+            return `[CRUD: DEACTIVATE VEHICLE #${String(entityId)}] Menonaktifkan Master Armada Plat ${plate} (Perubahan Status: Aktif → Nonaktif • Kode: ${code}) [TimbangQR ${transdepoLabel}]`;
+        }
+        if (action === 'ACTIVATE') {
+            return `[CRUD: ACTIVATE VEHICLE #${String(entityId)}] Mengaktifkan Kembali Master Armada Plat ${plate} (Perubahan Status: Nonaktif → Aktif • Kode: ${code}) [TimbangQR ${transdepoLabel}]`;
+        }
+        if (action === 'UPDATE') {
+            const changes: string[] = [];
+            const fieldLabels: Record<string, string> = {
+                plate_number: 'Nomor Plat',
+                nama_lps: 'Nama LPS',
+                default_tare_kg: 'Tarra Default (kg)',
+                kecamatan_lps: 'Kecamatan',
+                kelurahan_lps: 'Kelurahan',
+                wilayah_kerja: 'Wilayah Kerja',
+                nama_ketua_lps: 'Ketua LPS',
+                vehicle_type: 'Jenis Armada',
+                waste_type: 'Jenis Sampah',
+                qr_token: 'Token QR',
+                active: 'Status Aktif',
+                nomor_izin: 'No Izin',
+            };
+            for (const [k, label] of Object.entries(fieldLabels)) {
+                if (k in o || k in n) {
+                    const v1 = o[k] ?? null;
+                    const v2 = n[k] ?? null;
+                    if (String(v1 ?? '-') !== String(v2 ?? '-')) {
+                        changes.push(`${label}: "${String(v1 ?? '-')}" → "${String(v2 ?? '-')}"`);
+                    }
+                }
+            }
+            const changeText =
+                changes.length > 0
+                    ? `Perubahan: ${changes.join(' | ')}`
+                    : 'Perubahan: Klik Simpan pada Master Armada tanpa perubahan nilai';
+            return `[CRUD: UPDATE VEHICLE #${String(entityId)}] Edit Master Armada Plat ${plate} (LPS: ${lps} • Kode: ${code}) — ${changeText} [TimbangQR ${transdepoLabel}]`;
+        }
+    }
+
+    const ticketInfo = String(
+        n.ticket_number || o.ticket_number || n.ticket || o.ticket || n.plate_number || n.plateNumber || `#${String(entityId)}`
+    );
+    return `[CRUD: ${action} ${entityType} #${String(entityId)}] Target: ${ticketInfo} di TimbangQR ${transdepoLabel}`;
+}
+
 async function syncRecentOperatorLogs(): Promise<void> {
     const now = Date.now();
     if (now - lastOperatorSyncAt < 10000) return;
@@ -109,6 +307,7 @@ async function syncRecentOperatorLogs(): Promise<void> {
                     w.tare_kg,
                     w.netto_2_kg,
                     w.qr_token,
+                    w.source,
                     w.created_at AS w_created_at,
                     u.email AS op_email,
                     u.name AS op_name,
@@ -150,7 +349,11 @@ async function syncRecentOperatorLogs(): Promise<void> {
                     .replace(/^::ffff:/, '');
                 const rawTime = (r.audit_created_at || r.weighed_at || r.w_created_at || new Date()) as string | Date;
                 const logId = `op_w_${src.prefix}_${String(r.weighing_id)}`;
-                const desc = `Menimbang Armada ${String(r.plate_number || '-')} (${String(r.lps_name || '-')} • Supir: ${String(r.driver_name || '-')}) — Tiket ${String(r.ticket_number || '-')} • Gross: ${Number(r.gross_kg || 0).toLocaleString('id-ID')} kg | Tare: ${Number(r.tare_kg || 0).toLocaleString('id-ID')} kg | Netto: ${Number(r.netto_2_kg || 0).toLocaleString('id-ID')} kg [${src.label}]`;
+                const isManual = r.source === 'MANUAL' || !r.qr_token;
+                const methodBadge = isManual
+                    ? 'INPUT MANUAL (Tanpa QR)'
+                    : `SCAN QR (${String(r.qr_token)})`;
+                const desc = `[CRUD: CREATE WEIGHING #${String(r.weighing_id)} • ${methodBadge}] Menimbang Armada ${String(r.plate_number || '-')} (${String(r.lps_name || '-')} • Supir: ${String(r.driver_name || '-')}) — Tiket ${String(r.ticket_number || '-')} • Gross: ${Number(r.gross_kg || 0).toLocaleString('id-ID')} kg | Tare: ${Number(r.tare_kg || 0).toLocaleString('id-ID')} kg | Netto: ${Number(r.netto_2_kg || 0).toLocaleString('id-ID')} kg • Jam Timbang: ${fmtWibMin(r.weighed_at)} [${src.label}]`;
 
                 await prisma.$executeRawUnsafe(
                     `INSERT INTO user_activity_logs (
@@ -158,7 +361,8 @@ async function syncRecentOperatorLogs(): Promise<void> {
                         action, category, description, target_path,
                         ip_address, user_agent, device_summary, metadata, created_at
                     ) VALUES ($1,$2,$3,$4,'OPERATOR','OPERATOR_WEIGHING','TIMBANGAN',$5,$6,$7,$8,$9,$10,$11)
-                    ON CONFLICT (id) DO NOTHING`,
+                    ON CONFLICT (id) DO UPDATE SET
+                        description = EXCLUDED.description`,
                     logId,
                     userId,
                     email,
@@ -179,8 +383,64 @@ async function syncRecentOperatorLogs(): Promise<void> {
                         tareKg: Number(r.tare_kg || 0),
                         nettoKg: Number(r.netto_2_kg || 0),
                         qrToken: r.qr_token || null,
+                        method: isManual ? 'MANUAL' : 'QR_SCAN',
                     }),
                     new Date(rawTime)
+                );
+            }
+
+            // Also sync recent CRUD / UPDATE / DELETE audit_logs
+            const auditRes = await src.pool.query(`
+                SELECT a.id, a.action, a.entity_type, a.entity_id, a.ip_address::text AS ip,
+                       a.old_data, a.new_data, a.created_at,
+                       u.email AS op_email, u.name AS op_name
+                FROM audit_logs a
+                JOIN users u ON u.id = a.user_id
+                WHERE u.email != 'admin@lps.local'
+                  AND NOT (a.action = 'CREATE' AND a.entity_type = 'WEIGHING')
+                ORDER BY a.id DESC
+                LIMIT 40
+            `);
+
+            for (const oa of auditRes.rows) {
+                const email = String(oa.op_email || '').toLowerCase().trim();
+                if (!email) continue;
+                const lpsU = userMap.get(email);
+                const userId = lpsU ? lpsU.id : null;
+                const opName = `${String(oa.op_name || email)} (Operator ${src.label})`;
+                const ip = String(oa.ip || 'unknown')
+                    .replace(/\/\d+$/, '')
+                    .replace(/^::ffff:/, '');
+                const logId = `op_aud_${src.prefix}_${String(oa.id)}`;
+                const desc = describeAuditAction(oa, src.label);
+
+                await prisma.$executeRawUnsafe(
+                    `INSERT INTO user_activity_logs (
+                        id, user_id, user_email, user_name, user_role,
+                        action, category, description, target_path,
+                        ip_address, user_agent, device_summary, metadata, created_at
+                    ) VALUES ($1,$2,$3,$4,'OPERATOR','DATA_ACTION','TIMBANGAN',$5,$6,$7,$8,$9,$10,$11)
+                    ON CONFLICT (id) DO UPDATE SET
+                        description = EXCLUDED.description,
+                        metadata = EXCLUDED.metadata`,
+                    logId,
+                    userId,
+                    email,
+                    opName,
+                    desc,
+                    `${src.domain}/transaksi`,
+                    ip,
+                    defaultPcUa,
+                    defaultDevSummary,
+                    JSON.stringify({
+                        source: `TIMBANGQR_${src.code}`,
+                        auditAction: oa.action,
+                        entityType: oa.entity_type,
+                        entityId: String(oa.entity_id),
+                        oldData: oa.old_data || null,
+                        newData: oa.new_data || null,
+                    }),
+                    new Date(oa.created_at as string | Date)
                 );
             }
         }

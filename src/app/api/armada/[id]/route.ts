@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
 import { requireSuperAdmin } from '@/lib/permissions';
 import { clearArmadaCache } from '../route';
+import { extractHeadersInfo, logUserActivity } from '@/lib/user-activity-logger';
 
 function parseSafeDate(val: any): Date | null | undefined {
     if (val === undefined) return undefined;
@@ -159,6 +160,48 @@ export async function PATCH(
 
         clearArmadaCache();
 
+        const actorEmail = (auth.session?.user?.email || '').toLowerCase().trim();
+        if (actorEmail === 'superadmin@lps.pekanbaru.go.id' || actorEmail === 'superadmin@lps.local') {
+            const { clientIp, userAgent } = extractHeadersInfo(request.headers);
+            const changes: string[] = [];
+            if (targetArmada) {
+                const compareFields: Array<[keyof typeof targetArmada, string]> = [
+                    ['platNomor', 'Nomor Plat'],
+                    ['namaLps', 'Nama LPS'],
+                    ['namaSupir', 'Nama Supir'],
+                    ['jenisArmada', 'Jenis Armada'],
+                    ['defaultTareKg', 'Tarra Default (kg)'],
+                    ['lokasiTransdepo', 'Transdepo'],
+                    ['namaKetuaLps', 'Ketua LPS'],
+                    ['noTlpKetuaLps', 'No Tlp Ketua'],
+                    ['noIzinOperasi', 'No Izin'],
+                    ['wilayahKerja', 'Wilayah Kerja'],
+                    ['isActive', 'Status Aktif'],
+                ];
+                for (const [k, label] of compareFields) {
+                    const oldVal = targetArmada[k];
+                    const newVal = (armada as any)[k];
+                    if (String(oldVal ?? '-') !== String(newVal ?? '-')) {
+                        changes.push(`${label}: "${String(oldVal ?? '-')}" → "${String(newVal ?? '-')}"`);
+                    }
+                }
+            }
+            const changeSummary = changes.length > 0 ? `Perubahan: ${changes.join(' | ')}` : 'Perubahan: Klik Simpan tanpa perubahan nilai field';
+            logUserActivity({
+                userId: auth.session?.user?.id || null,
+                userEmail: actorEmail,
+                userName: auth.session?.user?.name || null,
+                userRole: auth.session?.user?.role || 'SUPERADMIN',
+                action: 'DATA_ACTION',
+                category: 'DATA_ACTION',
+                description: `[CRUD: UPDATE ARMADA] Mengedit Master Armada Plat ${armada.platNomor} (LPS: ${armada.namaLps} • Supir: ${armada.namaSupir || '-'}) — ${changeSummary} (/dashboard/armada)`,
+                targetPath: `/api/armada/${armada.id}`,
+                ipAddress: clientIp,
+                userAgent,
+                metadata: { crud: 'UPDATE', entity: 'ARMADA', armadaId: armada.id, platNomor: armada.platNomor, changes },
+            });
+        }
+
         return NextResponse.json({
             ...armada,
             timbangQrSync
@@ -311,6 +354,24 @@ export async function DELETE(
         }
 
         clearArmadaCache();
+
+        const delActorEmail = (auth.session?.user?.email || '').toLowerCase().trim();
+        if (delActorEmail === 'superadmin@lps.pekanbaru.go.id' || delActorEmail === 'superadmin@lps.local') {
+            const { clientIp, userAgent } = extractHeadersInfo(request.headers);
+            logUserActivity({
+                userId: auth.session?.user?.id || null,
+                userEmail: delActorEmail,
+                userName: auth.session?.user?.name || null,
+                userRole: auth.session?.user?.role || 'SUPERADMIN',
+                action: 'DATA_ACTION',
+                category: 'DATA_ACTION',
+                description: `[CRUD: DELETE ARMADA] Menghapus & Menonaktifkan Master Armada Plat ${existingArmada.platNomor} (LPS: ${existingArmada.namaLps} • Supir: ${existingArmada.namaSupir || '-'} • Kelurahan: ${existingArmada.kelurahan?.nama || '-'}) di Master Armada (/dashboard/armada)`,
+                targetPath: `/api/armada/${id}`,
+                ipAddress: clientIp,
+                userAgent,
+                metadata: { crud: 'DELETE', entity: 'ARMADA', deletedArmadaSnapshot },
+            });
+        }
 
         return NextResponse.json({
             success: true,

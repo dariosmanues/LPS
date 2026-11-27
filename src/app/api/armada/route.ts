@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { syncArmadaToTimbangQr } from '@/lib/timbangqr-sync-service';
 import { requireSuperAdmin } from '@/lib/permissions';
+import { extractHeadersInfo, logUserActivity } from '@/lib/user-activity-logger';
 
 function parseSafeDate(val: any): Date | null {
     if (!val || val === '' || val === 'null' || val === 'undefined') return null;
@@ -177,6 +178,24 @@ export async function POST(request: Request) {
             timbangQrSync = await syncArmadaToTimbangQr(armada);
         } catch (syncErr) {
             console.warn('[POST /api/armada] TimbangQR sync warning:', syncErr);
+        }
+
+        const actorEmail = (auth.session?.user?.email || '').toLowerCase().trim();
+        if (actorEmail === 'superadmin@lps.pekanbaru.go.id' || actorEmail === 'superadmin@lps.local') {
+            const { clientIp, userAgent } = extractHeadersInfo(request.headers);
+            logUserActivity({
+                userId: auth.session?.user?.id || null,
+                userEmail: actorEmail,
+                userName: auth.session?.user?.name || null,
+                userRole: auth.session?.user?.role || 'SUPERADMIN',
+                action: 'DATA_ACTION',
+                category: 'DATA_ACTION',
+                description: `[CRUD: CREATE ARMADA] Menambahkan Master Armada Baru Plat ${armada.platNomor} (LPS: ${armada.namaLps} • Supir: ${armada.namaSupir || '-'} • Jenis: ${armada.jenisArmada || 'PICKUP'} • Tarra: ${armada.defaultTareKg ?? '-'} kg • Transdepo: ${armada.lokasiTransdepo || '-'}) di Master Armada (/dashboard/armada)`,
+                targetPath: '/api/armada',
+                ipAddress: clientIp,
+                userAgent,
+                metadata: { crud: 'CREATE', entity: 'ARMADA', armadaId: armada.id, platNomor: armada.platNomor, namaLps: armada.namaLps },
+            });
         }
 
         return NextResponse.json({
